@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Daybox
+  m_Shader: {fileID: 4800000, guid: dbfb045fd7f36774b9bead85e9414a8f, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs: []
+    m_Ints: []
+    m_Floats:
+    - _CloudCoverage: 0.46103784
+    - _CloudDensity: 0.43319508
+    - _CloudHeight: 0.119
+    - _CloudScale: 2
+    - _CloudSpeed: 0.020833334
+    - _HazeIntensity: 0.05780292
+    - _HorizonBlend: 1.4806503
+    - _LunarEclipseFactor: 0
+    - _MoonDiscSize: 0.9993
+    - _MoonSharpness: 3
+    - _NadirBlend: 0.11907764
+    - _SolarEclipseFactor: 0
+    - _StarHeight: 345
+    - _StarIntensity: 3.815527
+    - _StarPower: 48
+    - _SunDiscSize: 0.9995
+    - _SunGlowFalloff: 4
+    - _SunGlowIntensity: 1.1519908
+    - _ZenithBlend: 0.6605242
+    m_Colors:
+    - _CloudColor: {r: 0.8544411, g: 0.8583287, b: 0.8584906, a: 1}
+    - _CloudShadowColor: {r: 0.3310499, g: 0.37151104, b: 0.47566923, a: 1}
+    - _CoronaColor: {r: 1.5, g: 0.4, b: 0.15, a: 1}
+    - _EclipseTint: {r: 0.6, g: 0.15, b: 0.1, a: 1}
+    - _HorizonColor: {r: 0.69803923, g: 0.88058126, b: 0.9490196, a: 1}
+    - _MoonColor: {r: 0.85, g: 0.9, b: 1, a: 1}
+    - _MoonDarkColor: {r: 0.01, g: 0.01, b: 0.02, a: 1}
+    - _MoonDirection: {r: -0, g: 0.5171307, b: 0.8559066, a: 0}
+    - _NadirColor: {r: 0.40842736, g: 0.3660584, b: 0.33132052, a: 1}
+    - _SunDirection: {r: -0, g: 0.7996848, b: -0.60042006, a: 0}
+    - _SunDiscColor: {r: 10, g: 9.5, b: 8, a: 10}
+    - _ZenithColor: {r: 0.3920565, g: 0.55112237, b: 0.86011195, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

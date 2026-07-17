@@ -67,4 +67,4 @@ Do not use generated or stock images here; the screenshots should show the actua
 
 ## License
 
-See [LICENSE](LICENSE).
+Licensed under the [Creative Commons Attribution-NonCommercial 4.0 International Public License](LICENSE) (`CC-BY-NC-4.0`).

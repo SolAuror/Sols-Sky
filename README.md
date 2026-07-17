@@ -46,15 +46,13 @@ The public scripting surface is documented in [Documentation/PublicAPI.md](Docum
 
 ## Screenshots
 
-No real in-engine screenshots are currently checked in. Before publishing this repo publicly, capture these from `SolsWeather_Demo.unity` and place them under [Documentation/Screenshots](Documentation/Screenshots/README.md):
+No real in-engine screenshots are currently checked in. I will eventually place them under [Documentation/Screenshots](Documentation/Screenshots/README.md):
 
 - daytime ocean with sky/clouds,
 - sunset or moonlit night,
 - storm/rain water surface,
 - underwater overlay,
 - buoyant object or ripple interaction.
-
-Do not use generated or stock images here; the screenshots should show the actual Unity scene.
 
 ## Integration notes
 

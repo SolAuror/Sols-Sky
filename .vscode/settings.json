@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Sols-Weather.slnx"
+    "dotnet.defaultSolution": "Sols-Sky-Repo.slnx"
 }

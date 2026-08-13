@@ -24,10 +24,10 @@
 
 void SolAccumGerstner(
     float2 posXZ, float2 dir, float amp, float freq, float phaseSpeed,
-    float steepness, float waveTime,
+    float phaseOffset, float steepness, float waveTime,
     inout float3 disp, inout float3 dN)
 {
-    float theta = dot(dir, posXZ) * freq + waveTime * phaseSpeed;
+    float theta = dot(dir, posXZ) * freq + waveTime * phaseSpeed + phaseOffset;
     float s = sin(theta);
     float c = cos(theta);
 
@@ -73,12 +73,17 @@ void SolEvaluateWaves(
     float steepness, float detailScale,
     float swellAmplitude, float swellSpeed, float2 swellDirRaw,
     float2 windDirXZ, float windStrength,
+    float waterTurbulence, float lunarTideFactor, float lunarResponseStrength,
     float3 lodFades,
     out float3 displacement, out float3 normal)
 {
     // Wind biases the RAW (unnormalized) wave directions, then normalize.
-    float2 d1raw = dir1Raw + windDirXZ * windStrength * 0.3;
-    float2 d2raw = dir2Raw + windDirXZ * windStrength * 0.15;
+    // Saturate wind steering so strong storms retain crossing wave headings
+    // instead of collapsing every crest into parallel rows.
+    float positiveWind = max(0.0, windStrength);
+    float windInfluence = positiveWind / (1.0 + positiveWind * 0.35);
+    float2 d1raw = dir1Raw + windDirXZ * windInfluence * 0.3;
+    float2 d2raw = dir2Raw + windDirXZ * windInfluence * 0.15;
     float2 dir1 = dot(d1raw, d1raw) > 1e-6 ? normalize(d1raw) : float2(1.0, 0.0);
     float2 dir2 = dot(d2raw, d2raw) > 1e-6 ? normalize(d2raw) : float2(0.496, 0.868);
 
@@ -86,24 +91,31 @@ void SolEvaluateWaves(
     float2 dir3 = float2(dir1.x * 0.8 - dir1.y * 0.6, dir1.x * 0.6 + dir1.y * 0.8);
     float2 dir4 = float2(dir2.x * 0.8 + dir2.y * 0.6, -dir2.x * 0.6 + dir2.y * 0.8);
 
-    float amp = amplitude * (1.0 + windStrength * 0.2);
+    float turbulence = saturate(waterTurbulence);
+    float lunarResponse = saturate(lunarTideFactor) * max(0.0, lunarResponseStrength);
+    float amp = amplitude * (1.0 + positiveWind * 0.16)
+              * (1.0 + turbulence * 0.18 + lunarResponse * 0.2);
 
-    float ampPrimary = amp * lodFades.x;
-    float ampDetail  = amp * lodFades.x * lodFades.y * detailScale;
-    float steep      = steepness * lodFades.z;
+    float ampPrimary1 = amp * lodFades.x * (1.0 - turbulence * 0.12);
+    float ampPrimary2 = amp * lodFades.x * wave2Scale * (1.0 + turbulence * 0.35);
+    float ampDetail  = amp * lodFades.x * lodFades.y * detailScale
+                     * (1.0 + turbulence * 0.75);
+    float steep      = steepness * lodFades.z * (1.0 + turbulence * 0.18);
 
     displacement = float3(0.0, 0.0, 0.0);
     float3 dN = float3(0.0, 0.0, 0.0);
 
-    SolAccumGerstner(posXZ, dir1, ampPrimary,               frequency,       speed,        steep, waveTime, displacement, dN);
-    SolAccumGerstner(posXZ, dir2, ampPrimary * wave2Scale,  frequency * 1.3, speed * 0.8,  steep, waveTime, displacement, dN);
-    SolAccumGerstner(posXZ, dir3, ampDetail * 0.35,         frequency * 2.4, speed * 1.25, steep, waveTime, displacement, dN);
-    SolAccumGerstner(posXZ, dir4, ampDetail * 0.22,         frequency * 3.9, speed * 1.45, steep, waveTime, displacement, dN);
+    SolAccumGerstner(posXZ, dir1, ampPrimary1, frequency,       speed,        0.0,  steep, waveTime, displacement, dN);
+    SolAccumGerstner(posXZ, dir2, ampPrimary2, frequency * 1.3, speed * 0.8,  1.7,  steep, waveTime, displacement, dN);
+    SolAccumGerstner(posXZ, dir3, ampDetail * 0.35, frequency * 2.4, speed * 1.25, 4.2, steep, waveTime, displacement, dN);
+    SolAccumGerstner(posXZ, dir4, ampDetail * 0.22, frequency * 3.9, speed * 1.45, 2.8, steep, waveTime, displacement, dN);
 
     // Long ocean swell: vertical-only sine.
-    float swellPhase = dot(posXZ, swellDirRaw) + waveTime * swellSpeed;
-    float dSwell = cos(swellPhase) * swellAmplitude;
-    displacement.y += sin(swellPhase) * swellAmplitude;
+    float effectiveSwellAmplitude = swellAmplitude
+                                  * (1.0 + turbulence * 0.45 + lunarResponse * 0.75);
+    float swellPhase = dot(posXZ, swellDirRaw) + waveTime * swellSpeed + 2.37;
+    float dSwell = cos(swellPhase) * effectiveSwellAmplitude;
+    displacement.y += sin(swellPhase) * effectiveSwellAmplitude;
     dN.x += swellDirRaw.x * dSwell;
     dN.z += swellDirRaw.y * dSwell;
 

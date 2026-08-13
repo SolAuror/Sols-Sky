@@ -6,11 +6,19 @@ using UnityEngine.Rendering;
 namespace Sol.ToD
 {
 
+public enum SolCloudQuality
+{
+    Low = 0,
+    Medium = 1,
+    High = 2,
+}
+
 /// <summary>
 /// Scene-owned authority for Sol environment world time.
 /// This component advances the gameplay clock, owns calendar integration, and drives sky/environment visuals.
 /// </summary>
 [ExecuteAlways]
+[DefaultExecutionOrder(-1000)]
 [RequireComponent(typeof(Calendar))]
 public class TimeOfDay : MonoBehaviour
 {
@@ -41,6 +49,7 @@ public class TimeOfDay : MonoBehaviour
     // -- Runtime references (auto-resolved from prefab instances) --
     Light sunLight;
     Light moonLight;
+    Light dominantAtmosphereLight;
 
     // -- CURRENT TIME OF DAY --------------------------
     [Header("-- Current Time of Day ------------")]
@@ -181,11 +190,11 @@ public class TimeOfDay : MonoBehaviour
 
     [Tooltip("Fog density during the day.")]
     [Range(0f, 0.05f)]
-    [SerializeField] float fogDayDensity = 0.001f;
+    [SerializeField] float fogDayDensity = 0.0012f;
 
     [Tooltip("Fog density at night.")]
     [Range(0f, 0.05f)]
-    [SerializeField] float fogNightDensity = 0.008f;
+    [SerializeField] float fogNightDensity = 0.0024f;
 
     // -- SKYBOX ---------------------------------------
     [Header("-- Skybox -------------------------")]
@@ -283,6 +292,9 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("Cloud wind speed at a 10-minute cycle. Actual speed scales with cycle duration and timeScale.")]
     [Min(0f)]
     [SerializeField] float cloudBaseSpeed = 0.05f;
+
+    [Tooltip("Pseudo-volume cloud shell and lighting quality.")]
+    [SerializeField] SolCloudQuality cloudQuality = SolCloudQuality.Medium;
 
  [Tooltip("Virtual cloud plane height - affects horizon stretching.")]
     [Range(0.01f, 1f)]
@@ -396,6 +408,9 @@ public class TimeOfDay : MonoBehaviour
     static readonly int _EclipseTintID          = Shader.PropertyToID("_EclipseTint");
     static readonly int _CloudScaleID           = Shader.PropertyToID("_CloudScale");
     static readonly int _CloudSpeedID           = Shader.PropertyToID("_CloudSpeed");
+    static readonly int _CloudTimeID            = Shader.PropertyToID("_CloudTime");
+    static readonly int _CloudWindDirectionID   = Shader.PropertyToID("_CloudWindDirection");
+    static readonly int _CloudErosionID         = Shader.PropertyToID("_CloudErosion");
     static readonly int _CloudCoverageID        = Shader.PropertyToID("_CloudCoverage");
     static readonly int _CloudDensityID         = Shader.PropertyToID("_CloudDensity");
     static readonly int _CloudHeightID          = Shader.PropertyToID("_CloudHeight");
@@ -416,6 +431,9 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("Multiplier to speed up or slow down time (1 = normal).")]
     [Min(0f)]
     [SerializeField] float timeScale = 1f;
+
+    [Tooltip("Initialize a fresh scene instance at the configured calendar start date. Disable when an external bootstrap restores time before Start.")]
+    [SerializeField] bool initializeNewGameOnStart = true;
 
     // -- SEASONAL VARIATION ---------------------------
     [Header("-- Seasonal Variation -------------")]
@@ -440,6 +458,15 @@ public class TimeOfDay : MonoBehaviour
     float lunarPeriodDays;
     bool paused;
     bool calendarInitialized;
+    float worldDeltaSeconds;
+    double worldDeltaHours;
+    float presentationDeltaSeconds;
+    float cloudTime;
+    SolEnvironmentCoordinator environmentCoordinator;
+    Material controlledSkyboxMaterial;
+    Material _cloudKeywordMaterial;
+    SolCloudQuality _appliedCloudQuality;
+    bool _cloudKeywordsApplied;
 
     /// <summary>World-space direction toward the sun (unit vector).</summary>
     public Vector3 SunDirection => cachedSunDirection;
@@ -471,6 +498,12 @@ public class TimeOfDay : MonoBehaviour
 
     /// <summary>Cloud scroll speed multiplier from weather wind (1 = calm baseline).</summary>
     public float WeatherCloudSpeedMul { get; set; } = 1f;
+
+    /// <summary>Weather-driven breakup of cloud edges.</summary>
+    public float WeatherCloudErosion { get; set; }
+
+    /// <summary>Shared horizontal weather-wind direction.</summary>
+    public Vector3 WeatherWindDirection { get; set; } = Vector3.right;
     #endregion
 
     #region Service Lifecycle
@@ -480,8 +513,12 @@ public class TimeOfDay : MonoBehaviour
     /// <summary>Fired when the visible civil-clock hour bucket changes.</summary>
     public event Action<int, int> HourChanged;
 
-    /// <summary>Fired when the calendar's total day counter changes.</summary>
+    /// <summary>Compatibility event for completed player-time day buckets.</summary>
+    [Obsolete("Use PlayerTimeChanged for player time or Calendar.OnNewDay for world-date changes.")]
     public event Action<int, int> DayChanged;
+
+    /// <summary>Fired whenever forward-only player-experienced time changes.</summary>
+    public event Action<double, double> PlayerTimeChanged;
 
     /// <summary>Fired for explicit skips/sets/rewinds, not ordinary per-frame ticking.</summary>
     public event Action<TimeChangeResult> TimeSkipped;
@@ -500,6 +537,62 @@ public class TimeOfDay : MonoBehaviour
             Instance.ResolveCalendar();
 
         return Instance;
+    }
+
+    void OnEnable()
+    {
+        ResolveCalendar();
+
+        if (Application.isPlaying)
+        {
+            if (Instance != null && Instance != this)
+            {
+                Debug.LogWarning($"[{nameof(TimeOfDay)}] Duplicate instance disabled. World time must have one active authority.", this);
+                enabled = false;
+                return;
+            }
+
+            // Awake is not called again when a scene authority is re-enabled.
+            // Reclaim the service slot here so late-resolving consumers do not
+            // retain a disabled instance.
+            Instance = this;
+        }
+
+        // Edit-mode preview must never replace the scene's serialized
+        // skybox with a HideAndDontSave runtime clone. Saving a scene while
+        // such a clone is assigned serializes the skybox reference as null.
+        if (!Application.isPlaying)
+        {
+            environmentCoordinator = null;
+            controlledSkyboxMaterial = null;
+            return;
+        }
+
+        environmentCoordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
+        environmentCoordinator?.Register(this);
+        controlledSkyboxMaterial = environmentCoordinator != null
+            ? environmentCoordinator.AcquireSkyboxMaterial(this)
+            : RenderSettings.skybox;
+    }
+
+    void OnDisable()
+    {
+        worldDeltaSeconds = 0f;
+        worldDeltaHours = 0d;
+        presentationDeltaSeconds = 0f;
+
+        if (Instance == this)
+            Instance = null;
+
+        if (environmentCoordinator != null)
+        {
+            environmentCoordinator.ReleaseSkybox(this);
+            environmentCoordinator.Unregister(this);
+        }
+
+        controlledSkyboxMaterial = null;
+        _cloudKeywordMaterial = null;
+        _cloudKeywordsApplied = false;
     }
 
     void Awake()
@@ -524,7 +617,7 @@ public class TimeOfDay : MonoBehaviour
         if (!Application.isPlaying) return;
 
         ResolveCalendar();
-        if (!calendarInitialized && calendar != null)
+        if (!calendarInitialized && calendar != null && initializeNewGameOnStart)
         {
             calendar.ResetToStart();
             calendarInitialized = true;
@@ -539,6 +632,17 @@ public class TimeOfDay : MonoBehaviour
         // Ambient mode is managed per-frame by UpdateEnvironment
         // (Trilight when ambientFromSky, Flat otherwise).
         if (controlFog) RenderSettings.fogMode = FogMode.ExponentialSquared;
+    }
+
+    void OnValidate()
+    {
+        timeOfDay = Mathf.Repeat(timeOfDay, 1f);
+
+        // Serialized inspector edits do not go through CurrentTime's setter.
+        // Refresh the edit-mode preview immediately so the inspector slider
+        // remains a functional time-of-day scrubber.
+        if (!Application.isPlaying && isActiveAndEnabled)
+            UpdateEditModePreview();
     }
 
     void OnDestroy()
@@ -613,39 +717,48 @@ public class TimeOfDay : MonoBehaviour
 
     void Update()
     {
- // In edit mode, skip time advancement and celestial body spawning -
-        // just drive the skybox / environment so changes preview in real time.
+        // Edit mode skips time advancement and spawned celestial instances,
+        // but still refreshes the preview environment for inspector scrubbing.
         if (!Application.isPlaying)
         {
             UpdateEditModePreview();
             return;
         }
 
-        if (!Paused)
+        presentationDeltaSeconds = GetPresentationDeltaSeconds(Time.deltaTime);
+        worldDeltaSeconds = GetWorldDeltaSeconds(Time.deltaTime);
+        worldDeltaHours = GetWorldDeltaHours(worldDeltaSeconds);
+        cloudTime += worldDeltaSeconds
+                   * cloudBaseSpeed
+                   * (10f / Mathf.Max(cycleDurationMinutes, 0.1f))
+                   * Mathf.Max(WeatherCloudSpeedMul, 0f);
+
+        if (worldDeltaHours > 0d)
         {
-            float cycleDurationSeconds = cycleDurationMinutes * 60f;
-            float dayProgress = (timeScale * Time.deltaTime) / cycleDurationSeconds;
+            float dayProgress = (float)(worldDeltaHours / 24d);
             ApplyNormalizedDelta(
                 dayProgress,
                 TimeChangeRequest.AdvanceHours(dayProgress * 24f, this, "Tick"),
-                fireSkipped: false);
+                fireSkipped: false,
+                countPlayerTime: true);
         }
 
         float effectiveDayRatio = GetEffectiveDayRatio();
-        float daysFraction = (Calendar != null ? Calendar.TotalDaysElapsed : 0) + timeOfDay;
+        double worldDay = Calendar != null ? Calendar.WorldDayIndex : 0L;
+        float daysFraction = (float)(worldDay + timeOfDay);
 
         UpdateSun(effectiveDayRatio);
         UpdateMoon(daysFraction);
         UpdateEclipses();
+        UpdateDominantAtmosphereLight();
         UpdateCelestialBodies();
         UpdateTertiaryPlanets(daysFraction);
         UpdateEnvironment();
     }
 
     /// <summary>
-    /// Lightweight preview path for edit mode. Computes sun direction and
-    /// day factor from timeOfDay so the skybox, ambient, and fog update
-    /// in the Scene view without spawning any prefabs.
+    /// Lightweight preview path for edit mode. Computes sun/moon directions,
+    /// day factor, and the environment state without spawning prefabs.
     /// </summary>
     void UpdateEditModePreview()
     {
@@ -682,8 +795,10 @@ public class TimeOfDay : MonoBehaviour
         Calendar resolvedCalendar = Calendar;
         if (!enableSeasons || resolvedCalendar == null) return dayRatio;
 
-        // Season flips discretely at year start and at the midpoint.
-        float seasonOffset = resolvedCalendar.SeasonSign * seasonalDayVariation;
+        // Spring and Autumn are the equinox crossings; Summer and Winter
+        // reach the authored positive and negative extrema continuously.
+        float seasonOffset = Mathf.Sin(resolvedCalendar.YearProgress * Mathf.PI * 2f)
+                           * seasonalDayVariation;
         return Mathf.Clamp(dayRatio + seasonOffset, 0.05f, 0.95f);
     }
 
@@ -829,6 +944,43 @@ public class TimeOfDay : MonoBehaviour
                 moonLight.shadowStrength = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(moonElevation * currentMoonIllumination * 10f));
             }
         }
+    }
+
+    void UpdateDominantAtmosphereLight()
+    {
+        float sunScore = AtmosphereLightScore(sunLight);
+        float moonScore = AtmosphereLightScore(moonLight);
+        const float switchHysteresis = 1.1f;
+
+        if (dominantAtmosphereLight == sunLight)
+        {
+            if (moonScore > sunScore * switchHysteresis + 0.0001f)
+                dominantAtmosphereLight = moonLight;
+        }
+        else if (dominantAtmosphereLight == moonLight)
+        {
+            if (sunScore > moonScore * switchHysteresis + 0.0001f)
+                dominantAtmosphereLight = sunLight;
+        }
+        else
+        {
+            dominantAtmosphereLight = sunScore >= moonScore ? sunLight : moonLight;
+        }
+
+        if (AtmosphereLightScore(dominantAtmosphereLight) <= 0f)
+            dominantAtmosphereLight = null;
+
+        RenderSettings.sun = dominantAtmosphereLight;
+    }
+
+    static float AtmosphereLightScore(Light light)
+    {
+        if (light == null || !light.isActiveAndEnabled || light.type != LightType.Directional)
+            return 0f;
+
+        Color color = light.color;
+        float luminance = color.r * 0.2126f + color.g * 0.7152f + color.b * 0.0722f;
+        return Mathf.Max(0f, light.intensity) * Mathf.Max(0f, luminance);
     }
 
     // ------------------------------------------------
@@ -1013,7 +1165,9 @@ public class TimeOfDay : MonoBehaviour
 
         if (controlSkybox)
         {
-            Material sky = RenderSettings.skybox;
+            Material sky = controlledSkyboxMaterial != null
+                ? controlledSkyboxMaterial
+                : RenderSettings.skybox;
             if (sky != null)
             {
                 float df = cachedDayFactor;
@@ -1047,7 +1201,8 @@ public class TimeOfDay : MonoBehaviour
                 float warmth = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(df / 0.25f))
                              * (1f - Mathf.SmoothStep(0.35f, 0.75f, df))
                              * (1f - eclipseEnv)
-                             * (1f - weatherDim);
+                             * (1f - weatherDim * 0.85f)
+                             * (1f - cloudiness * 0.45f);
 
                 // Nadir: simple night ? day
                 Color nadir = Color.Lerp(skyNadirNight, skyNadirDay, df);
@@ -1064,7 +1219,16 @@ public class TimeOfDay : MonoBehaviour
                     RenderSettings.ambientGroundColor  = nadir   * (ambientSkyIntensity * 0.9f);
                 }
                 if (controlFog && fogColorFromSky)
-                    RenderSettings.fogColor = horizon;
+                {
+                    // Dense weather should inherit the horizon value without
+                    // turning the whole fog volume into a saturated sunset band.
+                    // The same result feeds both surface and sky atmosphere,
+                    // preserving the horizon match.
+                    Color neutralFog = Color.Lerp(fogNightColor, fogDayColor, df)
+                                     * (1f - weatherDim * 0.15f);
+                    float stormNeutrality = weatherDim * cloudiness * 0.65f;
+                    RenderSettings.fogColor = Color.Lerp(horizon, neutralFog, stormNeutrality);
+                }
 
                 // Stars: visible at night, fade out during the day
                 float starIntensity = Mathf.Lerp(starIntensityNight, 0f, df);
@@ -1100,7 +1264,7 @@ public class TimeOfDay : MonoBehaviour
                 float aurora = 0f;
                 if (enableAurora)
                 {
-                    float dayHash = Mathf.Abs(Mathf.Sin(TotalDaysElapsed * 12.9898f + 78.233f)) * 43758.5453f;
+                    float dayHash = Mathf.Abs(Mathf.Sin((float)WorldDayIndex * 12.9898f + 78.233f)) * 43758.5453f;
                     dayHash -= Mathf.Floor(dayHash);
                     if (dayHash < auroraNightChance)
                         aurora = auroraIntensity * (1f - df) * (1f - cloudiness);
@@ -1151,29 +1315,46 @@ public class TimeOfDay : MonoBehaviour
                 if (lightning > 0f)
                     cloudLit += Color.white * (lightning * 0.7f);
 
-                float effectiveCloudSpeed = cloudBaseSpeed
-                                          * (10f / Mathf.Max(cycleDurationMinutes, 0.1f))
-                                          * timeScale
-                                          * Mathf.Max(WeatherCloudSpeedMul, 0f);
-
                 sky.SetFloat(_CloudScaleID,        cloudScale);
-                sky.SetFloat(_CloudSpeedID,        effectiveCloudSpeed);
+                sky.SetFloat(_CloudSpeedID,        1f);
+                sky.SetFloat(_CloudTimeID,         cloudTime);
+                Vector3 wind = WeatherWindDirection.sqrMagnitude > 0.0001f
+                    ? WeatherWindDirection.normalized
+                    : Vector3.right;
+                sky.SetVector(_CloudWindDirectionID, new Vector4(wind.x, wind.z, 0f, 0f));
+                sky.SetFloat(_CloudErosionID,       Mathf.Clamp01(WeatherCloudErosion));
                 sky.SetFloat(_CloudCoverageID,     cloudCoverage);
                 sky.SetFloat(_CloudDensityID,      cloudDensity);
                 sky.SetFloat(_CloudHeightID,       cloudHeight);
                 sky.SetColor(_CloudColorID,        cloudLit);
                 sky.SetColor(_CloudShadowColorID,  cloudShadow);
+                ApplyCloudQualityKeywords(sky);
 
                 // -- Atmosphere --
                 float glowIntensity = Mathf.Lerp(sunGlowIntensityNight, sunGlowIntensityDay, df);
                 float hazeIntensity = Mathf.Lerp(hazeIntensityNight, hazeIntensityDay, df);
-                glowIntensity *= 1f - weatherDim * 0.6f;
+                glowIntensity *= (1f - weatherDim * 0.6f)
+                               * (1f - cloudiness * 0.75f);
+                hazeIntensity *= (1f - weatherDim * 0.7f)
+                               * (1f - cloudiness * 0.35f);
 
                 sky.SetFloat(_SunGlowFalloffID,    sunGlowFalloff);
                 sky.SetFloat(_SunGlowIntensityID,  glowIntensity);
                 sky.SetFloat(_HazeIntensityID,     hazeIntensity);
             }
         }
+    }
+
+    /// <summary>
+    /// Rebuilds the current frame's environment after the weather director has
+    /// published its blended values. TimeOfDay runs before weather so its clock
+    /// and celestial state are current; weather calls this once afterward so
+    /// fog, ambient light, sky colors, and clouds use that same frame's weather.
+    /// </summary>
+    internal void RefreshEnvironmentFromWeather()
+    {
+        if (Application.isPlaying && isActiveAndEnabled)
+            UpdateEnvironment();
     }
 
     #endregion
@@ -1188,9 +1369,9 @@ public class TimeOfDay : MonoBehaviour
         switch (request.Type)
         {
             case TimeChangeType.AdvanceHours:
-                return ApplyNormalizedDelta(request.Value / 24f, request, fireSkipped: true);
+                return ApplyNormalizedDelta(request.Value / 24f, request, fireSkipped: true, countPlayerTime: request.Value > 0f);
             case TimeChangeType.RewindHours:
-                return ApplyNormalizedDelta(-request.Value / 24f, request, fireSkipped: true);
+                return ApplyNormalizedDelta(-request.Value / 24f, request, fireSkipped: true, countPlayerTime: false);
             case TimeChangeType.SetClockHour:
                 return SetNormalizedTimeInternal(ToNormalizedTimeFromClockHour(request.Value), request, fireSkipped: true);
             case TimeChangeType.SetNormalizedTime:
@@ -1206,9 +1387,9 @@ public class TimeOfDay : MonoBehaviour
             case TimeChangeType.SkipToSunset:
                 return SkipToSunsetInternal(request);
             case TimeChangeType.SkipForwardOneDay:
-                return ApplyCalendarDelta(1, request, fireSkipped: true);
+                return ApplyCalendarDelta(1, request, fireSkipped: true, countPlayerTime: true);
             case TimeChangeType.SkipBackwardOneDay:
-                return ApplyCalendarDelta(-1, request, fireSkipped: true);
+                return ApplyCalendarDelta(-1, request, fireSkipped: true, countPlayerTime: false);
             default:
                 return CreateNoTimeChangeResult(request);
         }
@@ -1238,6 +1419,8 @@ public class TimeOfDay : MonoBehaviour
     {
         float oldScale = timeScale;
         timeScale = Mathf.Max(0f, scale);
+        if (timeScale <= 0f)
+            presentationDeltaSeconds = 0f;
         if (!Mathf.Approximately(oldScale, timeScale))
             TimeScaleChanged?.Invoke(oldScale, timeScale);
     }
@@ -1246,42 +1429,113 @@ public class TimeOfDay : MonoBehaviour
     public void SetPaused(bool isPaused)
     {
         paused = isPaused;
+        if (paused)
+        {
+            worldDeltaSeconds = 0f;
+            worldDeltaHours = 0d;
+            presentationDeltaSeconds = 0f;
+        }
     }
 
-    /// <summary>Restore a saved time/calendar snapshot as one service-level operation.</summary>
+    /// <summary>
+    /// Unity-scaled presentation time used for bounded weather transitions and
+    /// transient envelopes. It freezes whenever Sol time is not moving forward
+    /// but deliberately ignores the Sol 1x/10x/100x multiplier.
+    /// </summary>
+    public float GetPresentationDeltaSeconds(float unityDeltaSeconds)
+        => paused || timeScale <= 0f ? 0f : Mathf.Max(0f, unityDeltaSeconds);
+
+    /// <summary>
+    /// Convert Unity scaled seconds into Sol world-simulation seconds.
+    /// Unity's time scale is already represented by <paramref name="unityDeltaSeconds"/>;
+    /// this method applies the Sol multiplier and pause exactly once.
+    /// </summary>
+    public float GetWorldDeltaSeconds(float unityDeltaSeconds)
+        => paused ? 0f : Mathf.Max(0f, unityDeltaSeconds) * timeScale;
+
+    /// <summary>Convert Sol world-simulation seconds into civil world hours.</summary>
+    public double GetWorldDeltaHours(float solWorldDeltaSeconds)
+    {
+        double cycleSeconds = Math.Max(cycleDurationMinutes * 60d, 0.1d);
+        return Math.Max(solWorldDeltaSeconds, 0f) * 24d / cycleSeconds;
+    }
+
+    /// <summary>Start a new game from the configured calendar date and reset both clocks.</summary>
+    public void StartNewGame()
+    {
+        Calendar resolvedCalendar = ResolveCalendar();
+        resolvedCalendar?.ResetToStart();
+        timeOfDay = Mathf.Repeat(timeOfDay, 1f);
+        calendarInitialized = resolvedCalendar != null;
+    }
+
+    /// <summary>Compatibility restore overload. Legacy totalDays maps to completed player-time days.</summary>
+    [Obsolete("Use RestoreTimeSnapshot with worldDayIndex and playerDaysElapsed.")]
     public TimeChangeResult RestoreTimeSnapshot(float normalizedTime, int day, int month, int year, int totalDays, UnityEngine.Object source = null, string reason = "SaveLoad")
+    {
+        Calendar resolvedCalendar = ResolveCalendar();
+        if (resolvedCalendar != null)
+        {
+            resolvedCalendar.SetDate(day, month, year);
+            return RestoreTimeSnapshot(normalizedTime, day, month, year,
+                resolvedCalendar.WorldDayIndex, totalDays, source, reason);
+        }
+
+        return RestoreTimeSnapshot(normalizedTime, day, month, year, 0L, totalDays, source, reason);
+    }
+
+    /// <summary>Restore clock time, rewindable world date, and forward-only player time together.</summary>
+    public TimeChangeResult RestoreTimeSnapshot(
+        float normalizedTime,
+        int day,
+        int month,
+        int year,
+        long worldDayIndex,
+        double playerDaysElapsed,
+        UnityEngine.Object source = null,
+        string reason = "SaveLoad")
     {
         float oldNormalized = timeOfDay;
         float oldClock = ClockHour;
-        int oldDays = TotalDaysElapsed;
+        int oldDays = CompletedPlayerDays;
+        long oldWorldDay = WorldDayIndex;
+        double oldPlayerTime = PlayerDaysElapsed;
 
         Calendar resolvedCalendar = ResolveCalendar();
         if (resolvedCalendar != null)
         {
-            resolvedCalendar.SetDate(day, month, year, totalDays);
+            resolvedCalendar.SetDate(day, month, year, worldDayIndex, playerDaysElapsed);
             calendarInitialized = true;
         }
 
         timeOfDay = Mathf.Repeat(normalizedTime, 1f);
         TimeChangeRequest request = TimeChangeRequest.SetNormalizedTime(normalizedTime, source, reason);
-        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
-        PublishTimeResult(result, fireSkipped: false);
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays, oldWorldDay, oldPlayerTime);
+        PublishTimeResult(result, fireSkipped: false, oldPlayerTime);
         return result;
     }
 
-    private TimeChangeResult ApplyNormalizedDelta(float normalizedDelta, TimeChangeRequest request, bool fireSkipped)
+    private TimeChangeResult ApplyNormalizedDelta(
+        float normalizedDelta,
+        TimeChangeRequest request,
+        bool fireSkipped,
+        bool countPlayerTime)
     {
         float oldNormalized = timeOfDay;
         float oldClock = ClockHour;
-        int oldDays = TotalDaysElapsed;
+        int oldDays = CompletedPlayerDays;
+        long oldWorldDay = WorldDayIndex;
+        double oldPlayerTime = PlayerDaysElapsed;
 
         float newTime = timeOfDay + normalizedDelta;
         int daysCrossed = Mathf.FloorToInt(newTime);
         timeOfDay = newTime - daysCrossed;
         ApplyCalendarDeltaOnly(daysCrossed);
+        if (countPlayerTime && normalizedDelta > 0f)
+            ResolveCalendar()?.AdvancePlayerTime(normalizedDelta);
 
-        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
-        PublishTimeResult(result, fireSkipped);
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays, oldWorldDay, oldPlayerTime);
+        PublishTimeResult(result, fireSkipped, oldPlayerTime);
         return result;
     }
 
@@ -1289,25 +1543,31 @@ public class TimeOfDay : MonoBehaviour
     {
         float oldNormalized = timeOfDay;
         float oldClock = ClockHour;
-        int oldDays = TotalDaysElapsed;
+        int oldDays = CompletedPlayerDays;
+        long oldWorldDay = WorldDayIndex;
+        double oldPlayerTime = PlayerDaysElapsed;
 
         timeOfDay = Mathf.Repeat(normalizedTime, 1f);
 
-        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
-        PublishTimeResult(result, fireSkipped);
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays, oldWorldDay, oldPlayerTime);
+        PublishTimeResult(result, fireSkipped, oldPlayerTime);
         return result;
     }
 
-    private TimeChangeResult ApplyCalendarDelta(int dayDelta, TimeChangeRequest request, bool fireSkipped)
+    private TimeChangeResult ApplyCalendarDelta(int dayDelta, TimeChangeRequest request, bool fireSkipped, bool countPlayerTime)
     {
         float oldNormalized = timeOfDay;
         float oldClock = ClockHour;
-        int oldDays = TotalDaysElapsed;
+        int oldDays = CompletedPlayerDays;
+        long oldWorldDay = WorldDayIndex;
+        double oldPlayerTime = PlayerDaysElapsed;
 
         ApplyCalendarDeltaOnly(dayDelta);
+        if (countPlayerTime && dayDelta > 0)
+            ResolveCalendar()?.AdvancePlayerTime(dayDelta);
 
-        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
-        PublishTimeResult(result, fireSkipped);
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays, oldWorldDay, oldPlayerTime);
+        PublishTimeResult(result, fireSkipped, oldPlayerTime);
         return result;
     }
 
@@ -1315,16 +1575,22 @@ public class TimeOfDay : MonoBehaviour
     {
         float oldNormalized = timeOfDay;
         float oldClock = ClockHour;
-        int oldDays = TotalDaysElapsed;
+        int oldDays = CompletedPlayerDays;
+        long oldWorldDay = WorldDayIndex;
+        double oldPlayerTime = PlayerDaysElapsed;
 
         float sunriseTime = GetSunriseTime(GetEffectiveDayRatio());
-
-        if (timeOfDay >= sunriseTime)
+        float forwardDelta = sunriseTime - timeOfDay;
+        if (forwardDelta <= 0f)
+        {
+            forwardDelta += 1f;
             ApplyCalendarDeltaOnly(1);
+        }
         timeOfDay = sunriseTime;
+        ResolveCalendar()?.AdvancePlayerTime(forwardDelta);
 
-        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
-        PublishTimeResult(result, fireSkipped: true);
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays, oldWorldDay, oldPlayerTime);
+        PublishTimeResult(result, fireSkipped: true, oldPlayerTime);
         return result;
     }
 
@@ -1332,15 +1598,22 @@ public class TimeOfDay : MonoBehaviour
     {
         float oldNormalized = timeOfDay;
         float oldClock = ClockHour;
-        int oldDays = TotalDaysElapsed;
+        int oldDays = CompletedPlayerDays;
+        long oldWorldDay = WorldDayIndex;
+        double oldPlayerTime = PlayerDaysElapsed;
         float sunsetTime = GetSunsetTime(GetEffectiveDayRatio());
 
-        if (timeOfDay >= sunsetTime)
+        float forwardDelta = sunsetTime - timeOfDay;
+        if (forwardDelta <= 0f)
+        {
+            forwardDelta += 1f;
             ApplyCalendarDeltaOnly(1);
+        }
         timeOfDay = sunsetTime;
+        ResolveCalendar()?.AdvancePlayerTime(forwardDelta);
 
-        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
-        PublishTimeResult(result, fireSkipped: true);
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays, oldWorldDay, oldPlayerTime);
+        PublishTimeResult(result, fireSkipped: true, oldPlayerTime);
         return result;
     }
 
@@ -1358,18 +1631,65 @@ public class TimeOfDay : MonoBehaviour
         calendarInitialized = true;
     }
 
-    private TimeChangeResult CreateTimeChangeResult(TimeChangeRequest request, float oldNormalized, float oldClock, int oldDays)
+    private TimeChangeResult CreateTimeChangeResult(
+        TimeChangeRequest request,
+        float oldNormalized,
+        float oldClock,
+        int oldDays,
+        long oldWorldDay,
+        double oldPlayerTime)
     {
         float newClock = ClockHour;
-        int newDays = TotalDaysElapsed;
-        bool changed = !Mathf.Approximately(oldNormalized, timeOfDay) || oldDays != newDays;
-        return new TimeChangeResult(request, oldNormalized, timeOfDay, oldClock, newClock, oldDays, newDays, changed);
+        int newDays = CompletedPlayerDays;
+        bool changed = !Mathf.Approximately(oldNormalized, timeOfDay)
+            || oldWorldDay != WorldDayIndex
+            || !Approximately(PlayerDaysElapsed, oldPlayerTime);
+        long newWorldDay = WorldDayIndex;
+        double appliedWorldHours = IsChronologicalMutation(request.Type)
+            ? ((newWorldDay - oldWorldDay) + (double)timeOfDay - oldNormalized) * 24d
+            : 0d;
+
+        return new TimeChangeResult(
+            request,
+            oldNormalized,
+            timeOfDay,
+            oldClock,
+            newClock,
+            oldDays,
+            newDays,
+            oldWorldDay,
+            newWorldDay,
+            appliedWorldHours,
+            oldPlayerTime,
+            PlayerDaysElapsed,
+            changed);
     }
 
     private TimeChangeResult CreateNoTimeChangeResult(TimeChangeRequest request)
-        => new(request, timeOfDay, timeOfDay, ClockHour, ClockHour, TotalDaysElapsed, TotalDaysElapsed, changed: false);
+        => new(
+            request,
+            timeOfDay,
+            timeOfDay,
+            ClockHour,
+            ClockHour,
+            CompletedPlayerDays,
+            CompletedPlayerDays,
+            WorldDayIndex,
+            WorldDayIndex,
+            0d,
+            PlayerDaysElapsed,
+            PlayerDaysElapsed,
+            changed: false);
 
-    private void PublishTimeResult(TimeChangeResult result, bool fireSkipped)
+    static bool IsChronologicalMutation(TimeChangeType type)
+        => type == TimeChangeType.AdvanceHours
+        || type == TimeChangeType.RewindHours
+        || type == TimeChangeType.SkipToSunrise
+        || type == TimeChangeType.SkipToSunset
+        || type == TimeChangeType.SkipForwardOneDay
+        || type == TimeChangeType.SkipBackwardOneDay;
+
+    private void PublishTimeResult(TimeChangeResult result, bool fireSkipped, double oldPlayerTime)
     {
         if (!result.Changed)
             return;
@@ -1384,9 +1704,15 @@ public class TimeOfDay : MonoBehaviour
         if (result.OldTotalDays != result.NewTotalDays)
             DayChanged?.Invoke(result.OldTotalDays, result.NewTotalDays);
 
+        if (!Approximately(oldPlayerTime, PlayerDaysElapsed))
+            PlayerTimeChanged?.Invoke(oldPlayerTime, PlayerDaysElapsed);
+
         if (fireSkipped)
             TimeSkipped?.Invoke(result);
     }
+
+    static bool Approximately(double a, double b)
+        => Math.Abs(a - b) <= 0.000000001d;
     #endregion
 
     #region Clock Conversion
@@ -1429,8 +1755,20 @@ public class TimeOfDay : MonoBehaviour
     /// <summary>The Calendar component on this GameObject, resolved lazily for save/load ordering.</summary>
     public Calendar Calendar => ResolveCalendar();
 
-    /// <summary>Current calendar total days elapsed, or 0 if no calendar is present.</summary>
-    public int TotalDaysElapsed => Calendar != null ? Calendar.TotalDaysElapsed : 0;
+    /// <summary>Signed world-date offset from the configured starting date.</summary>
+    public long WorldDayIndex => Calendar != null ? Calendar.WorldDayIndex : 0L;
+
+    /// <summary>Forward-only fractional days experienced by the player.</summary>
+    public double PlayerDaysElapsed => Calendar != null ? Calendar.PlayerDaysElapsed : 0d;
+
+    /// <summary>Completed forward-only player days.</summary>
+    public int CompletedPlayerDays => PlayerDaysElapsed >= int.MaxValue
+        ? int.MaxValue
+        : Mathf.FloorToInt((float)Math.Max(0d, PlayerDaysElapsed));
+
+    /// <summary>Compatibility alias for completed player days.</summary>
+    [Obsolete("Use PlayerDaysElapsed for player time or WorldDayIndex for rewindable world-date time.")]
+    public int TotalDaysElapsed => CompletedPlayerDays;
 
     private Calendar ResolveCalendar()
     {
@@ -1470,6 +1808,15 @@ public class TimeOfDay : MonoBehaviour
     /// <summary>Current sun light color.</summary>
     public Color SunColor => sunLight ? sunLight.color : Color.black;
 
+    /// <summary>Runtime directional light created for the sun, when configured.</summary>
+    public Light SunLight => sunLight;
+
+    /// <summary>Runtime directional light created for the moon, when configured.</summary>
+    public Light MoonLight => moonLight;
+
+    /// <summary>Directional light currently used by URP and the Sol atmosphere.</summary>
+    public Light DominantAtmosphereLight => dominantAtmosphereLight;
+
     /// <summary>Base daytime ratio (0.05-0.95). This affects sunlight duration centered around noon, not civil clock speed.</summary>
     public float DayRatio
     {
@@ -1501,11 +1848,58 @@ public class TimeOfDay : MonoBehaviour
         set => SetPaused(value);
     }
 
+    /// <summary>Current pseudo-volume cloud shader quality.</summary>
+    public SolCloudQuality CloudQuality
+    {
+        get => cloudQuality;
+        set => cloudQuality = value;
+    }
+
+    /// <summary>World-simulation seconds produced for the current frame.</summary>
+    public float WorldDeltaSeconds => worldDeltaSeconds;
+
+    /// <summary>Civil world hours produced for the current frame.</summary>
+    public double WorldDeltaHours => worldDeltaHours;
+
+    /// <summary>Bounded-presentation seconds for this frame, independent of the Sol multiplier.</summary>
+    public float PresentationDeltaSeconds => presentationDeltaSeconds;
+
+    static void SetCloudKeyword(Material material, string keyword, bool enabled)
+    {
+        if (enabled) material.EnableKeyword(keyword);
+        else material.DisableKeyword(keyword);
+    }
+
+    void ApplyCloudQualityKeywords(Material sky)
+    {
+        if (_cloudKeywordsApplied && _cloudKeywordMaterial == sky && _appliedCloudQuality == cloudQuality)
+            return;
+
+        SetCloudKeyword(sky, "_SOL_CLOUD_LOW", cloudQuality == SolCloudQuality.Low);
+        SetCloudKeyword(sky, "_SOL_CLOUD_MEDIUM", cloudQuality == SolCloudQuality.Medium);
+        SetCloudKeyword(sky, "_SOL_CLOUD_HIGH", cloudQuality == SolCloudQuality.High);
+        _cloudKeywordMaterial = sky;
+        _appliedCloudQuality = cloudQuality;
+        _cloudKeywordsApplied = true;
+    }
+
     /// <summary>Current lunar phase (0 = new moon, 0.5 = full moon).</summary>
     public float LunarPhase => currentLunarPhase;
 
     /// <summary>Current moon illumination fraction (0 = dark, 1 = fully lit).</summary>
     public float MoonIllumination => currentMoonIllumination;
+
+    /// <summary>Spring/neap tide signal: 1 at new/full moon and 0 at quarter moons.</summary>
+    public float LunarTideFactor => EvaluateLunarTideFactor(currentLunarPhase);
+
+    static float EvaluateLunarTideFactor(float lunarPhase)
+        => Mathf.Abs(Mathf.Cos(Mathf.Repeat(lunarPhase, 1f) * Mathf.PI * 2f));
+
+    /// <summary>Current seasonal sunrise in civil clock hours.</summary>
+    public float SunriseClockHour => GetSunriseTime(GetEffectiveDayRatio()) * 24f;
+
+    /// <summary>Current seasonal sunset in civil clock hours.</summary>
+    public float SunsetClockHour => GetSunsetTime(GetEffectiveDayRatio()) * 24f;
 
     /// <summary>Solar eclipse intensity (0 = none, 1 = total).</summary>
     public float SolarEclipseStrength => solarEclipseFactor;
@@ -1551,4 +1945,3 @@ public class TimeOfDay : MonoBehaviour
     }
 }
 }
-

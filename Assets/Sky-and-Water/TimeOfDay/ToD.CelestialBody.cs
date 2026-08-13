@@ -68,7 +68,6 @@ namespace Sol.ToD
 
         Renderer rend;
         MaterialPropertyBlock propBlock;
-        Camera cachedCamera;
 
         static Mesh sharedQuad;
 
@@ -101,12 +100,14 @@ namespace Sol.ToD
         /// <summary>Call once per frame (from TimeofDay) to position, billboard, and tint the body.</summary>
         public void Refresh()
         {
-            if (cachedCamera == null) cachedCamera = Camera.main;
-            Camera cam = cachedCamera;
+            // Resolve every refresh so tagged-camera changes and scene camera
+            // handoffs cannot leave sky bodies orbiting a destroyed camera.
+            Camera cam = Camera.main;
             if (cam == null) return;
 
             bool visible = Direction.y > -0.05f;
-            gameObject.SetActive(visible);
+            if (gameObject.activeSelf != visible)
+                gameObject.SetActive(visible);
             if (!visible) return;
 
             // Resolve values: config wins if present, else use inspector fields
@@ -128,7 +129,11 @@ namespace Sol.ToD
             // Push all properties via MaterialPropertyBlock (no material clone).
             if (rend != null)
             {
-                rend.GetPropertyBlock(propBlock);
+                // Every property used by the shader is rewritten below. Clear
+                // instead of reading the existing block, which avoids a native
+                // round-trip and removes a stale texture when a config changes
+                // from textured to untextured at runtime.
+                propBlock.Clear();
                 propBlock.SetColor(BaseColorID,   litCol);
                 propBlock.SetColor(DarkColorID,   darkCol);
                 propBlock.SetColor(EmissionID,    emit);

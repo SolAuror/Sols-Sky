@@ -8,6 +8,11 @@ Most water and weather classes are in the global namespace. Time-of-day classes 
 
 Use `Sol.ToD.TimeOfDay` as the scene-owned clock and sky authority.
 
+The system has two deliberately independent clocks:
+
+- **World-date time** is `Calendar.Day/Month/Year` plus signed `WorldDayIndex`. It can advance or rewind and drives astronomy, aurora selection, and world-date events.
+- **Player-time** is fractional `PlayerDaysElapsed`. Natural ticking and positive gameplay skips increase it; rewinds and arbitrary clock corrections never decrease or increase it.
+
 ```csharp
 using Sol.ToD;
 using UnityEngine;
@@ -35,7 +40,7 @@ Preferred mutation methods:
 | `RewindHours(float hours, Object source = null, string reason = null)` | move time backward and rewind calendar days |
 | `SetTimeScale(float scale)` | set game-world clock speed without changing `UnityEngine.Time.timeScale` |
 | `SetPaused(bool isPaused)` | pause or resume the world clock |
-| `RestoreTimeSnapshot(float normalizedTime, int day, int month, int year, int totalDays, Object source = null, string reason = "SaveLoad")` | restore clock and calendar from save data |
+| `RestoreTimeSnapshot(float normalizedTime, int day, int month, int year, long worldDayIndex, double playerDaysElapsed, Object source = null, string reason = "SaveLoad")` | restore civil time, world date, world offset, and player-time independently |
 | `SkipToNextSunrise()` / `SkipToNextSunset()` | jump to the next sunrise/sunset |
 | `SkipForwardOneDay()` / `SkipBackwardOneDay()` | move by full calendar days |
 
@@ -54,6 +59,12 @@ Useful read-only state:
 | `SolarEclipseStrength` / `LunarEclipseStrength` | eclipse intensity |
 | `IsEclipse` | true when either eclipse is active |
 | `Calendar` | paired `Calendar` component |
+| `WorldDayIndex` | signed day offset from the configured starting date |
+| `PlayerDaysElapsed` | forward-only fractional player-experienced days |
+| `WorldDeltaSeconds` | canonical per-frame environment simulation seconds; already includes Unity scale, Sol scale, and pause |
+| `WorldDeltaHours` | canonical civil hours for weather chronology |
+| `PresentationDeltaSeconds` | Unity-scaled transition time; zero unless Sol time is moving forward and independent of the Sol multiplier |
+| `CloudQuality` | active `Low`, `Medium`, or `High` pseudo-volume cloud tier |
 
 Events:
 
@@ -72,7 +83,8 @@ public sealed class TimeHud : MonoBehaviour
 
         timeOfDay.TimeChanged += HandleTimeChanged;
         timeOfDay.HourChanged += HandleHourChanged;
-        timeOfDay.DayChanged += HandleDayChanged;
+        timeOfDay.PlayerTimeChanged += HandlePlayerTimeChanged;
+        timeOfDay.Calendar.OnNewDay += HandleWorldDateChanged;
         timeOfDay.TimeScaleChanged += HandleTimeScaleChanged;
     }
 
@@ -82,7 +94,8 @@ public sealed class TimeHud : MonoBehaviour
 
         timeOfDay.TimeChanged -= HandleTimeChanged;
         timeOfDay.HourChanged -= HandleHourChanged;
-        timeOfDay.DayChanged -= HandleDayChanged;
+        timeOfDay.PlayerTimeChanged -= HandlePlayerTimeChanged;
+        timeOfDay.Calendar.OnNewDay -= HandleWorldDateChanged;
         timeOfDay.TimeScaleChanged -= HandleTimeScaleChanged;
     }
 
@@ -92,12 +105,15 @@ public sealed class TimeHud : MonoBehaviour
     }
 
     void HandleHourChanged(int oldHour, int newHour) {}
-    void HandleDayChanged(int oldTotalDays, int newTotalDays) {}
+    void HandlePlayerTimeChanged(double oldDays, double newDays) {}
+    void HandleWorldDateChanged(int day, int month, int year) {}
     void HandleTimeScaleChanged(float oldScale, float newScale) {}
 }
 ```
 
 `TimeSkipped` fires for explicit jumps/skips such as `AdvanceHours`, `SetClockHour`, and sunrise/sunset skips. Use it for systems that should react to non-natural time changes.
+
+`DayChanged` is obsolete. Use `PlayerTimeChanged` for player-time and the calendar events for world-date changes. `TotalDaysElapsed` is also obsolete and returns only completed player days for compatibility.
 
 ## Calendar
 
@@ -124,14 +140,19 @@ Core API:
 |---|---|
 | `Day`, `Month`, `MonthName`, `Year` | current date |
 | `DateString` | formatted date string |
-| `TotalDaysElapsed` | save-friendly running day count |
+| `WorldDayIndex` | signed world-date offset from the configured start |
+| `PlayerDaysElapsed` | forward-only fractional player-time |
+| `TotalDaysElapsed` | obsolete compatibility alias returning completed player days |
 | `DayOfYear`, `DaysPerYear`, `MonthsPerYear` | calendar structure |
 | `AverageMonthLength` | used by lunar timing |
-| `IsFirstHalfOfYear`, `SeasonSign` | simple seasonal split |
+| `CurrentSeason` | `Spring`, `Summer`, `Autumn`, or `Winter`; months 1/4/7/10 begin each season |
+| `SeasonProgress`, `YearProgress` | normalized progress using authored month lengths |
+| `IsFirstHalfOfYear`, `SeasonSign` | obsolete compatibility view of the former binary split |
 | `AdvanceDay()`, `AdvanceDays(int count)` | move forward |
 | `RewindDay()`, `RewindDays(int count)` | move backward |
 | `SetDate(int day, int month, int year)` | set visible date |
-| `SetDate(int day, int month, int year, int totalDays)` | restore visible date plus running count |
+| `SetDate(int day, int month, int year, long worldDayIndex, double playerDaysElapsed)` | restore world date and both counters independently |
+| `ResetToStart()` | explicit new-game initialization of configured date and zeroed counters |
 
 Events:
 
@@ -140,7 +161,10 @@ Events:
 | `OnNewDay` | `(day, month, year)` |
 | `OnNewMonth` | `(month, year)` |
 | `OnNewYear` | `(year)` |
-| `OnSeasonChanged` | `true` for first half of year, `false` for second half |
+| `SeasonChanged` | new `SolSeason` value |
+| `OnSeasonChanged` | obsolete: `true` for first half of year, `false` for second half |
+
+The calendar year starts in Spring: months 1–3 are Spring, 4–6 Summer, 7–9 Autumn, and 10–12 Winter. `TimeOfDay` uses `YearProgress` for a continuous annual day-length curve. `SunriseClockHour` and `SunsetClockHour` expose the current seasonal sunrise and sunset.
 
 ## Time Change Requests
 
@@ -171,7 +195,9 @@ Factory methods:
 - `SetTimeScale(float scale, Object source = null, string reason = null)`
 - `SetPaused(bool paused, Object source = null, string reason = null)`
 
-`TimeChangeResult` includes old/new normalized time, old/new clock hour, old/new total days, `DaysDelta`, and `Changed`.
+`TimeChangeResult` includes old/new normalized time and clock hour, old/new world-day indices, old/new player-time, `AppliedWorldHours`, `WorldDaysDelta`, `PlayerDaysDelta`, and `Changed`. `AppliedWorldHours` is positive for forward chronology, negative for rewinds, and zero for arbitrary clock corrections and snapshot restoration.
+
+Environment consumers should use `WorldDeltaSeconds` for continuous environment motion and `WorldDeltaHours` for civil chronology. `PresentationDeltaSeconds` is Unity-scaled time that is zero while Sol time is paused, rewinding, or set to zero, but does not accelerate at 10x/100x. Weather transitions and transient flash decay use it to remain readable during time lapse.
 
 ## Weather
 
@@ -201,9 +227,19 @@ Core API:
 | `NextWeather()` | pick the next weighted weather profile |
 | `WeatherChanged` | event fired when a new target profile is selected |
 | `TargetProfile` | current target or held profile |
+| `TargetState` | logical profile state selected by world chronology |
 | `IsTransitioning` | true while blending |
+| `TransitionProgress` | shared 0-1 presentation progress for every weather channel |
+| `transitionDurationSeconds` | Unity-scaled presentation duration; defaults to three seconds |
 | `CurrentRainIntensity` | blended rain value for audio/VFX hooks |
 | `CurrentDim` | blended storm dimming value |
+| `CurrentState` | immutable effective `SolWeatherState` shared by all environment consumers |
+| `WeatherStateChanged` | event fired when the effective blended state changes |
+| `LightningTriggered` | one-shot event when a visible strike begins |
+| `DailyFogTarget` | deterministic date-specific fog tendency before diurnal shaping |
+| `CurrentDailyFog` | smoothed daily/diurnal contribution currently presented |
+| `FogDiurnalFactor` | dawn-biased time-of-day climate multiplier |
+| `ClimateTransitionDurationSeconds` | presentation-time smoothing duration, five seconds by default |
 
 While enabled, `SolWeatherManager` writes to:
 
@@ -212,12 +248,78 @@ While enabled, `SolWeatherManager` writes to:
 - `TimeOfDay.WeatherDim`
 - `TimeOfDay.WeatherLightningFlash`
 - `TimeOfDay.WeatherCloudSpeedMul`
+- `TimeOfDay.WeatherCloudErosion`
+- `TimeOfDay.WeatherWindDirection`
 - `SolWaterManager.rainIntensity`
 - `SolWaterManager.windDirection`
 - `SolWaterManager.windStrength`
 - `SolWaterManager.globalWaveSpeedMultiplier`
+- `SolWaterManager.waterTurbulence`
 
 Disable `driveWind` or `driveWaves` if another system should own those water fields.
+
+Positive `AdvanceHours` and forward day/sunrise/sunset skips advance weather chronology and update `TargetState`. `CurrentState` then settles toward that target using presentation time; a skip never simulates hours of visual blending in one frame. Rewinds and arbitrary clock corrections do not rewind weather because this release has no weather-history model.
+
+`WeatherProfile.mistiness` moves atmosphere density toward the profile's low-mist height/falloff without independently adding density. `skyObscuration` controls sky-wide fog independently from surface/horizon extinction. `waterTurbulence` coordinates wave amplitude, detail, steepness, swell, foam, roughness, and drift. `lightningIntensity` is the profile peak used by the effective `LightningFlash`. These fields are included in `SolWeatherState` and share one weather transition progress.
+
+Daily climate is a stable hash of `Calendar.WorldDayIndex` and `climateSeed`. Its squared distribution favors low fog, then a dawn-biased curve and presentation-time smoothing are applied. Spring, Summer, Autumn, and Winter have separate min/max fog ranges. A restored or rewound date reproduces the same target, but stochastic weather-profile history is not rewound.
+
+Each weather profile also has four seasonal weight multipliers. They affect automatic cycling and `NextWeather()` only; direct `SetWeather(...)` remains exact and no default season makes a profile impossible.
+
+The checked-in demo profiles are balanced around distinct responsibilities:
+
+| Profile | Visual target | Primary controls |
+|---|---|---|
+| Clear | Crisp fair-weather clouds, light date-driven haze, calm water | No profile fog/mist/obscuration; wind 0.35, wave speed 0.85, turbulence 0.05 |
+| Overcast | Soft continuous deck with long-distance visibility | Fog 0.03, mist 0.06; coverage and dimming carry the state |
+| Rain | Textured wet weather with low drifting mist | Fog 0.12, mist 0.65; stronger wind, waves, rain VFX, and turbulence 0.48 |
+| Storm | Dark, turbulent water and ground-hugging mist | Fog 0.30, mist 0.82; wind 2.65, wave speed 1.85, turbulence 1.0 |
+
+For custom profiles, prefer increasing `dim`, wind, waves, and rain before pushing both `fogBoost` and `skyObscuration`. The latter combination obscures geometry and the sky simultaneously and is best treated as a deliberate whiteout effect.
+
+## Rain VFX
+
+`SolRainVfxController` creates bounded built-in particle systems at runtime, follows the active main camera, and consumes `SolWeatherManager.CurrentState`.
+
+| API | Use |
+|---|---|
+| `SetRainExposure(float exposure)` | set gameplay exposure from 0 sheltered to 1 exposed |
+| `ResetRainExposure()` | restore authored full exposure |
+| `RainExposure` | gameplay-authored exposure value |
+| `ShelterExposure` | current upward-probe result after smoothing |
+| `EffectiveRainIntensity` | weather × gameplay × shelter × underwater exposure |
+| `ActiveCamera` | camera currently followed by the emitter |
+
+The optional shelter probe casts upward using the configured layer mask. Entering water suppresses the particle presentation; surface rain roughness and ripples remain water-system responsibilities. A world pause freezes live drops without clearing them, while dry weather stops emission and lets existing drops expire. Time-lapse simulation is capped and emission-compensated so particle density remains bounded.
+
+## Sol Atmosphere
+
+`SolAtmosphereController` publishes exponential-height extinction, sky haze, weather noise, Cornette-Shanks directional scattering, lightning state, and the active sun/moon light. `SolAtmosphereRendererFeature` applies the selected quality before transparents in URP RenderGraph. Sol water and rain share the analytic `SolAtmosphere.hlsl` path so transparent objects receive matching fog without a second screen-space pass.
+
+Quality behavior:
+
+- `Low`: analytic Beer-Lambert extinction without procedural noise.
+- `Medium`: analytic extinction with weather-driven noise; this is the default desktop tier.
+- `High`: transient half-resolution, shadowed directional raymarch with at most 32 steps, transmittance early exit, depth-aware spatial filtering, and four-tap depth-aware upsampling. High has no temporal history.
+
+| API | Use |
+|---|---|
+| `Quality` | current `Low`, `Medium`, or `High` quality |
+| `SetQuality(SolAtmosphereQuality quality)` | apply a runtime quality override without mutating the profile asset |
+| `ClearQualityOverride()` | return to the profile/component-authored quality |
+| `CurrentFogColor` / `CurrentDensity` | effective values currently sent to shaders |
+| `CurrentDominantLight` | sun or moon currently supplying directional atmosphere lighting |
+| `UsesVolumetricLighting` | true when the High raymarch path is selected |
+
+`SolAtmosphereProfile` exposes `phaseAnisotropy`, directional/shadowed scattering, `skyFogStrength`, separate zenith/horizon strengths, `mistBaseHeight` (default `1.5`) and `mistHeightFalloff` (default `0.12`), fog saturation, ambient and lightning scattering, maximum scattering luminance, raymarch distance/steps/jitter, bilateral depth threshold, and High spatial-filter strength. Horizon strength `1` matches distant surface optical depth while the default zenith strength `0.12` preserves overhead sky and cloud detail. The former serialized `scatteringPower` value remains stored but is no longer used.
+
+`TimeOfDay` exposes `SunLight`, `MoonLight`, and `DominantAtmosphereLight`. The dominant enabled directional light is selected using intensity/luminance and twilight hysteresis, then assigned to `RenderSettings.sun` so URP main-light shadows and atmospheric scattering agree. `SolEnvironmentCoordinator` restores the authored `RenderSettings.sun` when environment ownership ends.
+
+`TimeOfDay.LunarTideFactor` is `1` at new and full moon and `0` at the quarter moons, continuously interpolated between them. Water combines it with `MoonIllumination` in `_Sol_WaterDynamics`: new/full moons receive the same subtle spring-tide swell/foam response, while only illuminated phases brighten reflections. This is visual-only and never changes `waterLevel` or a volume's mean surface height.
+
+Add `SolAtmosphereRendererFeature` to the active URP renderer while keeping SSAO and `UnderwaterRendererFeature`. The feature skips preview/reflection cameras, overlays, and surface atmosphere while underwater. Legacy `RenderSettings.fog` is retained as a fallback and restored when the atmosphere controller releases ownership.
+
+Only the sun/moon directional authority participates in High-quality shadowed scattering. Point/spot lights, localized density volumes, temporal reprojection, quarter-resolution checkerboarding, and volumetric cloud modeling are deferred.
 
 ## Global Water State
 
@@ -230,10 +332,16 @@ Use `SolWaterManager` for shared water state.
 | `windDirection` / `WindDirectionNormalized` | world-space XZ wind |
 | `windStrength` | wave and drift influence |
 | `globalWaveSpeedMultiplier` | shared wave speed |
+| `waterTurbulence` | normalized weather disorder applied to geometry, foam, roughness, and drift |
+| `lunarResponseStrength` | subtle spring/neap response scale; defaults to `0.12` |
+| `LunarTideFactor` | current new/full versus quarter-moon signal from `TimeOfDay` |
+| `MoonIllumination` | current lunar lighting fraction |
 | `rainIntensity` | shader rain/ripple intensity |
 | `WaveTime` | accumulated shared water time |
 
-The manager pushes global shader properties with the `_Sol_` prefix. Per-material wave look stays on the assigned water material.
+The manager pushes global shader properties with the `_Sol_` prefix. `_Sol_WaterDynamics` contains turbulence, lunar tide factor, moon illumination, and lunar response strength. Per-material wave look stays on the assigned water material, and the C# surface sampler mirrors every geometric turbulence/lunar multiplier used by HLSL.
+
+Strong wind steering is intentionally saturated so authored crossing-wave directions remain visible during storms. Fixed per-wave phase offsets prevent all wave families from cresting together, while turbulence shifts energy away from one dominant swell toward crossing and detail waves. Foam, normal maps, and caustics use the same canonical `_Sol_WaveTime`, so visual detail freezes with the water simulation.
 
 ## Water Volumes And Height Queries
 
@@ -438,16 +546,26 @@ For a basic save, store:
 - `Calendar.Day`
 - `Calendar.Month`
 - `Calendar.Year`
-- `Calendar.TotalDaysElapsed`
+- `Calendar.WorldDayIndex`
+- `Calendar.PlayerDaysElapsed`
 - current weather profile name or index, if weather should persist
 - `SolWaterManager.waterLevel`, only if your game changes water level at runtime
 
 Restore time and date with:
 
 ```csharp
-timeOfDay.RestoreTimeSnapshot(savedTime, savedDay, savedMonth, savedYear, savedTotalDays, this);
+timeOfDay.RestoreTimeSnapshot(
+    savedTime,
+    savedDay,
+    savedMonth,
+    savedYear,
+    savedWorldDayIndex,
+    savedPlayerDaysElapsed,
+    this);
 weather.SetWeather(savedWeatherName, instant: true);
 ```
+
+The legacy five-value restore overload remains only as an obsolete compatibility API. There is currently no project save system, so no legacy save migration is implemented by this sprint.
 
 ## Common Integration Mistakes
 
@@ -457,3 +575,5 @@ weather.SetWeather(savedWeatherName, instant: true);
 - Do not forget to assign `WaterRippleManager.simShader` for builds.
 - Do not edit `SolWaterWaves.hlsl` without updating `SolWaterSurfaceSampler`.
 - Do not use fake screenshots in public docs. Capture the actual demo scene.
+- Sol shader globals remain scene-wide. Per-volume water fade/surface state and per-camera underwater state are deferred architecture work.
+- Generated demo water tiles remain intentionally deferred until an authored prefab/asset workflow is selected.

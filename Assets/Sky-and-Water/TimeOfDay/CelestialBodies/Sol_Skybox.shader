@@ -51,6 +51,9 @@
         [Header(Clouds)]
         _CloudScale       ("Cloud Scale",       Float)          = 5
         _CloudSpeed       ("Cloud Speed",       Float)          = 0.01
+        _CloudTime        ("Cloud Time",        Float)          = 0
+        _CloudWindDirection ("Cloud Wind Direction", Vector)    = (1, 0.3, 0, 0)
+        _CloudErosion     ("Cloud Edge Erosion", Range(0, 1))   = 0.35
         _CloudCoverage    ("Cloud Coverage",    Range(0, 1))    = 0.5
         _CloudDensity     ("Cloud Density",     Range(0, 1))    = 0.8
         _CloudHeight      ("Cloud Height",      Range(0.01, 1)) = 0.15
@@ -92,6 +95,7 @@
             #pragma fragment Frag
             #pragma target 3.5
             #pragma multi_compile_instancing
+            #pragma shader_feature_local _SOL_CLOUD_LOW _SOL_CLOUD_MEDIUM _SOL_CLOUD_HIGH
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Hashes.hlsl"
@@ -175,6 +179,9 @@
                 // Clouds
                 float  _CloudScale;
                 float  _CloudSpeed;
+                float  _CloudTime;
+                float4 _CloudWindDirection;
+                float  _CloudErosion;
                 float  _CloudCoverage;
                 float  _CloudDensity;
                 float  _CloudHeight;
@@ -241,6 +248,36 @@
                 return result;
             }
 
+            float CloudVolumeFBM(float2 uv)
+            {
+                #if defined(_SOL_CLOUD_LOW)
+                    const int octaveCount = 3;
+                #elif defined(_SOL_CLOUD_HIGH)
+                    const int octaveCount = 5;
+                #else
+                    const int octaveCount = 4;
+                #endif
+
+                float result = 0.0;
+                float amp = 0.5;
+                float2 p = uv;
+                [unroll]
+                for (int i = 0; i < octaveCount; i++)
+                {
+                    result += ValueNoise(p) * amp;
+                    p = mul(float2x2(1.83, -0.64, 0.64, 1.83), p);
+                    amp *= 0.5;
+                }
+                return result;
+            }
+
+            float SampleCloudDensity(float2 uv)
+            {
+                float baseShape = CloudVolumeFBM(uv);
+                float erosion = CloudVolumeFBM(uv * 2.37 + 19.4);
+                return baseShape - (erosion - 0.5) * _CloudErosion * 0.28;
+            }
+
             // Perceptual (OkLab) blend across the star color gradient.
             float3 SampleStarGradient(float t)
             {
@@ -285,7 +322,7 @@
 
                 // Per-star twinkle phase and speed.
                 float tw = 1.0 - _StarTwinkleAmount * (0.5 + 0.5 *
-                    sin(_Time.y * (_StarTwinkleSpeed * (0.5 + h3)) + h1 * 40.0));
+                    sin((_CloudTime * 20.0) * (_StarTwinkleSpeed * (0.5 + h3)) + h1 * 40.0));
 
                 float brightness = star * (0.25 + 0.75 * h2 * h2) * tw;
 
@@ -420,11 +457,11 @@
                     float auroraBand = smoothstep(0.05, 0.3, y)
                                      * (1.0 - smoothstep(0.5, 0.85, y));
                     float2 aUV  = dir.xz / (y + 0.8);
-                    float warpA = CloudFBM(aUV * 1.3 + _Time.y * 0.015);
+                    float warpA = CloudFBM(aUV * 1.3 + (_CloudTime * 20.0) * 0.015);
                     float rays  = CloudFBM(float2(aUV.x * 2.6 + warpA * 1.4, aUV.y * 0.6)
-                                + float2(_Time.y * 0.02, _Time.y * 0.005));
+                                + float2((_CloudTime * 20.0) * 0.02, (_CloudTime * 20.0) * 0.005));
                     rays = pow(saturate(rays * 1.8 - 0.62), 2.0);
-                    float flicker = 0.75 + 0.25 * sin(_Time.y * 0.7 + warpA * 9.0);
+                    float flicker = 0.75 + 0.25 * sin((_CloudTime * 20.0) * 0.7 + warpA * 9.0);
                     float3 aurCol = lerp(_AuroraColor1.rgb, _AuroraColor2.rgb,
                                          saturate((y - 0.15) * 2.2));
                     stars += aurCol * (rays * auroraBand * flicker * _AuroraIntensity);
@@ -488,23 +525,48 @@
 
                 // ── Clouds ────────────────────────────
                 float2 cloudUV = dir.xz / max(dir.y + _CloudHeight, 0.01);
-                cloudUV += _Time.y * _CloudSpeed * float2(1.0, 0.3);
+                float2 cloudWind = normalize(_CloudWindDirection.xy + float2(1e-4, 0.0));
+                cloudUV += _CloudTime * _CloudSpeed * cloudWind;
 
-                float warp1 = CloudFBM(cloudUV * _CloudScale);
-                float warp2 = CloudFBM(cloudUV * _CloudScale + 5.2);
+                float warp1 = CloudVolumeFBM(cloudUV * _CloudScale);
+                float warp2 = CloudVolumeFBM(cloudUV * _CloudScale + 5.2);
                 float2 warped = cloudUV + float2(warp1, warp2) * 0.15;
 
-                float rawDensity = CloudFBM(warped * _CloudScale);
+                float rawDensity = SampleCloudDensity(warped * _CloudScale);
+                #if !defined(_SOL_CLOUD_LOW)
+                    float shell1 = SampleCloudDensity((warped + cloudWind * 0.055 + dir.xz * 0.025) * _CloudScale + 11.3);
+                    rawDensity = rawDensity * 0.66 + shell1 * 0.34;
+                #endif
+                #if defined(_SOL_CLOUD_HIGH)
+                    float shell2 = SampleCloudDensity((warped - cloudWind * 0.08 + dir.xz * 0.045) * _CloudScale + 23.7);
+                    rawDensity = rawDensity * 0.78 + shell2 * 0.22;
+                #endif
+
                 float density = smoothstep(_CloudCoverage, _CloudCoverage + 0.2, rawDensity);
                 density *= _CloudDensity * saturate(dir.y * 10.0);
 
-                // Directional cloud lighting: sample density a short step
-                // toward the sun; where the sun side is thinner, more light
-                // reaches this point (cheap self-shadowing).
-                float densityTowardSun = CloudFBM((warped + sunDir.xz * 0.05) * _CloudScale);
+                #if defined(_SOL_CLOUD_LOW)
+                    const int lightSampleCount = 1;
+                #elif defined(_SOL_CLOUD_HIGH)
+                    const int lightSampleCount = 5;
+                #else
+                    const int lightSampleCount = 3;
+                #endif
+
+                float densityTowardSun = 0.0;
+                [unroll]
+                for (int lightSample = 1; lightSample <= lightSampleCount; lightSample++)
+                {
+                    float stepDistance = 0.026 * lightSample;
+                    densityTowardSun += SampleCloudDensity(
+                        (warped + sunDir.xz * stepDistance) * _CloudScale);
+                }
+                densityTowardSun /= lightSampleCount;
                 float dirLit     = saturate((rawDensity - densityTowardSun) * 4.0 + 0.7);
                 float ambientLit = saturate(sunDot * 0.5 + 0.6);
                 float litTerm    = ambientLit * lerp(1.0, dirLit * 1.4, _CloudLighting);
+                float opticalDepth = saturate((rawDensity - _CloudCoverage) * 3.5);
+                litTerm *= lerp(1.0, 0.58, opticalDepth * saturate(1.0 - dir.y));
 
                 float3 cloudCol = lerp(_CloudShadowColor.rgb, _CloudColor.rgb,
                                        saturate(litTerm));
@@ -528,7 +590,7 @@
                 if (_CirrusIntensity > 0.001)
                 {
                     float2 cirUV = dir.xz / max(dir.y + 0.45, 0.02);
-                    cirUV += _Time.y * _CloudSpeed * float2(0.35, -0.2);
+                    cirUV += _CloudTime * _CloudSpeed * float2(cloudWind.y, -cloudWind.x) * 0.42;
                     float cir = CloudFBM(float2(cirUV.x * 0.5, cirUV.y * 2.2) * _CirrusScale + 3.7);
                     cirrus = smoothstep(0.5, 0.85, cir)
                            * _CirrusIntensity * saturate(dir.y * 6.0);

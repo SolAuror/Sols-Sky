@@ -45,6 +45,7 @@ public class SolWaterManager : MonoBehaviour
     // --- References ------------------------------------------------------
     [Header("References")]
     public TimeOfDay todManager;
+    float _referenceRetryTimer;
 
     // --- Global Motion ---------------------------------------------------
     [Header("Global Motion")]
@@ -58,6 +59,14 @@ public class SolWaterManager : MonoBehaviour
     [Tooltip("Wind strength multiplier. Affects wave amplitude scaling.")]
     [Range(0f, 3f)]
     public float windStrength = 1.0f;
+
+    [Tooltip("Art-directed water disorder driven by weather: geometry, foam, roughness, and drift.")]
+    [Range(0f, 1f)]
+    public float waterTurbulence;
+
+    [Tooltip("Maximum subtle spring-tide response applied at new and full moon.")]
+    [Range(0f, 0.3f)]
+    public float lunarResponseStrength = 0.12f;
 
     // --- Water Level -----------------------------------------------------
     [Header("Water Level")]
@@ -89,6 +98,38 @@ public class SolWaterManager : MonoBehaviour
     [Range(0f, 1f)]
     public float rainReflectionDampen = 0.3f;
 
+    // --- Terrain wetness -------------------------------------------------
+    [Header("Terrain Wetness")]
+    [Tooltip("How strongly rain wets terrain layers. 0 disables rain wetness.")]
+    [Range(0f, 1f)]
+    public float terrainRainWetness = 1.0f;
+
+    [Tooltip("How strongly water wets terrain at and below the shoreline.")]
+    [Range(0f, 1f)]
+    public float terrainWaterWetness = 1.0f;
+
+    [Tooltip("World-space fade distance above the water level for shoreline wetness.")]
+    [Min(0.01f)]
+    public float terrainWaterWetnessRange = 0.75f;
+
+    [Tooltip("Terrain whose sand layer receives wet-color darkening. Leave null to use the active terrain.")]
+    public Terrain terrainWetnessTerrain;
+
+    [Tooltip("Sand TerrainLayer to darken when wet. Leave null to resolve TerrainLayer_Sand by name.")]
+    public TerrainLayer terrainWetnessSandLayer;
+
+    [Tooltip("Maximum albedo darkening applied to wet sand only.")]
+    [Range(0f, 0.4f)]
+    public float terrainSandWetDarkening = 0.14f;
+
+    [Tooltip("Target smoothness for fully wet terrain. Authored values above this target are preserved.")]
+    [Range(0f, 0.8f)]
+    public float terrainWetSmoothness = 0.48f;
+
+    [Tooltip("Momentary weather-lightning illumination shared with water and atmosphere.")]
+    [Range(0f, 1f)]
+    public float lightningFlash;
+
     // --- Reflection Probe ------------------------------------------------
     [Header("Reflection Probe")]
     [Tooltip("Realtime reflection probe to bake when the time period changes. " +
@@ -111,6 +152,12 @@ public class SolWaterManager : MonoBehaviour
     public Vector3 WindDirectionNormalized =>
         windDirection.sqrMagnitude > 0.001f ? windDirection.normalized : Vector3.right;
 
+    /// <summary>Current spring/neap tide signal from TimeOfDay.</summary>
+    public float LunarTideFactor => todManager != null ? todManager.LunarTideFactor : 0f;
+
+    /// <summary>Current illuminated moon fraction used by water lighting.</summary>
+    public float MoonIllumination => todManager != null ? todManager.MoonIllumination : 0f;
+
     // --- Private ---------------------------------------------------------
 
     float _waveTime;
@@ -130,18 +177,45 @@ public class SolWaterManager : MonoBehaviour
     static readonly int _SolGlobalWaveSpeedMulID     = Shader.PropertyToID("_Sol_GlobalWaveSpeedMul");
     static readonly int _SolWaveTimeID               = Shader.PropertyToID("_Sol_WaveTime");
     static readonly int _SolRainIntensityID          = Shader.PropertyToID("_Sol_RainIntensity");
+    static readonly int _SolRainRoughnessBoostID     = Shader.PropertyToID("_Sol_RainRoughnessBoost");
+    static readonly int _SolRainNormalBoostID        = Shader.PropertyToID("_Sol_RainNormalBoost");
+    static readonly int _SolRainReflectionDampenID   = Shader.PropertyToID("_Sol_RainReflectionDampen");
+    static readonly int _SolTerrainWetnessID         = Shader.PropertyToID("_Sol_TerrainWetness");
+    static readonly int _SolTerrainWetSmoothnessID   = Shader.PropertyToID("_Sol_TerrainWetSmoothness");
+    static readonly int _SolTerrainSandMaskID        = Shader.PropertyToID("_Sol_TerrainSandMask");
+    static readonly int _SolTerrainSandChannelID     = Shader.PropertyToID("_Sol_TerrainSandChannel");
+    static readonly int _SolTerrainOriginInvSizeID   = Shader.PropertyToID("_Sol_TerrainOriginInvSize");
+    static readonly int _SolLightningFlashID         = Shader.PropertyToID("_Sol_LightningFlash");
     static readonly int _SolGlobalWaterLevelID       = Shader.PropertyToID("_Sol_GlobalWaterLevel");
+    static readonly int _SolWaterDynamicsID          = Shader.PropertyToID("_Sol_WaterDynamics");
 
     // Cached values to avoid redundant global property writes every frame.
     Vector4 _lastWindDirection = new(float.NaN, float.NaN, float.NaN, float.NaN);
     float _lastWindStrength = float.NaN;
     float _lastGlobalWaveSpeedMultiplier = float.NaN;
     float _lastWaterLevel = float.NaN;
+    Vector4 _lastWaterDynamics = new(float.NaN, float.NaN, float.NaN, float.NaN);
     float _lastRainIntensity = float.NaN;
+    float _lastRainRoughnessBoost = float.NaN;
+    float _lastRainNormalBoost = float.NaN;
+    float _lastRainReflectionDampen = float.NaN;
+    Vector4 _lastTerrainWetness = new(float.NaN, float.NaN, float.NaN, float.NaN);
+    float _lastTerrainWetSmoothness = float.NaN;
+    Texture _lastTerrainSandMask;
+    Vector4 _lastTerrainSandChannel = new(float.NaN, float.NaN, float.NaN, float.NaN);
+    Vector4 _lastTerrainOriginInvSize = new(float.NaN, float.NaN, float.NaN, float.NaN);
+    Terrain _resolvedTerrainWetnessTerrain;
+    TerrainData _resolvedTerrainWetnessData;
+    TerrainLayer _resolvedTerrainWetnessSandLayer;
+    Texture _terrainSandMask;
+    Vector4 _terrainSandChannel;
+    Vector4 _terrainOriginInvSize;
+    float _lastLightningFlash = float.NaN;
     Vector4 _lastLightDirection = new(float.NaN, float.NaN, float.NaN, float.NaN);
     Color _lastSunColor = new(float.NaN, float.NaN, float.NaN, float.NaN);
     float _lastDayFactor = float.NaN;
     float _lastEclipseFactor = float.NaN;
+    SolEnvironmentCoordinator _environmentCoordinator;
 
     // --- Unity Lifecycle -------------------------------------------------
 
@@ -153,6 +227,8 @@ public class SolWaterManager : MonoBehaviour
             // Destroy() is illegal in edit mode ([ExecuteAlways]); only destroy while playing.
             if (Application.isPlaying)
                 Destroy(gameObject);
+            else
+                enabled = false;
             return;
         }
         Instance = this;
@@ -160,17 +236,35 @@ public class SolWaterManager : MonoBehaviour
 
     void OnEnable()
     {
+        if (Instance != null && Instance != this)
+        {
+            enabled = false;
+            return;
+        }
+
         if (Instance == null || Instance == this)
             Instance = this;
+
+        // The environment coordinator restores globals when the last owner
+        // releases them. Force the first frame after re-enable to republish
+        // this manager's authored state instead of trusting stale cache data.
+        InvalidateGlobalCache();
+
+        _environmentCoordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
+        _environmentCoordinator?.Register(this);
+        ResolveTerrainSandMask(force: true);
     }
 
     void OnDisable()
     {
         if (Instance == this) Instance = null;
+        _environmentCoordinator?.Unregister(this);
+        _environmentCoordinator = null;
     }
 
     void OnValidate()
     {
+        ResolveTerrainSandMask(force: true);
         PushGlobalMotion();
         PushWeather();
         if (todManager != null)
@@ -179,14 +273,20 @@ public class SolWaterManager : MonoBehaviour
 
     void Update()
     {
-        // Accumulate wave time using the global speed multiplier
-        _waveTime += Time.deltaTime * globalWaveSpeedMultiplier;
+        _referenceRetryTimer -= Time.unscaledDeltaTime;
+        if (todManager == null && _referenceRetryTimer <= 0f)
+        {
+            todManager = TimeOfDay.ResolveInstance();
+            if (todManager == null)
+                _referenceRetryTimer = 0.5f;
+        }
+
+        // Analytic wave phase uses the canonical Sol world clock.
+        float deltaSeconds = todManager != null ? todManager.WorldDeltaSeconds : Time.deltaTime;
+        _waveTime += deltaSeconds * globalWaveSpeedMultiplier;
 
         PushGlobalMotion();
         PushWeather();
-
-        if (todManager == null)
-            todManager = TimeOfDay.ResolveInstance();
 
         if (todManager != null)
         {
@@ -196,6 +296,29 @@ public class SolWaterManager : MonoBehaviour
     }
 
     // --- Global Motion Push ----------------------------------------------
+
+    void InvalidateGlobalCache()
+    {
+        _lastWindDirection = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastWindStrength = float.NaN;
+        _lastGlobalWaveSpeedMultiplier = float.NaN;
+        _lastWaterLevel = float.NaN;
+        _lastWaterDynamics = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastRainIntensity = float.NaN;
+        _lastRainRoughnessBoost = float.NaN;
+        _lastRainNormalBoost = float.NaN;
+        _lastRainReflectionDampen = float.NaN;
+        _lastTerrainWetness = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastTerrainWetSmoothness = float.NaN;
+        _lastTerrainSandMask = null;
+        _lastTerrainSandChannel = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastTerrainOriginInvSize = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastLightningFlash = float.NaN;
+        _lastLightDirection = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastSunColor = new Color(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastDayFactor = float.NaN;
+        _lastEclipseFactor = float.NaN;
+    }
 
     void PushGlobalMotion()
     {
@@ -226,6 +349,17 @@ public class SolWaterManager : MonoBehaviour
             _lastWaterLevel = waterLevel;
         }
 
+        Vector4 waterDynamics = new(
+            Mathf.Clamp01(waterTurbulence),
+            Mathf.Clamp01(LunarTideFactor),
+            Mathf.Clamp01(MoonIllumination),
+            Mathf.Clamp(lunarResponseStrength, 0f, 0.3f));
+        if (_lastWaterDynamics != waterDynamics)
+        {
+            Shader.SetGlobalVector(_SolWaterDynamicsID, waterDynamics);
+            _lastWaterDynamics = waterDynamics;
+        }
+
         Shader.SetGlobalFloat(_SolWaveTimeID, _waveTime);
     }
 
@@ -237,6 +371,125 @@ public class SolWaterManager : MonoBehaviour
         {
             Shader.SetGlobalFloat(_SolRainIntensityID, rainIntensity);
             _lastRainIntensity = rainIntensity;
+        }
+
+        if (!Mathf.Approximately(_lastRainRoughnessBoost, rainRoughnessBoost))
+        {
+            Shader.SetGlobalFloat(_SolRainRoughnessBoostID, rainRoughnessBoost);
+            _lastRainRoughnessBoost = rainRoughnessBoost;
+        }
+
+        if (!Mathf.Approximately(_lastRainNormalBoost, rainNormalBoost))
+        {
+            Shader.SetGlobalFloat(_SolRainNormalBoostID, rainNormalBoost);
+            _lastRainNormalBoost = rainNormalBoost;
+        }
+
+        if (!Mathf.Approximately(_lastRainReflectionDampen, rainReflectionDampen))
+        {
+            Shader.SetGlobalFloat(_SolRainReflectionDampenID, rainReflectionDampen);
+            _lastRainReflectionDampen = rainReflectionDampen;
+        }
+
+        Vector4 terrainWetness = new(
+            Mathf.Clamp01(terrainRainWetness),
+            Mathf.Clamp01(terrainWaterWetness),
+            Mathf.Max(0.01f, terrainWaterWetnessRange),
+            Mathf.Clamp(terrainSandWetDarkening, 0f, 0.4f));
+        if (_lastTerrainWetness != terrainWetness)
+        {
+            Shader.SetGlobalVector(_SolTerrainWetnessID, terrainWetness);
+            _lastTerrainWetness = terrainWetness;
+        }
+
+        float wetSmoothness = Mathf.Clamp(terrainWetSmoothness, 0f, 0.8f);
+        if (!Mathf.Approximately(_lastTerrainWetSmoothness, wetSmoothness))
+        {
+            Shader.SetGlobalFloat(_SolTerrainWetSmoothnessID, wetSmoothness);
+            _lastTerrainWetSmoothness = wetSmoothness;
+        }
+
+        ResolveTerrainSandMask(force: false);
+        PushTerrainSandMask();
+
+        if (!Mathf.Approximately(_lastLightningFlash, lightningFlash))
+        {
+            Shader.SetGlobalFloat(_SolLightningFlashID, lightningFlash);
+            _lastLightningFlash = lightningFlash;
+        }
+    }
+
+    void ResolveTerrainSandMask(bool force)
+    {
+        Terrain target = terrainWetnessTerrain != null
+            ? terrainWetnessTerrain
+            : Terrain.activeTerrain;
+        TerrainData data = target != null ? target.terrainData : null;
+
+        if (!force
+            && target == _resolvedTerrainWetnessTerrain
+            && data == _resolvedTerrainWetnessData
+            && terrainWetnessSandLayer == _resolvedTerrainWetnessSandLayer)
+            return;
+
+        _resolvedTerrainWetnessTerrain = target;
+        _resolvedTerrainWetnessData = data;
+        _resolvedTerrainWetnessSandLayer = terrainWetnessSandLayer;
+        _terrainSandMask = Texture2D.blackTexture;
+        _terrainSandChannel = Vector4.zero;
+        _terrainOriginInvSize = Vector4.zero;
+
+        if (target == null || data == null)
+            return;
+
+        TerrainLayer[] layers = data.terrainLayers;
+        int sandIndex = -1;
+        for (int index = 0; index < layers.Length; index++)
+        {
+            TerrainLayer layer = layers[index];
+            bool matches = terrainWetnessSandLayer != null
+                ? layer == terrainWetnessSandLayer
+                : layer != null && layer.name == "TerrainLayer_Sand";
+            if (matches)
+            {
+                sandIndex = index;
+                break;
+            }
+        }
+
+        int alphamapIndex = sandIndex / 4;
+        if (sandIndex < 0 || alphamapIndex >= data.alphamapTextureCount)
+            return;
+
+        _terrainSandMask = data.GetAlphamapTexture(alphamapIndex);
+        _terrainSandChannel[sandIndex & 3] = 1f;
+        Vector3 origin = target.transform.position;
+        Vector3 size = data.size;
+        _terrainOriginInvSize = new Vector4(
+            origin.x,
+            origin.z,
+            1f / Mathf.Max(size.x, 0.001f),
+            1f / Mathf.Max(size.z, 0.001f));
+    }
+
+    void PushTerrainSandMask()
+    {
+        if (_lastTerrainSandMask != _terrainSandMask)
+        {
+            Shader.SetGlobalTexture(_SolTerrainSandMaskID, _terrainSandMask);
+            _lastTerrainSandMask = _terrainSandMask;
+        }
+
+        if (_lastTerrainSandChannel != _terrainSandChannel)
+        {
+            Shader.SetGlobalVector(_SolTerrainSandChannelID, _terrainSandChannel);
+            _lastTerrainSandChannel = _terrainSandChannel;
+        }
+
+        if (_lastTerrainOriginInvSize != _terrainOriginInvSize)
+        {
+            Shader.SetGlobalVector(_SolTerrainOriginInvSizeID, _terrainOriginInvSize);
+            _lastTerrainOriginInvSize = _terrainOriginInvSize;
         }
     }
 

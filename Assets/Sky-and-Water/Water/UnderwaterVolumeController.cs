@@ -73,6 +73,9 @@ public class UnderwaterVolumeController : MonoBehaviour
     float _underwaterFactor;
     float _debugTimer;
     bool _isUnderwater;
+    float _timeOfDayRetryTimer;
+    SolEnvironmentCoordinator _environmentCoordinator;
+    Sol.ToD.TimeOfDay _timeOfDay;
 
     public event Action<bool> UnderwaterStateChanged;
     public bool IsUnderwater => _isUnderwater;
@@ -82,6 +85,12 @@ public class UnderwaterVolumeController : MonoBehaviour
 
     // -----------------------------------------------------------------------
 
+    void OnEnable()
+    {
+        _environmentCoordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
+        _environmentCoordinator?.Register(this);
+    }
+
     void OnDisable()
     {
         Shader.SetGlobalFloat(_SID_UnderwaterFactor, 0f);
@@ -90,10 +99,21 @@ public class UnderwaterVolumeController : MonoBehaviour
         if (_isUnderwater)
             UnderwaterStateChanged?.Invoke(false);
         _isUnderwater = false;
+        _environmentCoordinator?.Unregister(this);
+        _environmentCoordinator = null;
     }
 
     void LateUpdate()
     {
+        _timeOfDayRetryTimer -= Time.unscaledDeltaTime;
+        if (_timeOfDay == null && _timeOfDayRetryTimer <= 0f)
+        {
+            _timeOfDay = Sol.ToD.TimeOfDay.ResolveInstance();
+            if (_timeOfDay == null)
+                _timeOfDayRetryTimer = 0.5f;
+        }
+        float deltaSeconds = _timeOfDay != null ? _timeOfDay.WorldDeltaSeconds : Time.deltaTime;
+
         // Resolve the active camera every frame so Cinemachine camera swaps
         // and Brain output changes are handled automatically.
         Camera cam = trackedCamera != null ? trackedCamera : Camera.main;
@@ -163,7 +183,7 @@ public class UnderwaterVolumeController : MonoBehaviour
         }
 
         float blend = targetFactor > _underwaterFactor ? blendSpeed : exitBlendSpeed;
-        _underwaterFactor = Mathf.MoveTowards(_underwaterFactor, targetFactor, blend * Time.deltaTime);
+        _underwaterFactor = Mathf.MoveTowards(_underwaterFactor, targetFactor, blend * deltaSeconds);
         if (_underwaterFactor < 0.001f) _underwaterFactor = 0f;
 
         Shader.SetGlobalFloat(_SID_UnderwaterFactor, _underwaterFactor);
@@ -179,7 +199,7 @@ public class UnderwaterVolumeController : MonoBehaviour
         // --- Debug logging (once per second) ---
         if (debugLog)
         {
-            _debugTimer += Time.deltaTime;
+        _debugTimer += deltaSeconds;
             if (_debugTimer >= 1f)
             {
                 _debugTimer = 0f;
@@ -199,5 +219,3 @@ public class UnderwaterVolumeController : MonoBehaviour
         }
     }
 }
-
-

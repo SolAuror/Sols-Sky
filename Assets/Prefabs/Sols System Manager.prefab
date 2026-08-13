@@ -1,0 +1,442 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &8567290109979580915
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1176540116845720883}
+  - component: {fileID: 7336823439446715201}
+  - component: {fileID: 8009811672013213200}
+  - component: {fileID: 3149415258223262805}
+  - component: {fileID: 2278435659967003716}
+  - component: {fileID: 4004012691867663335}
+  - component: {fileID: 6093373571767225456}
+  - component: {fileID: 710002026081100001}
+  - component: {fileID: 710002026081100002}
+  - component: {fileID: 1341839490068649954}
+  m_Layer: 0
+  m_Name: Sols System Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: -1412012063857583412, guid: 0000000000000000d000000000000000, type: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1176540116845720883
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 2.55, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7336823439446715201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e59df3bd6f44e7c9ab4e9d536f81721, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &8009811672013213200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd366383337e2fc4f8364e6111a4faca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  daysPerMonth: 1c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c000000
+  monthNames:
+  - Aurion
+  - Solven
+  - Thalmer
+  - Verdane
+  - Caelith
+  - Embera
+  - Lithane
+  - Duskara
+  - Falmere
+  - Nocturn
+  - Wrethis
+  - Glacium
+  startDay: 25
+  startMonth: 7
+  startYear: 1427
+  currentDay: 0
+  currentMonth: 0
+  currentYear: 0
+  worldDayIndex: 0
+  playerDaysElapsed: 0
+--- !u!114 &3149415258223262805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: edc76f328b69afb4085f4359b897bc3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.ToD.TimeofDay
+  sunPrefab: {fileID: 3536939070357035121, guid: 2c8614c39e8f0fb419712b94ec0f3c8a, type: 3}
+  moonPrefab: {fileID: 3536939070357035121, guid: e576d6a2bcd195f44b455e38668f3571, type: 3}
+  sunConfig: {fileID: 11400000, guid: 8ddcea2c0f539c048ae95bd5a2d41bb5, type: 2}
+  moonConfig: {fileID: 11400000, guid: c12ebf4a271e6e44e9e6b05f1d2dc51d, type: 2}
+  tertiaryPlanets: []
+  timeOfDay: 0.676
+  sunriseColor: {r: 1, g: 0.54624325, b: 0.19999999, a: 1}
+  noonColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  sunsetColor: {r: 1, g: 0.8026618, b: 0.19999999, a: 1}
+  maxIntensity: 1.5
+  minIntensity: 0.05
+  moonColorNight: {r: 0.6, g: 0.7, b: 0.9, a: 1}
+  moonMaxIntensity: 0.3
+  lunarTiltDegrees: 5
+  initialLunarPhase: 0.547
+  initialNodalPhase: 0.3
+  nodalPrecessionDays: 28
+  eclipseThresholdDegrees: 4
+  lunarEclipseTint: {r: 0.6, g: 0.15, b: 0.1, a: 1}
+  eclipsePhaseWindow: 0.1
+  eclipseApexBias: 2
+  solarEclipseLightColor: {r: 0.4, g: 0.2, b: 0.15, a: 1}
+  eclipseAmbientColor: {r: 0.08, g: 0.06, b: 0.12, a: 1}
+  eclipseFogColor: {r: 0.12, g: 0.1, b: 0.15, a: 1}
+  debugLunarPhase: 0.12665904
+  debugMoonIllumination: 0.1501512
+  debugEclipseStrength: 0
+  debugIsSolarEclipse: 0
+  debugIsLunarEclipse: 0
+  controlAmbient: 1
+  ambientFromSky: 1
+  ambientSkyIntensity: 1.2
+  ambientDayColor: {r: 0.5367569, g: 0.6981132, b: 0.67435247, a: 1}
+  ambientNightColor: {r: 0.0948013, g: 0.07809718, b: 0.14150941, a: 1}
+  controlFog: 1
+  fogColorFromSky: 1
+  enableNightFog: 1
+  fogDayColor: {r: 0.66215736, g: 0.7839089, b: 0.9056604, a: 1}
+  fogNightColor: {r: 0.078431375, g: 0.0943508, b: 0.14117648, a: 1}
+  fogDayDensity: 0.0012
+  fogNightDensity: 0.0024
+  controlSkybox: 1
+  skyZenithDay: {r: 0.47209862, g: 0.6711578, b: 0.9716981, a: 1}
+  skyHorizonDay: {r: 0.69803923, g: 0.88058126, b: 0.9490196, a: 1}
+  skyHorizonSunrise: {r: 1, g: 0.55, b: 0.2, a: 1}
+  skyHorizonSunset: {r: 1, g: 0.40500125, b: 0.3254717, a: 1}
+  skyNadirDay: {r: 0.5, g: 0.45, b: 0.4, a: 1}
+  skyZenithBlendDay: 0.63
+  skyHorizonBlendDay: 1.37
+  skyNadirBlendDay: 0.1
+  skyZenithNight: {r: 0.052538652, g: 0.041963343, b: 0.38679248, a: 1}
+  skyHorizonNight: {r: 0.1659977, g: 0.10559807, b: 0.1981132, a: 1}
+  skyNadirNight: {r: 0.02, g: 0.01, b: 0.04, a: 1}
+  skyZenithBlendNight: 0.79
+  skyHorizonBlendNight: 1.95
+  skyNadirBlendNight: 0.2
+  skyZenithEclipse: {r: 1, g: 0, b: 0.01960802, a: 1}
+  skyHorizonEclipse: {r: 0.7169812, g: 0, b: 0.026704844, a: 1}
+  starIntensityNight: 20
+  starPower: 50
+  starHeight: 345
+  enableAurora: 1
+  auroraNightChance: 0.3
+  auroraIntensity: 1.2
+  cloudScale: 2
+  cloudBaseSpeed: 0.05
+  cloudQuality: 1
+  cloudHeight: 0.119
+  cloudCoverageDay: 0.437
+  cloudCoverageNight: 0.563
+  cloudDensityDay: 0.4
+  cloudDensityNight: 0.574
+  cloudColorDay: {r: 0.8544411, g: 0.8583287, b: 0.8584906, a: 1}
+  cloudColorSunset: {r: 1, g: 0.6, b: 0.3, a: 1}
+  cloudColorNight: {r: 0.06, g: 0.06, b: 0.1, a: 1}
+  cloudShadowDay: {r: 0.4, g: 0.45, b: 0.55, a: 1}
+  cloudShadowNight: {r: 0.03858135, g: 0.03858135, b: 0.16037738, a: 1}
+  sunDiscSize: 0.9995
+  sunDiscIntensity: 10
+  sunGlowFalloff: 4
+  sunGlowIntensityDay: 1.4
+  sunGlowIntensityNight: 0.1
+  coronaColor: {r: 1.5, g: 0.4, b: 0.15, a: 1}
+  moonDiscSize: 0.9993
+  moonLitColor: {r: 0.85, g: 0.9, b: 1, a: 1}
+  moonDarkColor: {r: 0.01, g: 0.01, b: 0.02, a: 1}
+  moonTerminatorSharpness: 3
+  hazeIntensityDay: 0.2
+  hazeIntensityNight: 0.4
+  dayRatio: 0.6
+  cycleDurationMinutes: 30
+  timeScale: 1
+  initializeNewGameOnStart: 1
+  enableSeasons: 1
+  seasonalDayVariation: 0.2
+--- !u!114 &2278435659967003716
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73f599d83cb25b048a81f2549fd3490a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SolWeatherManager
+  todManager: {fileID: 3149415258223262805}
+  waterManager: {fileID: 4004012691867663335}
+  profiles:
+  - name: Clear
+    cloudiness: 0
+    cloudErosion: 0.52
+    rainIntensity: 0
+    windStrength: 0.35
+    fogBoost: 0
+    mistiness: 0
+    skyObscuration: 0
+    lightScattering: 0.55
+    dim: 0
+    waveSpeedMultiplier: 0.85
+    waterTurbulence: 0.05
+    lightning: 0
+    lightningIntensity: 0
+    weight: 4
+    springWeightMultiplier: 1.05
+    summerWeightMultiplier: 1.45
+    autumnWeightMultiplier: 0.85
+    winterWeightMultiplier: 0.65
+  - name: Overcast
+    cloudiness: 0.68
+    cloudErosion: 0.22
+    rainIntensity: 0
+    windStrength: 0.75
+    fogBoost: 0.03
+    mistiness: 0.06
+    skyObscuration: 0.04
+    lightScattering: 0.3
+    dim: 0.28
+    waveSpeedMultiplier: 1
+    waterTurbulence: 0.18
+    lightning: 0
+    lightningIntensity: 0
+    weight: 3
+    springWeightMultiplier: 0.95
+    summerWeightMultiplier: 0.7
+    autumnWeightMultiplier: 1.25
+    winterWeightMultiplier: 1.35
+  - name: Rain
+    cloudiness: 0.84
+    cloudErosion: 0.46
+    rainIntensity: 0.65
+    windStrength: 1.35
+    fogBoost: 0.12
+    mistiness: 0.65
+    skyObscuration: 0.12
+    lightScattering: 0.24
+    dim: 0.44
+    waveSpeedMultiplier: 1.25
+    waterTurbulence: 0.48
+    lightning: 0
+    lightningIntensity: 0
+    weight: 2
+    springWeightMultiplier: 1.35
+    summerWeightMultiplier: 0.75
+    autumnWeightMultiplier: 1.05
+    winterWeightMultiplier: 1.25
+  - name: Storm
+    cloudiness: 0.97
+    cloudErosion: 0.64
+    rainIntensity: 0.95
+    windStrength: 2.65
+    fogBoost: 0.3
+    mistiness: 0.82
+    skyObscuration: 0.36
+    lightScattering: 0.16
+    dim: 0.78
+    waveSpeedMultiplier: 1.85
+    waterTurbulence: 1
+    lightning: 1
+    lightningIntensity: 0.28
+    weight: 1
+    springWeightMultiplier: 0.75
+    summerWeightMultiplier: 0.55
+    autumnWeightMultiplier: 1.35
+    winterWeightMultiplier: 1.15
+  climateSeed: 1427
+  springDailyFogRange: {x: 0.02, y: 0.3}
+  summerDailyFogRange: {x: 0, y: 0.12}
+  autumnDailyFogRange: {x: 0.05, y: 0.4}
+  winterDailyFogRange: {x: 0.12, y: 0.65}
+  climateTransitionDurationSeconds: 5
+  autoCycle: 1
+  durationHoursRange: {x: 6, y: 18}
+  transitionDurationSeconds: 3
+  transitionHours: 0.75
+  avoidRepeat: 1
+  driveWind: 1
+  windWanderDegPerHour: 8
+  driveWaves: 1
+  strikeIntervalSeconds: {x: 4, y: 15}
+  doubleStrikeChance: 0.35
+--- !u!114 &4004012691867663335
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14c5e04786f9e0e42bb111c5d2e49fd2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  todManager: {fileID: 3149415258223262805}
+  globalWaveSpeedMultiplier: 1.55
+  windDirection: {x: 1, y: 81.22, z: 0.5}
+  windStrength: 0.75
+  waterTurbulence: 0
+  lunarResponseStrength: 0.12
+  waterLevel: 0
+  moonlightColor: {r: 0.45, g: 0.55, b: 0.75, a: 1}
+  rainIntensity: 0
+  rainRoughnessBoost: 0.15
+  rainNormalBoost: 0.8
+  rainReflectionDampen: 0.3
+    terrainRainWetness: 1
+    terrainWaterWetness: 1
+    terrainWaterWetnessRange: 0.75
+    terrainWetnessTerrain: {fileID: 0}
+    terrainWetnessSandLayer: {fileID: 0}
+    terrainSandWetDarkening: 0.14
+    terrainWetSmoothness: 0.48
+    lightningFlash: 0
+  reflectionProbe: {fileID: 0}
+  morningStart: 5
+  dayStart: 9
+  afternoonStart: 14
+  nightStart: 18
+--- !u!114 &6093373571767225456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e9d08887ce7f474db7662cdc1cde781, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  useGpuSim: 1
+  simShader: {fileID: 4800000, guid: 41d63216f4dc86f4a9cc6772236e075f, type: 3}
+  simResolution: 512
+  simRegionSize: 60
+  simFocus: {fileID: 0}
+  simWaveSpeed: 0.35
+  simDamping: 0.985
+  simNormalStrength: 6
+  injectionRadius: 0.6
+  injectionAmplitude: 0.25
+  rainRipples: 1
+  rainMaxDropsPerStep: 6
+  rainDropletStrength: 0.05
+  rainDropletRadius: 0.25
+  debugAutoSplash: 0
+  debugShowSimTexture: 0
+  rippleSpeed: 5
+  rippleFrequency: 20
+  rippleLifetime: 3
+--- !u!114 &710002026081100001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e245971741925b941936a44f24fc3275, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SolAtmosphereController
+  profile: {fileID: 11400000, guid: 6a90b4a3e8fb49f0a3414da31b2e4451, type: 2}
+  timeOfDay: {fileID: 3149415258223262805}
+  weatherManager: {fileID: 2278435659967003716}
+  disableLegacyFog: 1
+  fallbackQuality: 1
+--- !u!114 &710002026081100002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e7add8d3e01eaa48b6e40d1dfe6de7e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SolRainVfxController
+  weatherManager: {fileID: 2278435659967003716}
+  timeOfDay: {fileID: 3149415258223262805}
+  underwaterController: {fileID: 1341839490068649954}
+  trackedCamera: {fileID: 0}
+  rainMaterial: {fileID: 0}
+  radius: 18
+  height: 18
+  fallSpeed: 28
+  maxParticles: 2400
+  maxEmissionRate: 850
+  windInfluence: 2.5
+  maxParticleTimeScale: 10
+  rainColor: {r: 0.68, g: 0.78, b: 0.9, a: 0.42}
+  probeShelter: 1
+  shelterMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  shelterProbeDistance: 30
+  shelterProbeRadius: 0.15
+  shelterProbeInterval: 0.15
+  exposureFadeSpeed: 5
+  enableMist: 1
+  mistRatio: 0.18
+--- !u!114 &1341839490068649954
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8567290109979580915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4c80cddf8e99114bb201f3fdffb78ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  trackedCamera: {fileID: 0}
+  playerTransform: {fileID: 0}
+  blendSpeed: 10
+  exitBlendSpeed: 24
+  fullSubmersionDepth: 0.4
+  surfaceEnterBias: 0.05
+  playerFallbackSurfaceGrace: 0.05
+  debugLog: 0

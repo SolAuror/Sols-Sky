@@ -13,8 +13,11 @@ This repository is currently a clean extraction project, not a packaged Unity pa
 
 ## What is included
 
-- `TimeOfDay` and `Calendar` for game time, date, seasons, sunrise/sunset skips, lunar phases, eclipses, aurora nights, stars, cloud controls, skybox colors, fog, and ambient lighting.
-- `SolWeatherManager` for weighted weather profiles, smooth transitions, rain, storm dimming, wind changes, and lightning flashes.
+- `TimeOfDay` and `Calendar` for rewindable world date, forward-only player-time, four seasons, continuous seasonal day length, sunrise/sunset skips, lunar phases and spring/neap water response, eclipses, aurora nights, stars, cloud controls, skybox colors, fog, and ambient lighting.
+- `SolEnvironmentCoordinator` for scene-owned RenderSettings, skybox-clone, and shader-global lifecycle cleanup.
+- `SolWeatherManager` for weighted profiles and one immutable blended state shared by sky, fog, rain, water, wind, and lightning.
+- `SolAtmosphereController` and an original URP RenderGraph feature with analytic Beer-Lambert height fog at Low/Medium and half-resolution shadowed sun/moon scattering at High.
+- `SolRainVfxController` for bounded camera-following rain particles with gameplay exposure, shelter probing, and underwater suppression.
 - `SolWaterManager` for global water shader state, wave time, wind, rain intensity, water level, moonlit night water, and reflection probe rebakes.
 - `WaterTileGrid` for generated water tile grids, camera-following ocean surfaces, LOD rings, skirts, and an optional managed `WaterVolume`.
 - `WaterVolume` and `SolWaterSurfaceSampler` for gameplay waterline queries that mirror the visual Gerstner wave shader.
@@ -26,7 +29,7 @@ This repository is currently a clean extraction project, not a packaged Unity pa
 
 1. Open the project in Unity `6000.3.9f1`.
 2. Open `Assets/Scenes/SolsWeather_Demo.unity`.
-3. Make sure the active URP renderer has the `UnderwaterRendererFeature` configured with the `Sol/UnderwaterOverlay` material.
+3. Make sure the active URP renderer has `SolAtmosphereRendererFeature` plus `UnderwaterRendererFeature` configured with the `Sol/UnderwaterOverlay` material.
 4. Make sure the URP asset has Depth Texture and Opaque Texture enabled.
 5. Press Play and use the scene objects to inspect the sky, weather, water grid, buoyancy, ripples, and underwater overlay.
 
@@ -59,7 +62,8 @@ No real in-engine screenshots are currently checked in. I will eventually place 
 - Most runtime manager classes are in the global namespace. Time-of-day classes live in `Sol.ToD`; the gameplay water interface lives in `Shared.Water`.
 - `WaterVolume.GetSurfaceHeight(worldPosition)` is the main gameplay entry point for animated water height.
 - `TimeOfDay.ApplyTimeChange(...)` is the preferred mutation path for gameplay clock changes.
-- `SolWeatherManager` owns weather-driven `TimeOfDay` and `SolWaterManager` fields while it is enabled.
+- Use `WorldDayIndex` for rewindable world chronology and `PlayerDaysElapsed` for forward-only progression metrics.
+- `SolWeatherManager` owns weather-driven `TimeOfDay` and `SolWaterManager` fields while enabled, including deterministic seasonal/daily mist, season-biased automatic selection, and coordinated water turbulence.
 - `WaterTileGrid` is `[ExecuteAlways]` and may serialize generated helper children in the demo scene.
 - The old Fishbox-specific gameplay integrations are intentionally not included: save/load, sleep, NPC schedules, fishing, inventory, and audio should connect through the public events and adapter points.
 

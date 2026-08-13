@@ -64,6 +64,7 @@ public class WaterVolume : MonoBehaviour
 
     BoxCollider _col;
     readonly List<Collider> _trackedColliders = new();
+    SolEnvironmentCoordinator _environmentCoordinator;
 
     public event Action<Collider> TriggerEntered;
     public event Action<Collider> TriggerExited;
@@ -146,6 +147,8 @@ public class WaterVolume : MonoBehaviour
 
     void OnEnable()
     {
+        _environmentCoordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
+        _environmentCoordinator?.Register(this);
         _col = GetComponent<BoxCollider>();
         s_Volumes.Add(this);
 
@@ -162,6 +165,8 @@ public class WaterVolume : MonoBehaviour
     {
         s_Volumes.Remove(this);
         _trackedColliders.Clear();
+        _environmentCoordinator?.Unregister(this);
+        _environmentCoordinator = null;
     }
 
     void OnValidate()
@@ -225,6 +230,16 @@ public class WaterVolume : MonoBehaviour
     {
         return SolWaterSurfaceSampler.GetSurfaceHeight(this, worldPos);
     }
+
+    /// <summary>Assign a water material and immediately refresh the CPU wave mirror.</summary>
+    public void SetWaterMaterial(Material material)
+    {
+        waterMaterial = material;
+        ReadMaterial();
+    }
+
+    /// <summary>Refresh all CPU wave parameters from the currently assigned material.</summary>
+    public void RefreshMaterialParameters() => ReadMaterial();
 
     public bool ContainsPoint(Vector3 worldPos)
     {
@@ -336,6 +351,9 @@ public static class SolWaterSurfaceSampler
         public Vector2 swellDir;
         public Vector2 windDirXZ;
         public float windStrength;
+        public float waterTurbulence;
+        public float lunarTideFactor;
+        public float lunarResponseStrength;
         public float lodFadeDistance;
     }
 
@@ -377,6 +395,9 @@ public static class SolWaterSurfaceSampler
             swellDir = volume.swellDir,
             windDirXZ = new Vector2(windDirection.x, windDirection.z),
             windStrength = manager != null ? manager.windStrength : 0f,
+            waterTurbulence = manager != null ? manager.waterTurbulence : 0f,
+            lunarTideFactor = manager != null ? manager.LunarTideFactor : 0f,
+            lunarResponseStrength = manager != null ? manager.lunarResponseStrength : 0f,
             lodFadeDistance = volume.waveLodFadeDistance,
         };
 
@@ -408,31 +429,41 @@ public static class SolWaterSurfaceSampler
     /// </summary>
     public static Vector3 EvaluateDisplacement(Vector2 samplePosXZ, in WaveSettings s)
     {
-        Vector2 dir1 = NormalizeOrFallback(s.wave1Dir + s.windDirXZ * (s.windStrength * 0.3f), Vector2.right);
-        Vector2 dir2 = NormalizeOrFallback(s.wave2Dir + s.windDirXZ * (s.windStrength * 0.15f), DefaultWave2Direction);
+        float positiveWind = Mathf.Max(0f, s.windStrength);
+        float windInfluence = positiveWind / (1f + positiveWind * 0.35f);
+        Vector2 dir1 = NormalizeOrFallback(s.wave1Dir + s.windDirXZ * (windInfluence * 0.3f), Vector2.right);
+        Vector2 dir2 = NormalizeOrFallback(s.wave2Dir + s.windDirXZ * (windInfluence * 0.15f), DefaultWave2Direction);
 
         // Detail wave directions: fixed +/-36.87 deg rotations (cos 0.8, sin 0.6).
         Vector2 dir3 = new(dir1.x * 0.8f - dir1.y * 0.6f, dir1.x * 0.6f + dir1.y * 0.8f);
         Vector2 dir4 = new(dir2.x * 0.8f + dir2.y * 0.6f, -dir2.x * 0.6f + dir2.y * 0.8f);
 
-        float amp = s.amplitude * (1f + s.windStrength * 0.2f);
+        float turbulence = Mathf.Clamp01(s.waterTurbulence);
+        float lunarResponse = Mathf.Clamp01(s.lunarTideFactor)
+                            * Mathf.Max(0f, s.lunarResponseStrength);
+        float amp = s.amplitude * (1f + positiveWind * 0.16f)
+                  * (1f + turbulence * 0.18f + lunarResponse * 0.2f);
 
         Vector3 fades = ComputeWaveFades(samplePosXZ, s.lodFadeDistance);
-        float ampPrimary = amp * fades.x;
-        float ampDetail  = amp * fades.x * fades.y * s.detailScale;
-        float steep      = s.steepness * fades.z;
+        float ampPrimary1 = amp * fades.x * (1f - turbulence * 0.12f);
+        float ampPrimary2 = amp * fades.x * s.wave2Scale * (1f + turbulence * 0.35f);
+        float ampDetail  = amp * fades.x * fades.y * s.detailScale
+                         * (1f + turbulence * 0.75f);
+        float steep      = s.steepness * fades.z * (1f + turbulence * 0.18f);
 
         Vector3 disp = Vector3.zero;
-        AccumGerstner(samplePosXZ, dir1, ampPrimary,                s.frequency,        s.speed,         steep, s.waveTime, ref disp);
-        AccumGerstner(samplePosXZ, dir2, ampPrimary * s.wave2Scale, s.frequency * 1.3f, s.speed * 0.8f,  steep, s.waveTime, ref disp);
-        AccumGerstner(samplePosXZ, dir3, ampDetail * 0.35f,         s.frequency * 2.4f, s.speed * 1.25f, steep, s.waveTime, ref disp);
-        AccumGerstner(samplePosXZ, dir4, ampDetail * 0.22f,         s.frequency * 3.9f, s.speed * 1.45f, steep, s.waveTime, ref disp);
+        AccumGerstner(samplePosXZ, dir1, ampPrimary1, s.frequency,        s.speed,         0f,   steep, s.waveTime, ref disp);
+        AccumGerstner(samplePosXZ, dir2, ampPrimary2, s.frequency * 1.3f, s.speed * 0.8f,  1.7f, steep, s.waveTime, ref disp);
+        AccumGerstner(samplePosXZ, dir3, ampDetail * 0.35f, s.frequency * 2.4f, s.speed * 1.25f, 4.2f, steep, s.waveTime, ref disp);
+        AccumGerstner(samplePosXZ, dir4, ampDetail * 0.22f, s.frequency * 3.9f, s.speed * 1.45f, 2.8f, steep, s.waveTime, ref disp);
 
         // Long ocean swell: vertical-only sine. The RAW direction vector's
         // magnitude is its spatial frequency.
         float swellPhase = (s.swellDir.x * samplePosXZ.x + s.swellDir.y * samplePosXZ.y)
-                         + s.waveTime * s.swellSpeed;
-        disp.y += Mathf.Sin(swellPhase) * s.swellAmplitude;
+                         + s.waveTime * s.swellSpeed + 2.37f;
+        float effectiveSwellAmplitude = s.swellAmplitude
+                                      * (1f + turbulence * 0.45f + lunarResponse * 0.75f);
+        disp.y += Mathf.Sin(swellPhase) * effectiveSwellAmplitude;
 
         return disp;
     }
@@ -464,9 +495,10 @@ public static class SolWaterSurfaceSampler
 
     static void AccumGerstner(
         Vector2 posXZ, Vector2 dir, float amp, float freq, float phaseSpeed,
-        float steepness, float waveTime, ref Vector3 disp)
+        float phaseOffset, float steepness, float waveTime, ref Vector3 disp)
     {
-        float theta = (dir.x * posXZ.x + dir.y * posXZ.y) * freq + waveTime * phaseSpeed;
+        float theta = (dir.x * posXZ.x + dir.y * posXZ.y) * freq
+                    + waveTime * phaseSpeed + phaseOffset;
         float sin = Mathf.Sin(theta);
         float cos = Mathf.Cos(theta);
 
@@ -492,7 +524,10 @@ public static class SolWaterSurfaceSampler
 
         float windStrength = Mathf.Max(0f, manager.windStrength);
         float waveAmplitude = volume != null ? Mathf.Max(0f, volume.waveAmplitude) : 0.3f;
-        float driftSpeed = (0.015f + windStrength * 0.025f) * Mathf.Lerp(0.6f, 1.4f, Mathf.Clamp01(waveAmplitude));
+        float turbulence = Mathf.Clamp01(manager.waterTurbulence);
+        float driftSpeed = (0.015f + windStrength * 0.025f)
+                         * Mathf.Lerp(0.6f, 1.4f, Mathf.Clamp01(waveAmplitude))
+                         * (1f + turbulence * 0.45f);
         return windDirection.normalized * driftSpeed;
     }
 
@@ -501,6 +536,3 @@ public static class SolWaterSurfaceSampler
         return value.sqrMagnitude > 0.000001f ? value.normalized : fallback.normalized;
     }
 }
-
-
-

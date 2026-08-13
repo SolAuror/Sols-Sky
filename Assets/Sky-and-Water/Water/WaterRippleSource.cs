@@ -51,7 +51,11 @@ public class WaterRippleSource : MonoBehaviour
 
     void Update()
     {
-        if (WaterRippleManager.Instance == null) return;
+        WaterRippleManager rippleManager = WaterRippleManager.Instance;
+        if (rippleManager == null || rippleManager.WorldDeltaSeconds <= 0f) return;
+
+        float worldTime = rippleManager.WorldTime;
+        float worldDelta = rippleManager.WorldDeltaSeconds;
 
         Vector3 pos = transform.position;
 
@@ -63,8 +67,8 @@ public class WaterRippleSource : MonoBehaviour
         if (inWater && !_wasInWater && emitOnEntry)
         {
             float entrySt = Mathf.Min(strength * entrySplashMultiplier, maxStrength);
-            WaterRippleManager.Instance.Emit(pos, entrySt);
-            _nextEmitTime = Time.time + emitInterval;
+            rippleManager.Emit(pos, entrySt);
+            _nextEmitTime = worldTime + emitInterval;
         }
 
         _wasInWater = inWater;
@@ -84,7 +88,7 @@ public class WaterRippleSource : MonoBehaviour
         }
         else
         {
-            Vector3 delta = (pos - _prevPos) / Mathf.Max(Time.deltaTime, 0.0001f);
+            Vector3 delta = (pos - _prevPos) / Mathf.Max(worldDelta, 0.0001f);
             speedSq = delta.x * delta.x + delta.z * delta.z;
         }
 
@@ -92,12 +96,12 @@ public class WaterRippleSource : MonoBehaviour
 
         float minSpeedSq = minSpeed * minSpeed;
         if (speedSq < minSpeedSq) return;
-        if (Time.time < _nextEmitTime) return;
+        if (worldTime < _nextEmitTime) return;
 
         // Scale strength with speed (clamped)
         float speedXZ = Mathf.Sqrt(speedSq);
         float st = Mathf.Min(strength * (speedXZ / Mathf.Max(minSpeed, 0.01f)), maxStrength);
-        WaterRippleManager.Instance.Emit(pos, st);
-        _nextEmitTime = Time.time + emitInterval;
+        rippleManager.Emit(pos, st);
+        _nextEmitTime = worldTime + emitInterval;
     }
 }

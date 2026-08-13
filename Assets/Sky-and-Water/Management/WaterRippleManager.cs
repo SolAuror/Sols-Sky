@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using Sol.ToD;
 
 /// <summary>
 /// Manages interactive water ripples - waves that expand outward from
@@ -126,7 +127,7 @@ public class WaterRippleManager : MonoBehaviour
     // --- Internals: GPU sim ------------------------------------------------
     const int MaxInjectionsPerStep = 16;
     const float FixedDt = 1f / 60f;
-    const int MaxStepsPerFrame = 4;
+    const int MaxStepsPerFrame = 8;
 
     Material _simMat;
     readonly RenderTexture[] _rt = new RenderTexture[2];
@@ -136,6 +137,8 @@ public class WaterRippleManager : MonoBehaviour
     int _appliedResolution = -1;
     Vector2 _regionMin;
     float _timeAcc;
+    float _worldTime;
+    float _worldDeltaSeconds;
     bool _simActive;
 
     // Pending injections: xy = world XZ, z = radius (m), w = height delta (m).
@@ -155,6 +158,15 @@ public class WaterRippleManager : MonoBehaviour
     float _lastRippleSpeed = float.NaN;
     float _lastRippleFrequency = float.NaN;
     float _lastRippleLifetime = float.NaN;
+    SolEnvironmentCoordinator _environmentCoordinator;
+    TimeOfDay _timeOfDay;
+    float _referenceRetryTimer;
+
+    /// <summary>Accumulated canonical Sol world seconds used by both ripple backends.</summary>
+    public float WorldTime => _worldTime;
+
+    /// <summary>Canonical Sol world seconds consumed during the current frame.</summary>
+    public float WorldDeltaSeconds => _worldDeltaSeconds;
 
     // Shader property IDs - analytic path
     static readonly int _RipplesID         = Shader.PropertyToID("_Sol_Ripples");
@@ -190,6 +202,8 @@ public class WaterRippleManager : MonoBehaviour
             return;
         }
         Instance = this;
+        _environmentCoordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
+        _environmentCoordinator?.Register(this);
         _gpuDirty = true;
     }
 
@@ -201,22 +215,34 @@ public class WaterRippleManager : MonoBehaviour
         Shader.SetGlobalInt(_RippleCountID, 0);
         DisableSim();
         ReleaseSimResources();
+        _environmentCoordinator?.Unregister(this);
+        _environmentCoordinator = null;
     }
 
     void Update()
     {
+        _referenceRetryTimer -= Time.unscaledDeltaTime;
+        if (_timeOfDay == null && _referenceRetryTimer <= 0f)
+        {
+            _timeOfDay = TimeOfDay.ResolveInstance();
+            if (_timeOfDay == null)
+                _referenceRetryTimer = 0.5f;
+        }
+        _worldDeltaSeconds = _timeOfDay != null ? _timeOfDay.WorldDeltaSeconds : Time.deltaTime;
+        _worldTime += Mathf.Max(0f, _worldDeltaSeconds);
+
         bool wantSim = useGpuSim && Application.isPlaying;
 
         if (wantSim && EnsureSimResources())
         {
-            if (debugAutoSplash && Time.time >= _nextDebugSplash)
+            if (debugAutoSplash && _worldTime >= _nextDebugSplash)
             {
-                _nextDebugSplash = Time.time + 0.75f;
+                _nextDebugSplash = _worldTime + 0.75f;
                 Vector3 f = GetFocusPosition();
                 Emit(new Vector3(f.x, 0f, f.z), 0.8f);
             }
 
-            UpdateSim();
+            UpdateSim(_worldDeltaSeconds);
 
             // Keep the analytic per-pixel loop off while the sim runs.
             Shader.SetGlobalInt(_RippleCountID, 0);
@@ -253,7 +279,7 @@ public class WaterRippleManager : MonoBehaviour
             return;
         }
 
-        _ripples[_writeIndex] = new Vector4(worldPos.x, worldPos.z, Time.time, strength);
+        _ripples[_writeIndex] = new Vector4(worldPos.x, worldPos.z, _worldTime, strength);
         _writeIndex = (_writeIndex + 1) % MaxRipples;
         if (_activeCount < MaxRipples) _activeCount++;
         _gpuDirty = true;
@@ -317,10 +343,19 @@ public class WaterRippleManager : MonoBehaviour
         return true;
     }
 
-    void UpdateSim()
+    void UpdateSim(float deltaSeconds)
     {
-        _timeAcc += Time.deltaTime;
+        _timeAcc += Mathf.Max(0f, deltaSeconds);
         int steps = Mathf.FloorToInt(_timeAcc / FixedDt);
+
+        if (steps > MaxStepsPerFrame && deltaSeconds >= rippleLifetime)
+        {
+            ClearRT(_rt[0]);
+            ClearRT(_rt[1]);
+            _pending.Clear();
+            _timeAcc = 0f;
+            steps = 0;
+        }
 
         if (steps > 0)
         {
@@ -374,7 +409,7 @@ public class WaterRippleManager : MonoBehaviour
                 _simMat.SetVector(_RainID, new Vector4(
                     drops,
                     rainDropletStrength,
-                    (Time.time * 63.19f + s * 17.7f) % 977f,
+                    (_worldTime * 63.19f + s * 17.7f) % 977f,
                     rainDropletRadius / simRegionSize));
 
                 _simMat.SetVector(_SimParamsID,
@@ -511,14 +546,12 @@ public class WaterRippleManager : MonoBehaviour
 
         PushToGPU();
 
-        // Shader-side ripple age must use the same clock as the birth stamps
-        // (Time.time). _Time.y resets on scene load; Time.time does not.
-        Shader.SetGlobalFloat(_RippleTimeID, Time.time);
+        Shader.SetGlobalFloat(_RippleTimeID, _worldTime);
     }
 
     void PurgeExpired()
     {
-        float now = Time.time;
+        float now = _worldTime;
         for (int i = 0; i < MaxRipples; i++)
         {
             if (_ripples[i].w == 0f) continue;
@@ -540,7 +573,7 @@ public class WaterRippleManager : MonoBehaviour
         if (_gpuDirty)
         {
             int count = 0;
-            float now = Time.time;
+            float now = _worldTime;
 
             for (int i = 0; i < MaxRipples; i++)
             {

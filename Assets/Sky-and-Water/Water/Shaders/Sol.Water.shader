@@ -109,11 +109,11 @@ Shader "Sol/Water"
         [NoScaleOffset] _FoamMap ("Foam Texture", 2D) = "white" {}
         _FoamColor      ("Foam Color",    Color)          = (1, 1, 1, 1)
         _FoamTiling     ("Tiling",        Range(0.1, 20)) = 2
-        _FoamBrightness ("Brightness",    Range(0.1, 10)) = 3
+        _FoamBrightness ("Brightness",    Range(0.1, 10)) = 2.5
         _FoamShoreWidth ("Shore Width",   Range(0.01, 5)) = 0.5
         _FoamShorePower     ("Shore Falloff",    Range(0.5, 10)) = 3
-        _CrestFoamThreshold ("Whitecap Threshold", Range(-1, 2)) = 0.3
-        _CrestFoamSharpness ("Whitecap Sharpness", Range(0.1, 20)) = 4
+        _CrestFoamThreshold ("Whitecap Threshold", Range(-1, 2)) = 0.95
+        _CrestFoamSharpness ("Whitecap Sharpness", Range(0.1, 20)) = 2
 
         // ================================================
         //  CAUSTICS
@@ -223,6 +223,7 @@ Shader "Sol/Water"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
             #include "SolWaterWaves.hlsl"
+            #include "SolAtmosphere.hlsl"
 
             // -----------------------------------------
             //  Globals (set by SolWaterManager)
@@ -238,7 +239,12 @@ Shader "Sol/Water"
             float  _Sol_GlobalWaveSpeedMul;     // global wave speed multiplier
             float  _Sol_WaveTime;               // accumulated time scaled by global wave speed
             float  _Sol_RainIntensity;          // 0 = dry, 1 = heavy rain
+            float  _Sol_RainRoughnessBoost;     // configured roughness increase at full rain
+            float  _Sol_RainNormalBoost;        // configured detail-normal increase at full rain
+            float  _Sol_RainReflectionDampen;   // configured reflection reduction at full rain
+            float  _Sol_LightningFlash;         // momentary storm illumination
             float  _Sol_GlobalWaterLevel;       // gameplay water level
+            float4 _Sol_WaterDynamics;          // turbulence, spring tide, illumination, lunar response
             float4 _Sol_WaveFadeCenter;         // xyz = LOD ring centre, w = 1 while driven
 
             // Interactive ripples (set by WaterRippleManager)
@@ -410,6 +416,7 @@ Shader "Sol/Water"
                     _WaveSteepness, _WaveDetailScale,
                     _SwellAmplitude, _SwellSpeed, _SwellDirection.xz,
                     _Sol_WindDirection.xz, _Sol_WindStrength,
+                    _Sol_WaterDynamics.x, _Sol_WaterDynamics.y, _Sol_WaterDynamics.w,
                     lodFades,
                     waveDisp, waveNormal);
 
@@ -457,10 +464,11 @@ Shader "Sol/Water"
             #if defined(_SSR_ON)
             // =========================================
             //  SCREEN-SPACE REFLECTION TRACE
-            //  Coarse linear march through the opaque depth buffer, then a
-            //  short binary refinement. The opaque textures exclude
-            //  transparents, so the water never self-hits. Returns hit
-            //  confidence (0 = miss) and writes the hit UV.
+            //  Marches through the ray's projected pixel footprint instead of
+            //  fixed world-space distances. This keeps sample density coherent
+            //  in screen space, which matters most for shallow water views.
+            //  The opaque textures exclude transparents, so the water never
+            //  self-hits. Returns hit confidence (0 = miss) and writes hit UV.
             // =========================================
 
             // Explicit-LOD depth read: implicit-LOD sampling (SampleSceneDepth)
@@ -472,71 +480,147 @@ Shader "Sol/Water"
                     sampler_CameraDepthTexture, uv, 0).r;
             }
 
+            float2 ClipToScreenUV(float4 clipPos)
+            {
+                float4 sp = ComputeScreenPos(clipPos);
+                return sp.xy / max(sp.w, 1e-4);
+            }
+
+            float PerspectiveRayEyeDepth(float startW, float endW, float p)
+            {
+                float startInvW = rcp(max(startW, 1e-4));
+                float endInvW   = rcp(max(endW,   1e-4));
+                return rcp(lerp(startInvW, endInvW, saturate(p)));
+            }
+
             float TraceScreenSpaceReflection(float3 origin, float3 dir, float2 pixelPos, out float2 hitUV)
             {
                 hitUV = float2(0.0, 0.0);
 
-                float stepLen = _SSRMaxDistance / max(_SSRSteps, 4.0);
-
-                // Interleaved gradient noise: dithers the march start so
-                // stair-step banding becomes high-frequency noise, which the
-                // rippled normals mask completely.
-                float jitter = frac(52.9829189 * frac(dot(pixelPos, float2(0.06711056, 0.00583715))));
-                float t = stepLen * (0.25 + 0.75 * jitter);
-
-                float hitT = -1.0;
-
-                [loop]
-                for (float s = 0.0; s < _SSRSteps; s += 1.0)
-                {
-                    float3 P = origin + dir * t;
-                    float4 clipPos = TransformWorldToHClip(P);
-                    if (clipPos.w < 0.1)
-                        return 0.0;                        // ray went behind the camera
-
-                    float4 sp = ComputeScreenPos(clipPos);
-                    float2 uv = sp.xy / sp.w;
-                    if (any(uv < 0.0) || any(uv > 1.0))
-                        return 0.0;                        // ray left the screen
-
-                    float sceneZ = LinearEyeDepth(SampleSceneDepthLod(uv), _ZBufferParams);
-                    float thickness = _SSRThickness * (1.0 + t * 0.05);
-                    float depthDelta = clipPos.w - sceneZ;
-                    if (depthDelta > 0.0 && depthDelta < thickness)
-                    {
-                        hitT = t;
-                        break;
-                    }
-                    t += stepLen;
-                }
-
-                if (hitT < 0.0)
+                float maxDistance = max(_SSRMaxDistance, 0.01);
+                float startT = max(0.05, _SSRThickness * 0.25);
+                if (startT >= maxDistance)
                     return 0.0;
 
-                // Binary refinement between the previous step and the hit.
-                float tNear = max(hitT - stepLen, 0.001);
-                float tFar  = hitT;
-                [unroll]
-                for (int r = 0; r < 3; r++)
+                float4 startClip = TransformWorldToHClip(origin + dir * startT);
+                float4 endClip   = TransformWorldToHClip(origin + dir * maxDistance);
+                if (startClip.w < 0.1 || endClip.w < 0.1)
+                    return 0.0;
+
+                float2 screenSize = max(_ScaledScreenParams.xy, float2(1.0, 1.0));
+                float2 startUV = ClipToScreenUV(startClip);
+                float2 endUV   = ClipToScreenUV(endClip);
+                if (any(startUV < 0.0) || any(startUV > 1.0))
+                    return 0.0;
+
+                float2 uvDelta = endUV - startUV;
+                float screenExitP = 1.0;
+                if (uvDelta.x > 0.0) screenExitP = min(screenExitP, (1.0 - startUV.x) / uvDelta.x);
+                if (uvDelta.x < 0.0) screenExitP = min(screenExitP, (0.0 - startUV.x) / uvDelta.x);
+                if (uvDelta.y > 0.0) screenExitP = min(screenExitP, (1.0 - startUV.y) / uvDelta.y);
+                if (uvDelta.y < 0.0) screenExitP = min(screenExitP, (0.0 - startUV.y) / uvDelta.y);
+                screenExitP = saturate(screenExitP);
+
+                float2 startPixel = startUV * screenSize;
+                float2 endPixel   = lerp(startUV, endUV, screenExitP) * screenSize;
+                float2 deltaPixel = endPixel - startPixel;
+
+                float pixelSpan = max(abs(deltaPixel.x), abs(deltaPixel.y));
+                if (pixelSpan < 1.0)
+                    return 0.0;
+
+                float maxSteps = max(_SSRSteps, 4.0);
+                float marchSteps = clamp(pixelSpan, 4.0, maxSteps);
+                float stridePixels = max(1.0, pixelSpan / marchSteps);
+                float2 pixelDir = deltaPixel / max(pixelSpan, 1e-4);
+
+                // Sub-pixel jitter avoids locked bands without shifting whole
+                // world-space steps, which was the main source of speckled
+                // hit/miss disagreement on water.
+                float jitter = frac(52.9829189 * frac(dot(pixelPos, float2(0.06711056, 0.00583715))));
+                float jitterPixels = (jitter - 0.5) * 0.5;
+
+                float prevP = 0.0;
+                float prevDepthDelta = -1e6;
+                float hitP = -1.0;
+
+                [loop]
+                for (float s = 1.0; s <= _SSRSteps; s += 1.0)
                 {
-                    float tMid = 0.5 * (tNear + tFar);
-                    float4 clipPos = TransformWorldToHClip(origin + dir * tMid);
-                    float4 sp = ComputeScreenPos(clipPos);
-                    float2 uv = sp.xy / max(sp.w, 1e-4);
+                    if (s > marchSteps)
+                        break;
+
+                    float travelPixels = min(pixelSpan, s * stridePixels + jitterPixels);
+                    float p = travelPixels / pixelSpan;
+                    float fullRayP = p * screenExitP;
+                    float2 uv = (startPixel + pixelDir * travelPixels) / screenSize;
+                    if (any(uv < 0.0) || any(uv > 1.0))
+                        break;
+
                     float sceneZ = LinearEyeDepth(SampleSceneDepthLod(uv), _ZBufferParams);
-                    if (clipPos.w > sceneZ) tFar = tMid; else tNear = tMid;
+                    if (sceneZ >= _ProjectionParams.z * 0.99)
+                    {
+                        prevP = p;
+                        prevDepthDelta = -1e6;
+                        continue;
+                    }
+
+                    float rayZ = PerspectiveRayEyeDepth(startClip.w, endClip.w, fullRayP);
+                    float rayT = lerp(startT, maxDistance, fullRayP);
+                    float thickness = min(_SSRThickness * (1.0 + rayT * 0.01), _SSRThickness * 2.5);
+                    float depthDelta = rayZ - sceneZ;
+
+                    bool crossedOpaqueDepth = prevDepthDelta <= 0.0 && depthDelta >= 0.0;
+                    bool insideThickness = depthDelta > 0.0 && depthDelta < thickness;
+                    if (crossedOpaqueDepth && insideThickness)
+                    {
+                        hitP = p;
+                        break;
+                    }
+
+                    prevP = p;
+                    prevDepthDelta = depthDelta;
                 }
 
-                float4 finalClip = TransformWorldToHClip(origin + dir * tFar);
-                float4 finalSp   = ComputeScreenPos(finalClip);
-                hitUV = finalSp.xy / max(finalSp.w, 1e-4);
+                if (hitP < 0.0)
+                    return 0.0;
 
-                // Confidence: fade near screen edges and toward the ray end so
-                // SSR hands off smoothly to the reflection probe.
+                // Binary refinement in screen-param space between the last
+                // front-of-depth sample and the first accepted hit.
+                float pNear = prevP;
+                float pFar  = hitP;
+                [unroll]
+                for (int r = 0; r < 4; r++)
+                {
+                    float pMid = 0.5 * (pNear + pFar);
+                    float2 uv = lerp(startPixel, endPixel, pMid) / screenSize;
+                    float sceneZ = LinearEyeDepth(SampleSceneDepthLod(uv), _ZBufferParams);
+                    float rayZ = PerspectiveRayEyeDepth(startClip.w, endClip.w, pMid * screenExitP);
+                    if (rayZ > sceneZ) pFar = pMid; else pNear = pMid;
+                }
+
+                hitUV = lerp(startPixel, endPixel, pFar) / screenSize;
+                if (any(hitUV < 0.0) || any(hitUV > 1.0))
+                    return 0.0;
+
+                float finalSceneZ = LinearEyeDepth(SampleSceneDepthLod(hitUV), _ZBufferParams);
+                if (finalSceneZ >= _ProjectionParams.z * 0.99)
+                    return 0.0;
+
+                float finalFullRayP = pFar * screenExitP;
+                float finalRayZ = PerspectiveRayEyeDepth(startClip.w, endClip.w, finalFullRayP);
+                float finalRayT = lerp(startT, maxDistance, finalFullRayP);
+                float finalThickness = min(_SSRThickness * (1.0 + finalRayT * 0.01), _SSRThickness * 2.5);
+                float finalDepthDelta = abs(finalRayZ - finalSceneZ);
+
+                // Confidence: depth fit rejects uncertain hit/miss gaps, while
+                // edge and distance fades hand off to the reflection probe.
                 float2 edge = min(hitUV, 1.0 - hitUV);
                 float edgeFade = saturate(min(edge.x, edge.y) / max(_SSREdgeFade, 1e-3));
-                float distFade = 1.0 - saturate(tFar / _SSRMaxDistance);
-                return edgeFade * saturate(distFade * 2.0);
+                float distFade = 1.0 - saturate(finalRayT / maxDistance);
+                float depthFit = 1.0 - saturate(finalDepthDelta / max(finalThickness, 1e-3));
+                float travelFade = smoothstep(1.0, 8.0, pFar * pixelSpan);
+                return edgeFade * saturate(distFade * 2.0) * depthFit * travelFade;
             }
             #endif // _SSR_ON
 
@@ -576,11 +660,11 @@ Shader "Sol/Water"
                 float2 baseUV  = worldUV * _NormalTiling;
 
                 // -- Scrolling normal maps (rain boosts detail) --
-                float rainNormalBoost = 1.0 + _Sol_RainIntensity * 0.8;
+                float rainNormalBoost = 1.0 + _Sol_RainIntensity * _Sol_RainNormalBoost;
                 float scrollSpd  = _NormalScrollSpeed;
                 float scrollSpd2 = _NormalScrollSpeed2;
-                float2 nmUV1 = baseUV + _Time.y * _NormalScrollDir1.xy * scrollSpd;
-                float2 nmUV2 = baseUV + _Time.y * _NormalScrollDir2.xy * scrollSpd2;
+                float2 nmUV1 = baseUV + _Sol_WaveTime * _NormalScrollDir1.xy * scrollSpd;
+                float2 nmUV2 = baseUV + _Sol_WaveTime * _NormalScrollDir2.xy * scrollSpd2;
 
                 float3 nTS1 = UnpackNormalScale(
                     SAMPLE_TEXTURE2D(_NormalMap1, sampler_NormalMap1, nmUV1), _NormalStrength);
@@ -589,7 +673,7 @@ Shader "Sol/Water"
 
                 // -- Micro-detail normal (fades with distance) --
                 float detailFade = 1.0 - saturate(IN.fogAndDist.y / _NormalDetailDistanceFade);
-                float2 detailUV  = worldUV * _NormalDetailTiling + _Time.y * _NormalDetailScrollDir.xy;
+                float2 detailUV  = worldUV * _NormalDetailTiling + _Sol_WaveTime * _NormalDetailScrollDir.xy;
                 float3 nDetail   = UnpackNormalScale(
                     SAMPLE_TEXTURE2D(_NormalMapDetail, sampler_NormalMapDetail, detailUV),
                     _NormalDetailStrength * detailFade * rainNormalBoost);
@@ -672,9 +756,13 @@ Shader "Sol/Water"
 
                 float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
                 Light  mainLight   = GetMainLight(shadowCoord);
-                float3 lightDir    = normalize(mainLight.direction);
+                float3 todLightDir = _Sol_SunDirection.xyz;
+                todLightDir = dot(todLightDir, todLightDir) > 0.0001
+                    ? normalize(todLightDir)
+                    : normalize(mainLight.direction);
+                float3 lightDir    = normalize(lerp(mainLight.direction, todLightDir, _ToDSpecInfluence));
                 float  lightAtten  = mainLight.distanceAttenuation;
-                float3 lightColor  = mainLight.color * lightAtten;
+                float3 lightColor  = lerp(mainLight.color, _Sol_SunColor.rgb, _ToDSpecInfluence) * lightAtten;
 
                 float3 todSunColor = lerp(float3(1,1,1), _Sol_SunColor.rgb, _ToDSpecInfluence);
 
@@ -692,11 +780,13 @@ Shader "Sol/Water"
                 float underwaterShadowInfluence = saturate(_UnderwaterShadowStrength * underwaterShadowDepthFade * depthSoftenAlpha);
                 float softenedShadowAtten = lerp(1.0, mainLight.shadowAttenuation, underwaterShadowInfluence);
                 lightAtten *= softenedShadowAtten;
-                lightColor = mainLight.color * lightAtten;
+                lightColor = lerp(mainLight.color, _Sol_SunColor.rgb, _ToDSpecInfluence) * lightAtten;
 
                 // Precompute roughness terms once - used by main specular and additional lights.
                 // Rain increases roughness, reducing specular sharpness.
-                float  rainRoughBoost = _Roughness + _Sol_RainIntensity * 0.15;
+                float  rainRoughBoost = saturate(_Roughness
+                    + _Sol_RainIntensity * _Sol_RainRoughnessBoost
+                    + _Sol_WaterDynamics.x * 0.08);
                 float  linRough  = rainRoughBoost * rainRoughBoost;
                 float  roughness4 = linRough * linRough;
 
@@ -725,14 +815,21 @@ Shader "Sol/Water"
                 half3 envColor = DecodeHDREnvironment(envSample, unity_SpecCube0_HDR);
 
                 half3 todReflTint = lerp(half3(1,1,1),
-                    _Sol_SunColor.rgb * 0.5 + 0.5, _ToDReflectionInfluence * dayFactor);
+                    _Sol_SunColor.rgb * 0.5 + 0.5, _ToDReflectionInfluence);
+                half3 todReflectionColor = lerp(horizonBlend, _Sol_SunColor.rgb, 0.5);
+                half3 fresnelTint = lerp(_FresnelColor.rgb, todReflectionColor,
+                    _ToDReflectionInfluence * (1.0 - dayFactor));
                 // Rain dampens reflection clarity
-                float rainReflDampen = 1.0 - _Sol_RainIntensity * 0.3;
-                envColor *= _FresnelColor.rgb * todReflTint * _ReflectionStr * rainReflDampen;
+                float lunarResponse = _Sol_WaterDynamics.y * _Sol_WaterDynamics.w;
+                float rainReflDampen = saturate(1.0
+                    - _Sol_RainIntensity * _Sol_RainReflectionDampen
+                    - _Sol_WaterDynamics.x * 0.12
+                    - lunarResponse * 0.08);
+                envColor *= fresnelTint * todReflTint * _ReflectionStr * rainReflDampen;
 
                 // Fallback when probe is absent or dark
                 half  envLuma      = dot(envColor, half3(0.2126, 0.7152, 0.0722));
-                half3 fallbackRefl = horizonBlend * _FresnelColor.rgb
+                half3 fallbackRefl = horizonBlend * fresnelTint
                                     * todReflTint * _ReflectionStr;
                 envColor = lerp(fallbackRefl, envColor, smoothstep(0.02, 0.15, envLuma));
 
@@ -756,7 +853,7 @@ Shader "Sol/Water"
                         // should stay close to true color. Only a light water
                         // tint is applied (lerp toward white), unlike the sky
                         // probe which takes the full _FresnelColor.
-                        half3 ssrTint = lerp(half3(1,1,1), _FresnelColor.rgb, 0.35);
+                        half3 ssrTint = lerp(half3(1,1,1), fresnelTint, 0.35);
                         half3 ssrColor = SampleSceneColor(ssrUV)
                                        * ssrTint * todReflTint * rainReflDampen;
                         envColor = lerp(envColor, ssrColor, ssrConf);
@@ -790,7 +887,7 @@ Shader "Sol/Water"
 
                 // -- ToD tint on refraction --
                 half3 todRefrTint = lerp(half3(1,1,1),
-                    _Sol_SunColor.rgb * 0.7 + 0.3, _ToDColorInfluence * dayFactor);
+                    _Sol_SunColor.rgb * 0.7 + 0.3, _ToDColorInfluence);
                 refractionColor *= todRefrTint;
 
                 // =====================================
@@ -801,9 +898,9 @@ Shader "Sol/Water"
                     float causticsAtten = exp(-depthDiff * causticsK);
 
                     float2 causticsUV1 = worldUV * _CausticsTiling
-                        + _Time.y * _CausticsSpeed * float2(1, 0.7);
+                        + _Sol_WaveTime * _CausticsSpeed * float2(1, 0.7);
                     float2 causticsUV2 = worldUV * _CausticsTiling * 0.8
-                        - _Time.y * _CausticsSpeed * float2(0.6, 1);
+                        - _Sol_WaveTime * _CausticsSpeed * float2(0.6, 1);
 
                     half c1 = SAMPLE_TEXTURE2D(_CausticsMap, sampler_CausticsMap, causticsUV1).r;
                     half c2 = SAMPLE_TEXTURE2D(_CausticsMap, sampler_CausticsMap, causticsUV2).r;
@@ -889,12 +986,13 @@ Shader "Sol/Water"
                 //  SHORE FOAM
                 // =====================================
                 {
-                    float2 foamUV   = worldUV * _FoamTiling + _Time.y * float2(0.01, -0.01) * _FoamTiling;
+                    float2 foamUV   = worldUV * _FoamTiling
+                                    + _Sol_WaveTime * float2(0.01, -0.01) * _FoamTiling;
                     half3  foamTex  = SAMPLE_TEXTURE2D(_FoamMap, sampler_FoamMap, foamUV).rgb
                                     * _FoamColor.rgb;
                     float  foamNoise = SAMPLE_TEXTURE2D(
                         _FoamMap, sampler_FoamMap, worldUV * _FoamTiling * 0.7).r;
-                    half   foamToD   = lerp(0.5, 1.0, dayFactor) * eclipseAtten;
+                    half   foamToD   = lerp(0.35, 0.95, dayFactor) * eclipseAtten;
 
                     float shoreFoam = (depthDiff > 0.0)
                         ? pow(saturate(1.0 - depthDiff / _FoamShoreWidth), _FoamShorePower)
@@ -902,7 +1000,7 @@ Shader "Sol/Water"
                     shoreFoam *= foamNoise;
 
                     // -- Foam animation pulse --
-                    float foamPulse = sin(_Time.y * 2.0 + worldUV.x * 3.0) * 0.5 + 0.5;
+                    float foamPulse = sin(_Sol_WaveTime * 2.0 + worldUV.x * 3.0) * 0.5 + 0.5;
                     shoreFoam *= lerp(0.6, 1.0, foamPulse);
 
                     waterColor = lerp(waterColor, foamTex * _FoamBrightness * foamToD,
@@ -910,9 +1008,15 @@ Shader "Sol/Water"
 
                     // -- Wave crest whitecaps (steepness + height) --
                     float steepness = 1.0 - saturate(dot(finalNormal, float3(0, 1, 0)));
-                    float crestFoam = saturate((steepness + IN.waveHeight * 0.5 - _CrestFoamThreshold) * _CrestFoamSharpness)
+                    float dynamicsFoam = _Sol_WaterDynamics.x * 0.10 + lunarResponse * 0.08;
+                    float crestFoam = saturate((steepness + IN.waveHeight * 0.5
+                        - (_CrestFoamThreshold - dynamicsFoam)) * _CrestFoamSharpness)
                                     * foamNoise;
-                    waterColor = lerp(waterColor, foamTex * _FoamBrightness * foamToD, crestFoam);
+                    float dynamicsFoamBrightness = 1.0 + _Sol_WaterDynamics.x * 0.12
+                        + lunarResponse * 0.12;
+                    waterColor = lerp(waterColor,
+                        foamTex * _FoamBrightness * dynamicsFoamBrightness * foamToD,
+                        crestFoam);
                 }
 
                 // =====================================
@@ -964,7 +1068,20 @@ Shader "Sol/Water"
                 // =====================================
                 //  FOG
                 // =====================================
-                waterColor = MixFog(waterColor, IN.fogAndDist.x);
+                waterColor += _Sol_LightningFlash.xxx * (0.12 + fresnel * 0.22);
+                if (_SolAtmosphereActive > 0.5)
+                {
+                    waterColor = SolApplyAtmosphere(
+                        waterColor,
+                        GetCameraPositionWS(),
+                        IN.positionWS,
+                        -viewDirWS,
+                        0.0);
+                }
+                else
+                {
+                    waterColor = MixFog(waterColor, IN.fogAndDist.x);
+                }
 
                 return half4(waterColor, depthSoftenAlpha);
             }
@@ -995,6 +1112,7 @@ Shader "Sol/Water"
             float  _Sol_WindStrength;
             float  _Sol_GlobalWaveSpeedMul;
             float  _Sol_WaveTime;
+            float4 _Sol_WaterDynamics;
             float4 _Sol_WaveFadeCenter;
 
             CBUFFER_START(UnityPerMaterial)
@@ -1119,6 +1237,7 @@ Shader "Sol/Water"
                     _WaveSteepness, _WaveDetailScale,
                     _SwellAmplitude, _SwellSpeed, _SwellDirection.xz,
                     _Sol_WindDirection.xz, _Sol_WindStrength,
+                    _Sol_WaterDynamics.x, _Sol_WaterDynamics.y, _Sol_WaterDynamics.w,
                     lodFades,
                     waveDisp, waveNormal);
 

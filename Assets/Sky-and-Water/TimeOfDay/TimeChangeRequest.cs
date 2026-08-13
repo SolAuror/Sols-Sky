@@ -70,10 +70,18 @@ namespace Sol.ToD
         public readonly float NewClockHour;
         public readonly int OldTotalDays;
         public readonly int NewTotalDays;
+        public readonly long OldWorldDayIndex;
+        public readonly long NewWorldDayIndex;
+        public readonly double AppliedWorldHours;
+        public readonly double OldPlayerDaysElapsed;
+        public readonly double NewPlayerDaysElapsed;
         public readonly bool Changed;
 
         public int DaysDelta => NewTotalDays - OldTotalDays;
+        public long WorldDaysDelta => NewWorldDayIndex - OldWorldDayIndex;
+        public double PlayerDaysDelta => NewPlayerDaysElapsed - OldPlayerDaysElapsed;
 
+        [System.Obsolete("Use the constructor that includes world-day, applied-hours, and player-time values.")]
         public TimeChangeResult(
             TimeChangeRequest request,
             float oldNormalizedTime,
@@ -91,6 +99,41 @@ namespace Sol.ToD
             NewClockHour = newClockHour;
             OldTotalDays = oldTotalDays;
             NewTotalDays = newTotalDays;
+            OldWorldDayIndex = 0L;
+            NewWorldDayIndex = 0L;
+            AppliedWorldHours = 0d;
+            OldPlayerDaysElapsed = oldTotalDays;
+            NewPlayerDaysElapsed = newTotalDays;
+            Changed = changed;
+        }
+
+        public TimeChangeResult(
+            TimeChangeRequest request,
+            float oldNormalizedTime,
+            float newNormalizedTime,
+            float oldClockHour,
+            float newClockHour,
+            int oldTotalDays,
+            int newTotalDays,
+            long oldWorldDayIndex,
+            long newWorldDayIndex,
+            double appliedWorldHours,
+            double oldPlayerDaysElapsed,
+            double newPlayerDaysElapsed,
+            bool changed)
+        {
+            Request = request;
+            OldNormalizedTime = oldNormalizedTime;
+            NewNormalizedTime = newNormalizedTime;
+            OldClockHour = oldClockHour;
+            NewClockHour = newClockHour;
+            OldTotalDays = oldTotalDays;
+            NewTotalDays = newTotalDays;
+            OldWorldDayIndex = oldWorldDayIndex;
+            NewWorldDayIndex = newWorldDayIndex;
+            AppliedWorldHours = appliedWorldHours;
+            OldPlayerDaysElapsed = oldPlayerDaysElapsed;
+            NewPlayerDaysElapsed = newPlayerDaysElapsed;
             Changed = changed;
         }
     }

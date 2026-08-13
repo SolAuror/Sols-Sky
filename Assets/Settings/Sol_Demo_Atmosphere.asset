@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f1e2fc4f8b24dfcba73e54f8a680011, type: 3}
+  m_Name: Sol_Demo_Atmosphere
+  m_EditorClassIdentifier: Assembly-CSharp::SolAtmosphereProfile
+  densityMultiplier: 1
+  startDistance: 5
+  maxDistance: 500
+  maxOpacity: 0.92
+  baseHeight: 12
+  heightFalloff: 0.035
+  mistBaseHeight: 12
+  mistHeightFalloff: 0.035
+  noiseIntensity: 0.1
+  noiseScale: 0.0035
+  noiseSpeed: 0.08
+  skyFogStrength: 1
+  zenithFogStrength: 0.12
+  horizonFogStrength: 1
+  phaseAnisotropy: 0.55
+  directionalScatteringIntensity: 0.65
+  shadowedScatteringStrength: 0.85
+  fogSaturation: 0.35
+  ambientScatteringIntensity: 0.65
+  maxScatteringLuminance: 1.5
+  lightningScatteringIntensity: 0.08
+  dayScatteringColor: {r: 1, g: 0.75, b: 0.48, a: 1}
+  nightScatteringColor: {r: 0.22, g: 0.34, b: 0.62, a: 1}
+  raymarchDistance: 500
+  raymarchStepCount: 32
+  raymarchJitter: 0.15
+  bilateralDepthThreshold: 2
+  spatialFilterStrength: 0.75
+  scatteringIntensity: 0.65
+  scatteringPower: 12
+  quality: 2

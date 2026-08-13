@@ -145,6 +145,15 @@ public class WaterTileGrid : MonoBehaviour
 
     // Managed WaterVolume - created/destroyed by this component.
     WaterVolume _managedVolume;
+    SolEnvironmentCoordinator _environmentCoordinator;
+
+    // Per-frame state caches. These keep stationary grids from repeatedly
+    // touching shader globals, tile transforms, and the managed collider.
+    Vector4 _lastWaveFadeCenter = new(float.NaN, float.NaN, float.NaN, float.NaN);
+    float _lastAppliedWaterY = float.NaN;
+    Vector2Int _lastVolumeCentre = new(int.MaxValue, int.MaxValue);
+    float _lastVolumeFootprint = float.NaN;
+    float _lastVolumeDepth = float.NaN;
 
     // Wave-LOD fade centre global (w = 1 while a grid is driving it).
     static readonly int _SID_WaveFadeCenter = Shader.PropertyToID("_Sol_WaveFadeCenter");
@@ -153,6 +162,8 @@ public class WaterTileGrid : MonoBehaviour
 
     void OnEnable()
     {
+        _environmentCoordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
+        _environmentCoordinator?.Register(this);
         EnsureTileRoot();
         RebuildAll();
     }
@@ -160,17 +171,30 @@ public class WaterTileGrid : MonoBehaviour
     void OnDisable()
     {
         ClearAllTiles();
+        ClearMeshCache();
+        DestroyManagedVolume();
 
         // Stop driving the fade centre; the shader falls back to the
         // rendering camera and the C# sampler to full detail.
         Shader.SetGlobalVector(_SID_WaveFadeCenter, Vector4.zero);
         SolWaterSurfaceSampler.ClearWaveFadeCenter();
+        _lastWaveFadeCenter = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastAppliedWaterY = float.NaN;
+        _lastVolumeCentre = new Vector2Int(int.MaxValue, int.MaxValue);
+        _lastVolumeFootprint = float.NaN;
+        _lastVolumeDepth = float.NaN;
+        _environmentCoordinator?.Unregister(this);
+        _environmentCoordinator = null;
     }
 
     bool _rebuildPending;
 
     void OnValidate()
     {
+        tileSize = Mathf.Max(0.01f, tileSize);
+        volumeDepth = Mathf.Max(1f, volumeDepth);
+        volumeMargin = Mathf.Max(0f, volumeMargin);
+
         // Clamp dependent values so they can't go out of range.
         minTileResolution = Mathf.Min(minTileResolution, tileResolution);
         fullDetailRings    = Mathf.Clamp(fullDetailRings, 1, gridRadius + 1);
@@ -189,8 +213,8 @@ public class WaterTileGrid : MonoBehaviour
         {
             _rebuildPending = false;
             _lastCentre = new Vector2Int(int.MaxValue, int.MaxValue);
-            _meshCache.Clear();
             ClearAllTiles();
+            ClearMeshCache();
         }
 
         // Sync water level from manager.
@@ -202,9 +226,13 @@ public class WaterTileGrid : MonoBehaviour
         // mesh LOD rings (not the rendering camera, which may be elsewhere -
         // e.g. the Scene view or a minimap).
         Vector3 tracked = GetTrackedPosition();
-        Shader.SetGlobalVector(_SID_WaveFadeCenter,
-            new Vector4(tracked.x, tracked.y, tracked.z, 1f));
-        SolWaterSurfaceSampler.SetWaveFadeCenter(new Vector2(tracked.x, tracked.z));
+        Vector4 waveFadeCenter = new(tracked.x, tracked.y, tracked.z, 1f);
+        if (_lastWaveFadeCenter != waveFadeCenter)
+        {
+            Shader.SetGlobalVector(_SID_WaveFadeCenter, waveFadeCenter);
+            SolWaterSurfaceSampler.SetWaveFadeCenter(new Vector2(tracked.x, tracked.z));
+            _lastWaveFadeCenter = waveFadeCenter;
+        }
 
         // Determine centre of the grid in grid-space.
         Vector2Int centre = WorldToGrid(tracked);
@@ -215,12 +243,16 @@ public class WaterTileGrid : MonoBehaviour
             RefreshGrid(centre);
         }
 
-        // Keep every tile at the correct Y (water level may have changed).
-        foreach (var tile in _activeTiles.Values)
+        // Keep every tile at the correct Y only when the level changed.
+        if (!Mathf.Approximately(_lastAppliedWaterY, waterY))
         {
-            Vector3 p = tile.transform.position;
-            if (!Mathf.Approximately(p.y, waterY))
-                tile.transform.position = new Vector3(p.x, waterY, p.z);
+            foreach (var tile in _activeTiles.Values)
+            {
+                Vector3 p = tile.transform.position;
+                if (!Mathf.Approximately(p.y, waterY))
+                    tile.transform.position = new Vector3(p.x, waterY, p.z);
+            }
+            _lastAppliedWaterY = waterY;
         }
 
         SyncVolume();
@@ -233,7 +265,7 @@ public class WaterTileGrid : MonoBehaviour
     {
         ClearAllTiles();
         _lastCentre = new Vector2Int(int.MaxValue, int.MaxValue);
-        _meshCache.Clear();
+        ClearMeshCache();
         Update();
     }
 
@@ -259,8 +291,12 @@ public class WaterTileGrid : MonoBehaviour
         if (_managedVolume == null)
         {
             var volGO = new GameObject("_WaterVolume");
+            volGO.SetActive(false);
             volGO.transform.SetParent(transform, false);
+            var volumeCollider = volGO.AddComponent<BoxCollider>();
+            volumeCollider.isTrigger = true;
             _managedVolume = volGO.AddComponent<WaterVolume>();
+            volGO.SetActive(true);
         }
 
         // Footprint: full grid diameter + margin on all sides.
@@ -270,26 +306,50 @@ public class WaterTileGrid : MonoBehaviour
         Vector2Int centre = GetSnappedCentre();
         float centreY     = waterY - volumeDepth * 0.5f;
 
+        bool transformChanged = _managedVolume.transform.position != new Vector3(
+            centre.x * tileSize, centreY, centre.y * tileSize);
+        bool colliderChanged = centre != _lastVolumeCentre
+            || !Mathf.Approximately(_lastVolumeFootprint, footprint)
+            || !Mathf.Approximately(_lastVolumeDepth, volumeDepth);
+        bool materialChanged = _managedVolume.waterMaterial != waterMaterial;
+
+        if (!transformChanged && !colliderChanged && !materialChanged)
+            return;
+
         _managedVolume.transform.position = new Vector3(
             centre.x * tileSize,
             centreY,
             centre.y * tileSize);
 
         // Size the BoxCollider directly (WaterVolume uses its bounds for queries).
-        var col = _managedVolume.GetComponent<BoxCollider>();
-        if (col != null)
+        if (colliderChanged)
         {
-            col.center = Vector3.zero;
-            col.size   = new Vector3(footprint, volumeDepth, footprint);
+            var col = _managedVolume.GetComponent<BoxCollider>();
+            if (col != null)
+            {
+                col.center = Vector3.zero;
+                col.size   = new Vector3(footprint, volumeDepth, footprint);
+            }
         }
 
         // Keep material in sync for wave parameter reading.
-        if (_managedVolume.waterMaterial != waterMaterial)
-            _managedVolume.waterMaterial = waterMaterial;
+        if (materialChanged)
+            _managedVolume.SetWaterMaterial(waterMaterial);
+
+        _lastVolumeCentre = centre;
+        _lastVolumeFootprint = footprint;
+        _lastVolumeDepth = volumeDepth;
     }
 
     void DestroyManagedVolume()
     {
+        if (_managedVolume == null)
+        {
+            Transform existing = transform.Find("_WaterVolume");
+            if (existing != null)
+                _managedVolume = existing.GetComponent<WaterVolume>();
+        }
+
         if (_managedVolume == null)
             return;
 
@@ -433,6 +493,13 @@ public class WaterTileGrid : MonoBehaviour
             if (t != null)
                 DestroyUnityObject(t);
         }
+    }
+
+    void ClearMeshCache()
+    {
+        foreach (Mesh mesh in _meshCache.Values)
+            DestroyUnityObject(mesh);
+        _meshCache.Clear();
     }
 
     // --- LOD Resolution --------------------------------------------------

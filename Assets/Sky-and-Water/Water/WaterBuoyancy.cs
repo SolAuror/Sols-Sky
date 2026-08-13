@@ -133,7 +133,7 @@ public class WaterBuoyancy : MonoBehaviour
             submerged++;
             lastVolume = vol;
 
-            float t = Mathf.Clamp01(depth / submersionDepth);
+            float t = Mathf.Clamp01(depth / Mathf.Max(submersionDepth, 0.0001f));
             Vector3 force = -Physics.gravity * (_rb.mass * buoyancy * t / count);
             _rb.AddForceAtPosition(force, p);
         }

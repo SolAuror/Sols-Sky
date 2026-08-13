@@ -1,13 +1,14 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Sol.ToD
 {
 
 /// <summary>
 /// Tracks an in-game calendar (day / month / year) with configurable month
-/// lengths. Seasons flip discretely at the year boundary and at the midpoint
-/// of the year (half the total days).
+/// lengths. The configured months are divided into four ordered seasons,
+/// beginning with Spring, while actual month lengths determine progress.
 /// Must live on the same GameObject as <see cref="TimeOfDay"/>.
 /// </summary>
 [RequireComponent(typeof(TimeOfDay))]
@@ -47,8 +48,12 @@ public class Calendar : MonoBehaviour
     [Tooltip("Current calendar year (read-only in play mode).")]
     [SerializeField] int currentYear;
 
-    [Tooltip("Total in-game days elapsed since start.")]
-    [SerializeField] int totalDaysElapsed;
+    [Tooltip("Signed world-date offset from the configured starting date. Rewinds may make this negative.")]
+    [SerializeField] long worldDayIndex;
+
+    [Tooltip("Forward-only fractional days experienced by the player. World-date rewinds never reduce this value.")]
+    [FormerlySerializedAs("totalDaysElapsed")]
+    [SerializeField] double playerDaysElapsed;
     #endregion
 
     // -- Events ---------------------------------------
@@ -62,29 +67,35 @@ public class Calendar : MonoBehaviour
     /// <summary>Fired when a new year begins. Passes (year).</summary>
     public event Action<int> OnNewYear;
 
-    /// <summary>Fired when the season flips (at year start and year midpoint).
-    /// Passes true for the first half of the year, false for the second.</summary>
+    /// <summary>Fired whenever the four-season calendar changes quarter.</summary>
+    public event Action<SolSeason> SeasonChanged;
+
+    /// <summary>Compatibility event for the old first-half/second-half model.</summary>
+    [Obsolete("Use SeasonChanged(SolSeason) and CurrentSeason.")]
     public event Action<bool> OnSeasonChanged;
 
     // -- Cached values --------------------------------
     int cachedDaysPerYear;
     int cachedDayOfYear;
     bool cachedFirstHalf;
+    SolSeason cachedSeason;
 
     // ------------------------------------------------
     // Initialisation (called by TimeofDay.Start)
     // ------------------------------------------------
 
-    /// <summary>Reset to the starting date. Called once by TimeofDay at play-mode start.</summary>
+    /// <summary>Start a new game at the configured date with both clocks reset.</summary>
     public void ResetToStart()
     {
         currentDay        = startDay;
         currentMonth      = startMonth;
         currentYear       = startYear;
-        totalDaysElapsed  = 0;
+        worldDayIndex     = 0;
+        playerDaysElapsed = 0d;
         cachedDaysPerYear = DaysPerYear;
         cachedDayOfYear   = DayOfYear;
         cachedFirstHalf   = cachedDayOfYear <= cachedDaysPerYear / 2;
+        cachedSeason      = GetSeasonForMonth(currentMonth);
     }
 
     // ------------------------------------------------
@@ -93,7 +104,7 @@ public class Calendar : MonoBehaviour
 
     public void AdvanceDay()
     {
-        totalDaysElapsed++;
+        worldDayIndex++;
         currentDay++;
 
         int maxDay = GetDaysInMonth(currentMonth);
@@ -118,7 +129,7 @@ public class Calendar : MonoBehaviour
 
     public void RewindDay()
     {
-        totalDaysElapsed = Mathf.Max(0, totalDaysElapsed - 1);
+        worldDayIndex--;
         currentDay--;
 
         if (currentDay < 1)
@@ -160,12 +171,32 @@ public class Calendar : MonoBehaviour
 
     /// <summary>
     /// Returns +1 during the first half of the year and -1 during the second.
-    /// Seasons flip at day 1 (year start) and at the midpoint of the year.
+    /// Retained for compatibility with the former binary season model.
     /// </summary>
+    [Obsolete("Use CurrentSeason, SeasonProgress, or YearProgress.")]
     public float SeasonSign => cachedFirstHalf ? 1f : -1f;
 
     /// <summary>True when the calendar is in the first half of the year.</summary>
+    [Obsolete("Use CurrentSeason, SeasonProgress, or YearProgress.")]
     public bool IsFirstHalfOfYear => cachedFirstHalf;
+
+    /// <summary>Current four-season calendar value.</summary>
+    public SolSeason CurrentSeason => cachedSeason;
+
+    /// <summary>Normalized progress through the current season, from 0 toward 1.</summary>
+    public float SeasonProgress
+    {
+        get
+        {
+            GetSeasonDayRange((int)cachedSeason, out int firstDay, out int length);
+            return length > 0 ? Mathf.Clamp01((cachedDayOfYear - firstDay) / (float)length) : 0f;
+        }
+    }
+
+    /// <summary>Normalized progress through the current year, from 0 toward 1.</summary>
+    public float YearProgress => cachedDaysPerYear > 0
+        ? Mathf.Clamp01((cachedDayOfYear - 1f) / cachedDaysPerYear)
+        : 0f;
 
     // ------------------------------------------------
     // Public API
@@ -190,8 +221,17 @@ public class Calendar : MonoBehaviour
     /// <summary>Current year.</summary>
     public int Year => currentYear;
 
-    /// <summary>Total in-game days elapsed since the start.</summary>
-    public int TotalDaysElapsed => totalDaysElapsed;
+    /// <summary>Signed world-date offset from the configured starting date.</summary>
+    public long WorldDayIndex => worldDayIndex;
+
+    /// <summary>Forward-only fractional days experienced by the player.</summary>
+    public double PlayerDaysElapsed => playerDaysElapsed;
+
+    /// <summary>Completed player-experienced days. Use <see cref="PlayerDaysElapsed"/> for new code.</summary>
+    [Obsolete("Use PlayerDaysElapsed for player time or WorldDayIndex for rewindable world-date time.")]
+    public int TotalDaysElapsed => playerDaysElapsed >= int.MaxValue
+        ? int.MaxValue
+        : Mathf.FloorToInt((float)Math.Max(0d, playerDaysElapsed));
 
     /// <summary>Number of months per year (derived from daysPerMonth array length).</summary>
     public int MonthsPerYear => daysPerMonth.Length;
@@ -244,17 +284,42 @@ public class Calendar : MonoBehaviour
         currentYear  = year;
         currentMonth = Mathf.Clamp(month, 1, MonthsPerYear);
         currentDay   = Mathf.Clamp(day, 1, GetDaysInMonth(currentMonth));
+        worldDayIndex = CalculateWorldDayIndex(currentDay, currentMonth, currentYear);
         RefreshCachedValues();
     }
 
-    /// <summary>Set the calendar date directly, including the running day counter.</summary>
+    /// <summary>Compatibility restore overload. The legacy counter maps to completed player days.</summary>
+    [Obsolete("Use SetDate(day, month, year, worldDayIndex, playerDaysElapsed).")]
     public void SetDate(int day, int month, int year, int totalDays)
+    {
+        SetDate(day, month, year);
+        playerDaysElapsed = Math.Max(0d, totalDays);
+    }
+
+    /// <summary>Restore the world date and player-time counter independently.</summary>
+    public void SetDate(int day, int month, int year, long restoredWorldDayIndex, double restoredPlayerDaysElapsed)
     {
         currentYear = year;
         currentMonth = Mathf.Clamp(month, 1, MonthsPerYear);
         currentDay = Mathf.Clamp(day, 1, GetDaysInMonth(currentMonth));
-        totalDaysElapsed = Mathf.Max(0, totalDays);
+        worldDayIndex = restoredWorldDayIndex;
+        playerDaysElapsed = Math.Max(0d, restoredPlayerDaysElapsed);
         RefreshCachedValues();
+    }
+
+    /// <summary>Add forward-only player-experienced time. Negative values are ignored.</summary>
+    public void AdvancePlayerTime(double days)
+    {
+        if (days <= 0d || double.IsNaN(days) || double.IsInfinity(days))
+            return;
+
+        playerDaysElapsed += days;
+    }
+
+    /// <summary>Restore player-experienced time without changing the world date.</summary>
+    public void SetPlayerDaysElapsed(double days)
+    {
+        playerDaysElapsed = Math.Max(0d, double.IsNaN(days) || double.IsInfinity(days) ? 0d : days);
     }
 
     // ------------------------------------------------
@@ -266,12 +331,61 @@ public class Calendar : MonoBehaviour
         cachedDayOfYear   = DayOfYear;
         cachedDaysPerYear = DaysPerYear;
 
+        SolSeason season = GetSeasonForMonth(currentMonth);
+        if (season != cachedSeason)
+        {
+            cachedSeason = season;
+            SeasonChanged?.Invoke(cachedSeason);
+        }
+
         bool firstHalf = cachedDayOfYear <= cachedDaysPerYear / 2;
         if (firstHalf != cachedFirstHalf)
         {
             cachedFirstHalf = firstHalf;
             OnSeasonChanged?.Invoke(cachedFirstHalf);
         }
+    }
+
+    SolSeason GetSeasonForMonth(int month)
+    {
+        int monthCount = Mathf.Max(1, MonthsPerYear);
+        int clampedMonth = Mathf.Clamp(month, 1, monthCount);
+        int seasonIndex = Mathf.Min(3, (clampedMonth - 1) * 4 / monthCount);
+        return (SolSeason)seasonIndex;
+    }
+
+    void GetSeasonDayRange(int seasonIndex, out int firstDay, out int length)
+    {
+        int monthCount = Mathf.Max(1, MonthsPerYear);
+        int firstMonthIndex = seasonIndex * monthCount / 4;
+        int endMonthIndex = (seasonIndex + 1) * monthCount / 4;
+        if (seasonIndex == 3)
+            endMonthIndex = monthCount;
+
+        firstDay = 1;
+        for (int i = 0; i < firstMonthIndex; i++)
+            firstDay += daysPerMonth[i];
+
+        length = 0;
+        for (int i = firstMonthIndex; i < endMonthIndex; i++)
+            length += daysPerMonth[i];
+    }
+
+    long CalculateWorldDayIndex(int day, int month, int year)
+    {
+        long years = (long)year - startYear;
+        long index = years * DaysPerYear;
+        index += GetDayOfYear(day, month) - GetDayOfYear(startDay, startMonth);
+        return index;
+    }
+
+    int GetDayOfYear(int day, int month)
+    {
+        int clampedMonth = Mathf.Clamp(month, 1, MonthsPerYear);
+        int result = 0;
+        for (int m = 1; m < clampedMonth; m++)
+            result += GetDaysInMonth(m);
+        return result + Mathf.Clamp(day, 1, GetDaysInMonth(clampedMonth));
     }
 }
 }

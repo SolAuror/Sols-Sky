@@ -42,7 +42,8 @@ MonoBehaviour:
   m_RendererFeatures:
   - {fileID: 7833122117494664109}
   - {fileID: -1168084923048926288}
-  m_RendererFeatureMap: ad6b866f10d7b46c
+  - {fileID: 5169771909867307913}
+  m_RendererFeatureMap: ad6b866f10d7b46cad6b866f10d7b46c89036f5129b8be47
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -71,6 +72,22 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+--- !u!114 &5169771909867307913
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f68602397097694d86ae09ea890086a, type: 3}
+  m_Name: SolAtmosphereRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::SolAtmosphereRendererFeature
+  m_Active: 1
+  atmosphereShader: {fileID: 4800000, guid: 3a9f3f8d50c5a0141afed981cc653783, type: 3}
+  renderInSceneView: 1
+  debugLog: 0
 --- !u!114 &7833122117494664109
 MonoBehaviour:
   m_ObjectHideFlags: 0

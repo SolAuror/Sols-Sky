@@ -577,3 +577,20 @@ The legacy five-value restore overload remains only as an obsolete compatibility
 - Do not use fake screenshots in public docs. Capture the actual demo scene.
 - Sol shader globals remain scene-wide. Per-volume water fade/surface state and per-camera underwater state are deferred architecture work.
 - Generated demo water tiles remain intentionally deferred until an authored prefab/asset workflow is selected.
+# Water 2 / environment authority
+
+The replacement environment API is documented in `Documentation/Water2 Overhaul.md`. Its principal public contracts are:
+
+- `Sol.Environment.SolEnvironmentWorld`, `SolEnvironmentState`, `SolEnvironmentCommand`, and `SolEnvironmentSnapshot`.
+- `Sol.Water.SolWaterProfile` exposes world-space foam texture scale/contrast/brightness, dynamic sky-reflection blending, and optional logical-world shoreline depth/distance data with shallow-wave attenuation and contact controls alongside the existing optics, waves, shoreline, and underwater controls.
+- `Sol.Water.SolWaterQualityProfile` exposes SSR traversal distance/thickness/edge fade, binary refinement, temporal history weight, depth/normal validation tolerances, and maximum reflected luminance.
+- `Sol.Water.Rendering.SolWaterDebugMode` selects raw SSR, validated SSR, confidence, dynamic-sky fallback, or pre-texture foam-confidence visualization on `SolWaterRendererFeature`.
+- `Sol.Environment.SolEnvironmentCameraRegistry` and `SolWorldOriginService`.
+- `Sol.Water.SolWaterWorld`, `SolWaterBody`, `SolWaterBodyId`, `SolWaterCommand`, and `SolWaterSnapshot`.
+- `Sol.Water.ISolWaterQueryService` and `SolWaterSurfaceSample`.
+- `Sol.Hydrology.SolHydrologyAsset`, `SolHydrologyWorld`, `SolHydrologyCommand`, and `SolHydrologySnapshot`.
+- `Sol.Streaming.IEnvironmentCellProvider` and `SolEnvironmentCellId`.
+
+These APIs are a clean break. The one-way editor converter is the migration boundary; no runtime compatibility facade is provided.
+
+The active-terrain shoreline baker is available from `Tools > Sol Environment > Water 2 > Bake Active Terrain Shoreline Data`. It creates an `RGHalf` Water 2 asset whose red channel is signed vertical water depth and green channel is signed horizontal distance from shore, then assigns its logical-world mapping to the active ocean profile.

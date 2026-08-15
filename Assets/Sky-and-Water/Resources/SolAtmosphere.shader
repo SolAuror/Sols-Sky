@@ -152,9 +152,10 @@ Shader "Hidden/Sol/Atmosphere"
                     #endif
 
                     float segmentOpacity = 1.0 - segmentTransmittance;
-                    inScattering += transmittance
-                        * SolAtmosphereLighting(viewDirection, shadowAttenuation)
-                        * segmentOpacity;
+                    float3 sampleLighting = SolAtmosphereLighting(viewDirection, shadowAttenuation);
+                    if (_SolAtmosphereParams2.w > 1.5)
+                        sampleLighting += SolAtmosphereLocalLighting(samplePosition);
+                    inScattering += transmittance * sampleLighting * segmentOpacity;
                     transmittance *= segmentTransmittance;
                     if (transmittance <= 0.01)
                         break;
@@ -303,6 +304,63 @@ Shader "Hidden/Sol/Atmosphere"
                 SolFilterTap(uv - float2(0.0, texel.y), 1.0, centerDepth, filtered, totalWeight);
                 filtered /= max(totalWeight, 0.00001);
                 return lerp(center, filtered, strength);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Sol Atmosphere Temporal Reprojection"
+            ZWrite Off
+            ZTest Always
+            Cull Off
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma vertex Vert
+            #pragma fragment FragTemporal
+
+            TEXTURE2D_X(_SolAtmosphereHistoryTexture);
+            float4x4 _SolAtmospherePreviousViewProjection;
+            float4 _SolAtmosphereTemporalParams; // history weight, clamp expansion, reserved
+
+            half4 FragTemporal(Varyings input) : SV_Target
+            {
+                float2 uv = input.texcoord;
+                float4 current = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+                if (_SolAtmosphereTemporalParams.x <= 0.0001)
+                    return current;
+
+                float rawDepth = SampleSceneDepth(uv);
+                float isSky = SolRawDepthIsSky(rawDepth);
+                float3 positionWS = ComputeWorldSpacePosition(
+                    uv, SolSafeRawDepth(rawDepth, isSky), UNITY_MATRIX_I_VP);
+                float4 previousClip = mul(_SolAtmospherePreviousViewProjection, float4(positionWS, 1.0));
+                float2 previousUV = previousClip.xy / max(0.0001, previousClip.w) * 0.5 + 0.5;
+                #if UNITY_UV_STARTS_AT_TOP
+                    previousUV.y = 1.0 - previousUV.y;
+                #endif
+                float2 edge = min(previousUV, 1.0 - previousUV);
+                float validity = step(0.0, previousClip.w)
+                    * step(0.0, min(edge.x, edge.y));
+                if (validity <= 0.0)
+                    return current;
+
+                float4 minimumValue = current;
+                float4 maximumValue = current;
+                float2 texel = _BlitTexture_TexelSize.xy;
+                float4 tap0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texel.x, 0));
+                float4 tap1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texel.x, 0));
+                float4 tap2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(0, texel.y));
+                float4 tap3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(0, texel.y));
+                minimumValue = min(minimumValue, min(min(tap0, tap1), min(tap2, tap3)));
+                maximumValue = max(maximumValue, max(max(tap0, tap1), max(tap2, tap3)));
+                float4 expansion = (maximumValue - minimumValue) * _SolAtmosphereTemporalParams.y;
+                float4 history = SAMPLE_TEXTURE2D_X(
+                    _SolAtmosphereHistoryTexture, sampler_LinearClamp, previousUV);
+                history = clamp(history, minimumValue - expansion, maximumValue + expansion);
+                return lerp(current, history, _SolAtmosphereTemporalParams.x * validity);
             }
             ENDHLSL
         }

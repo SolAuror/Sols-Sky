@@ -1,0 +1,85 @@
+#pragma kernel Clear
+#pragma kernel Step
+#pragma kernel Shift
+
+Texture2D<float4> _Current;
+Texture2D<float> _ObstacleMask;
+RWTexture2D<float4> _Result;
+int _Resolution;
+float _DeltaTime;
+float4 _SimulationParams; // propagation speed, damping, foam gain, texel world size
+int _ImpulseCount;
+float4 _Impulses[32]; // uv, normalized radius, strength
+float4 _ShiftUV;
+
+[numthreads(8, 8, 1)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint)_Resolution))
+        return;
+    _Result[id.xy] = 0;
+}
+
+float HeightAt(int2 pixel)
+{
+    pixel = clamp(pixel, 0, _Resolution - 1);
+    return _Current.Load(int3(pixel, 0)).x;
+}
+
+[numthreads(8, 8, 1)]
+void Step(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint)_Resolution))
+        return;
+
+    int2 pixel = int2(id.xy);
+    float4 state = _Current.Load(int3(pixel, 0));
+    uint maskWidth;
+    uint maskHeight;
+    _ObstacleMask.GetDimensions(maskWidth, maskHeight);
+    int2 maskPixel = clamp((int2)(((pixel + 0.5) / _Resolution) * float2(maskWidth, maskHeight)),
+        int2(0, 0), int2(maskWidth - 1, maskHeight - 1));
+    float obstacle = _ObstacleMask.Load(int3(maskPixel, 0));
+    if (obstacle > 0.5)
+    {
+        _Result[pixel] = 0;
+        return;
+    }
+
+    float laplacian = HeightAt(pixel + int2(1, 0)) + HeightAt(pixel + int2(-1, 0))
+        + HeightAt(pixel + int2(0, 1)) + HeightAt(pixel + int2(0, -1)) - state.x * 4.0;
+    float cellSize = max(0.001, _SimulationParams.w);
+    float acceleration = laplacian * (_SimulationParams.x * _SimulationParams.x) / (cellSize * cellSize);
+    float velocity = (state.y + acceleration * _DeltaTime) * _SimulationParams.y;
+    float height = state.x + velocity * _DeltaTime;
+    float foam = state.z * exp(-_DeltaTime * 0.8) + abs(laplacian) * _SimulationParams.z;
+
+    float2 uv = (pixel + 0.5) / _Resolution;
+    [loop]
+    for (int i = 0; i < min(_ImpulseCount, 32); i++)
+    {
+        float radius = max(0.0001, _Impulses[i].z);
+        float falloff = saturate(1.0 - length(uv - _Impulses[i].xy) / radius);
+        float impulse = falloff * falloff * (3.0 - 2.0 * falloff) * _Impulses[i].w;
+        velocity += impulse;
+        foam += abs(impulse) * 0.25;
+    }
+
+    float wetness = max(state.w * exp(-_DeltaTime * 0.05), saturate(abs(height) * 4.0));
+    _Result[pixel] = float4(height, velocity, saturate(foam), wetness);
+}
+
+[numthreads(8, 8, 1)]
+void Shift(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint)_Resolution))
+        return;
+    float2 uv = (id.xy + 0.5) / _Resolution + _ShiftUV.xy;
+    if (any(uv <= 0.0) || any(uv >= 1.0))
+    {
+        _Result[id.xy] = 0;
+        return;
+    }
+    int2 source = clamp((int2)(uv * _Resolution), 0, _Resolution - 1);
+    _Result[id.xy] = _Current.Load(int3(source, 0));
+}

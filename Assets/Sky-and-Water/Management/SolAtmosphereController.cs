@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using Sol.ToD;
 
 /// <summary>Combines authored atmosphere settings with current sky and weather state.</summary>
@@ -34,13 +35,61 @@ public sealed class SolAtmosphereController : MonoBehaviour
     static readonly int LightingParamsID = Shader.PropertyToID("_SolAtmosphereLightingParams");
     static readonly int LightningScatteringID = Shader.PropertyToID("_SolAtmosphereLightningScattering");
     static readonly int LightAvailableID = Shader.PropertyToID("_SolAtmosphereLightAvailable");
+    static readonly int LocalVolumeCountID = Shader.PropertyToID("_SolAtmosphereLocalVolumeCount");
+    static readonly int LocalVolumeData0ID = Shader.PropertyToID("_SolAtmosphereLocalVolumeData0");
+    static readonly int LocalVolumeData1ID = Shader.PropertyToID("_SolAtmosphereLocalVolumeData1");
+    static readonly int LocalLightCountID = Shader.PropertyToID("_SolAtmosphereLocalLightCount");
+    static readonly int LocalLightData0ID = Shader.PropertyToID("_SolAtmosphereLocalLightData0");
+    static readonly int LocalLightData1ID = Shader.PropertyToID("_SolAtmosphereLocalLightData1");
+    static readonly int LocalLightData2ID = Shader.PropertyToID("_SolAtmosphereLocalLightData2");
+
+    static readonly Vector4[] LocalVolumeData0 = new Vector4[16];
+    static readonly Vector4[] LocalVolumeData1 = new Vector4[16];
+    static readonly Vector4[] LocalLightData0 = new Vector4[16];
+    static readonly Vector4[] LocalLightData1 = new Vector4[16];
+    static readonly Vector4[] LocalLightData2 = new Vector4[16];
 
     public SolAtmosphereQuality Quality => _runtimeQualityOverride
         ?? (profile != null ? profile.quality : fallbackQuality);
     public Color CurrentFogColor { get; private set; }
     public float CurrentDensity { get; private set; }
     public Light CurrentDominantLight { get; private set; }
-    public bool UsesVolumetricLighting => Quality == SolAtmosphereQuality.High;
+    public bool UsesVolumetricLighting => Quality != SolAtmosphereQuality.Low;
+
+    public SolAtmosphereQuality ApplyCameraOverrides(VolumeStack stack)
+    {
+        PushGlobals();
+        SolAtmosphereQuality quality = Quality;
+        SolAtmosphereVolume volume = stack?.GetComponent<SolAtmosphereVolume>();
+        if (volume == null || !volume.IsActive())
+            return quality;
+
+        if (volume.quality.overrideState)
+            quality = (SolAtmosphereQuality)Mathf.Clamp(volume.quality.value, 0, 2);
+        float density = CurrentDensity * (volume.densityMultiplier.overrideState
+            ? volume.densityMultiplier.value
+            : 1f);
+        float start = volume.startDistance.overrideState
+            ? volume.startDistance.value
+            : SettingsStartDistance;
+        float maximum = volume.maximumDistance.overrideState
+            ? volume.maximumDistance.value
+            : SettingsMaxDistance;
+        float opacity = volume.maximumOpacity.overrideState
+            ? volume.maximumOpacity.value
+            : SettingsMaxOpacity;
+        Color color = volume.fogColor.overrideState ? volume.fogColor.value : CurrentFogColor;
+        Shader.SetGlobalColor(FogColorID, color);
+        Shader.SetGlobalVector(Params0ID, new Vector4(density, start, maximum, opacity));
+        Shader.SetGlobalVector(Params2ID, new Vector4(
+            SettingsDirectionalScattering, SettingsPhaseAnisotropy, SettingsSkyFog, (float)quality));
+        Shader.SetGlobalVector(VolumetricParamsID, new Vector4(
+            SettingsShadowedScattering,
+            Mathf.Min(SettingsRaymarchDistance, maximum),
+            quality == SolAtmosphereQuality.Medium ? 16 : SettingsRaymarchSteps,
+            SettingsRaymarchJitter));
+        return quality;
+    }
 
     void OnEnable()
     {
@@ -172,6 +221,7 @@ public sealed class SolAtmosphereController : MonoBehaviour
             weather.Dim,
             SettingsMaxScatteringLuminance));
         Shader.SetGlobalFloat(LightAvailableID, CurrentDominantLight != null ? 1f : 0f);
+        PushLocalVolumesAndLights();
 
         if (disableLegacyFog)
             RenderSettings.fog = false;
@@ -192,7 +242,9 @@ public sealed class SolAtmosphereController : MonoBehaviour
     float SettingsDirectionalScattering => profile != null ? profile.directionalScatteringIntensity : 0.65f;
     float SettingsShadowedScattering => Mathf.Clamp01(profile != null ? profile.shadowedScatteringStrength : 0.85f);
     float SettingsRaymarchDistance => Mathf.Max(1f, profile != null ? profile.raymarchDistance : 500f);
-    int SettingsRaymarchSteps => Mathf.Clamp(profile != null ? profile.raymarchStepCount : 32, 8, 32);
+    int SettingsRaymarchSteps => Quality == SolAtmosphereQuality.Medium
+        ? 16
+        : Mathf.Clamp(profile != null ? profile.raymarchStepCount : 32, 8, 32);
     float SettingsRaymarchJitter => Mathf.Clamp01(profile != null ? profile.raymarchJitter : 0.15f);
     float SettingsBilateralDepthThreshold => Mathf.Max(0.01f, profile != null ? profile.bilateralDepthThreshold : 2f);
     float SettingsSpatialFilterStrength => Quality == SolAtmosphereQuality.High
@@ -225,6 +277,67 @@ public sealed class SolAtmosphereController : MonoBehaviour
         float intensity = Mathf.Max(0f, CurrentDominantLight.intensity);
         Color lightColor = Color.Lerp(authoredScatteringColor, CurrentDominantLight.color, 0.5f);
         return lightColor * intensity;
+    }
+
+    static void PushLocalVolumesAndLights()
+    {
+        int volumeCount = 0;
+        var densityVolumes = SolAtmosphereLocalRegistry.DensityVolumes;
+        for (int i = 0; i < densityVolumes.Count && volumeCount < LocalVolumeData0.Length; i++)
+        {
+            SolAtmosphereDensityVolume volume = densityVolumes[i];
+            if (volume == null || !volume.isActiveAndEnabled)
+                continue;
+            Bounds bounds = volume.WorldBounds;
+            LocalVolumeData0[volumeCount] = new Vector4(
+                bounds.center.x, bounds.center.y, bounds.center.z, volume.Density);
+            LocalVolumeData1[volumeCount] = new Vector4(
+                bounds.extents.x, bounds.extents.y, bounds.extents.z, volume.BlendDistance);
+            volumeCount++;
+        }
+        var exclusions = SolAtmosphereLocalRegistry.ExclusionVolumes;
+        for (int i = 0; i < exclusions.Count && volumeCount < LocalVolumeData0.Length; i++)
+        {
+            SolAtmosphereExclusionVolume volume = exclusions[i];
+            if (volume == null || !volume.isActiveAndEnabled)
+                continue;
+            Bounds bounds = volume.WorldBounds;
+            LocalVolumeData0[volumeCount] = new Vector4(
+                bounds.center.x, bounds.center.y, bounds.center.z, -volume.Strength);
+            LocalVolumeData1[volumeCount] = new Vector4(
+                bounds.extents.x, bounds.extents.y, bounds.extents.z, volume.BlendDistance);
+            volumeCount++;
+        }
+        Shader.SetGlobalInt(LocalVolumeCountID, volumeCount);
+        Shader.SetGlobalVectorArray(LocalVolumeData0ID, LocalVolumeData0);
+        Shader.SetGlobalVectorArray(LocalVolumeData1ID, LocalVolumeData1);
+
+        int lightCount = 0;
+        var lights = SolAtmosphereLocalRegistry.Lights;
+        for (int i = 0; i < lights.Count && lightCount < LocalLightData0.Length; i++)
+        {
+            SolVolumetricLight volumetric = lights[i];
+            Light light = volumetric != null ? volumetric.Source : null;
+            if (light == null || !light.isActiveAndEnabled
+                || (light.type != LightType.Point && light.type != LightType.Spot))
+                continue;
+            Transform lightTransform = light.transform;
+            Color color = light.color * (light.intensity * volumetric.ScatteringMultiplier);
+            LocalLightData0[lightCount] = new Vector4(
+                lightTransform.position.x, lightTransform.position.y, lightTransform.position.z,
+                Mathf.Max(0.01f, light.range));
+            LocalLightData1[lightCount] = new Vector4(
+                color.r, color.g, color.b, light.type == LightType.Spot ? 1f : 0f);
+            Vector3 direction = lightTransform.forward;
+            LocalLightData2[lightCount] = new Vector4(
+                direction.x, direction.y, direction.z,
+                Mathf.Cos(light.spotAngle * 0.5f * Mathf.Deg2Rad));
+            lightCount++;
+        }
+        Shader.SetGlobalInt(LocalLightCountID, lightCount);
+        Shader.SetGlobalVectorArray(LocalLightData0ID, LocalLightData0);
+        Shader.SetGlobalVectorArray(LocalLightData1ID, LocalLightData1);
+        Shader.SetGlobalVectorArray(LocalLightData2ID, LocalLightData2);
     }
 
     // CPU mirrors of the HLSL model keep the numerical edge cases testable.

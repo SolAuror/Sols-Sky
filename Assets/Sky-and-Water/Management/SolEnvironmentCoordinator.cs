@@ -44,6 +44,7 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_SolAtmosphereLightning"),
         Shader.PropertyToID("_SolAtmosphereLightningScattering"),
         Shader.PropertyToID("_SolAtmosphereLightAvailable"),
+        Shader.PropertyToID("_SolAtmosphereTransparentFog"),
         Shader.PropertyToID("_Sol_RippleSpeed"),
         Shader.PropertyToID("_Sol_RippleFrequency"),
         Shader.PropertyToID("_Sol_RippleLifetime"),
@@ -56,6 +57,8 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
     static readonly int[] IntIds =
     {
         Shader.PropertyToID("_Sol_RippleCount"),
+        Shader.PropertyToID("_SolAtmosphereLocalVolumeCount"),
+        Shader.PropertyToID("_SolAtmosphereLocalLightCount"),
     };
 
     static readonly int[] VectorIds =
@@ -96,6 +99,11 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
     static readonly int[] VectorArrayIds =
     {
         Shader.PropertyToID("_Sol_Ripples"),
+        Shader.PropertyToID("_SolAtmosphereLocalVolumeData0"),
+        Shader.PropertyToID("_SolAtmosphereLocalVolumeData1"),
+        Shader.PropertyToID("_SolAtmosphereLocalLightData0"),
+        Shader.PropertyToID("_SolAtmosphereLocalLightData1"),
+        Shader.PropertyToID("_SolAtmosphereLocalLightData2"),
     };
 
     public static SolEnvironmentCoordinator Resolve(Component requester, bool createIfMissing = false)

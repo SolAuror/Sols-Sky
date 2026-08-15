@@ -15,6 +15,25 @@ MonoBehaviour:
   m_Active: 1
   overlayMaterial: {fileID: 2100000, guid: 521639a91cdf8824d8ddefe6971fb597, type: 2}
   debugLog: 0
+--- !u!114 &-720534754304029497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5ebf7b96dfe8124e90d019c25bdce76, type: 3}
+  m_Name: SolWaterRendererFeature
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.Rendering.SolWaterRendererFeature
+  m_Active: 1
+  oceanShader: {fileID: 4800000, guid: 68a8756cdb8921f459a61b8f9c91c6bb, type: 3}
+  resolveShader: {fileID: 4800000, guid: 9c59a028668fcd64b8ba01c1e190c0b2, type: 3}
+  underwaterShader: {fileID: 4800000, guid: 6e44555c5668c2e4dabf4513283aea8d, type: 3}
+  fftShader: {fileID: 7200000, guid: c75c17605f5d7bf448d1463370ea594b, type: 3}
+  renderInSceneView: 1
+  debugLog: 0
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -43,7 +62,8 @@ MonoBehaviour:
   - {fileID: 7833122117494664109}
   - {fileID: -1168084923048926288}
   - {fileID: 5169771909867307913}
-  m_RendererFeatureMap: ad6b866f10d7b46cad6b866f10d7b46c89036f5129b8be47
+  - {fileID: -720534754304029497}
+  m_RendererFeatureMap: ad6b866f10d7b46cb0e32d86f320caef89036f5129b8be47c78c6261752500f6
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -71,7 +91,7 @@ MonoBehaviour:
   m_DepthAttachmentFormat: 0
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
-  m_IntermediateTextureMode: 0
+  m_IntermediateTextureMode: 1
 --- !u!114 &5169771909867307913
 MonoBehaviour:
   m_ObjectHideFlags: 0

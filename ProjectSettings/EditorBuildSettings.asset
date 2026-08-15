@@ -8,5 +8,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/SolsWeather_Demo.unity
     guid: 4b7dd8ef7a9c4d07b07ab3e3796f6d36
+  - enabled: 1
+    path: Assets/Scenes/Sols_Water2_Demo.unity
+    guid: 970a509cd52153449bdbc3e7b5fe1ae1
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

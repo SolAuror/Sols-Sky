@@ -16,6 +16,14 @@ float4 _SolAtmosphereWindTime; // wind xz, accumulated time, strength
 float _SolAtmosphereLightning;
 float _SolAtmosphereLightningScattering;
 float _SolAtmosphereLightAvailable;
+float _SolAtmosphereTransparentFog;
+int _SolAtmosphereLocalVolumeCount;
+float4 _SolAtmosphereLocalVolumeData0[16]; // center xyz, signed density/exclusion
+float4 _SolAtmosphereLocalVolumeData1[16]; // extents xyz, blend distance
+int _SolAtmosphereLocalLightCount;
+float4 _SolAtmosphereLocalLightData0[16]; // position xyz, range
+float4 _SolAtmosphereLocalLightData1[16]; // color rgb, spot flag
+float4 _SolAtmosphereLocalLightData2[16]; // forward xyz, outer cosine
 
 float SolAtmosphereHash(float2 p)
 {
@@ -84,12 +92,39 @@ float SolAtmosphereNoiseMultiplier(float3 positionWS)
     return max(0.05, 1.0 + (noise - 0.5) * 2.0 * _SolAtmosphereParams1.z);
 }
 
-float SolAtmosphereDensityAt(float3 positionWS)
+float SolAtmosphereBaseDensityAt(float3 positionWS)
 {
     float height = max(0.0, positionWS.y - _SolAtmosphereParams1.x);
     float heightDensity = exp(-height * _SolAtmosphereParams1.y);
     return max(0.0, _SolAtmosphereParams0.x * heightDensity
         * SolAtmosphereNoiseMultiplier(positionWS));
+}
+
+float SolAtmosphereBoxWeight(float3 positionWS, float3 center, float3 extents, float blendDistance)
+{
+    float3 outside = abs(positionWS - center) - max(extents, 0.001);
+    float signedDistance = length(max(outside, 0.0)) + min(max(outside.x, max(outside.y, outside.z)), 0.0);
+    return saturate(1.0 - max(0.0, signedDistance) / max(0.001, blendDistance));
+}
+
+float SolAtmosphereDensityAt(float3 positionWS)
+{
+    float density = SolAtmosphereBaseDensityAt(positionWS);
+    float exclusion = 1.0;
+    [loop]
+    for (int i = 0; i < min(_SolAtmosphereLocalVolumeCount, 16); i++)
+    {
+        float signedDensity = _SolAtmosphereLocalVolumeData0[i].w;
+        float weight = SolAtmosphereBoxWeight(positionWS,
+            _SolAtmosphereLocalVolumeData0[i].xyz,
+            _SolAtmosphereLocalVolumeData1[i].xyz,
+            _SolAtmosphereLocalVolumeData1[i].w);
+        if (signedDensity >= 0.0)
+            density += signedDensity * weight;
+        else
+            exclusion *= 1.0 - saturate(-signedDensity) * weight;
+    }
+    return max(0.0, density * exclusion);
 }
 
 float SolAtmosphereOpticalDepth(float3 cameraWS, float3 viewDirection, float distanceToPoint)
@@ -107,8 +142,13 @@ float SolAtmosphereOpticalDepth(float3 cameraWS, float3 viewDirection, float dis
         fogDistance,
         _SolAtmosphereParams1.y);
     float3 midpointWS = startWS + viewDirection * (fogDistance * 0.5);
-    return max(0.0, _SolAtmosphereParams0.x * heightIntegral
+    float baseOpticalDepth = max(0.0, _SolAtmosphereParams0.x * heightIntegral
         * SolAtmosphereNoiseMultiplier(midpointWS));
+    float baseMidpointDensity = SolAtmosphereBaseDensityAt(midpointWS);
+    float finalMidpointDensity = SolAtmosphereDensityAt(midpointWS);
+    if (baseMidpointDensity <= 0.000001)
+        return baseOpticalDepth + finalMidpointDensity * fogDistance;
+    return baseOpticalDepth * finalMidpointDensity / baseMidpointDensity;
 }
 
 float SolAtmosphereCornetteShanks(float cosineTheta, float anisotropy)
@@ -151,6 +191,29 @@ float3 SolAtmosphereLighting(float3 viewDirection, float shadowAttenuation)
     return SolAtmosphereClampLuminance(lighting);
 }
 
+float3 SolAtmosphereLocalLighting(float3 positionWS)
+{
+    float3 lighting = 0.0;
+    [loop]
+    for (int i = 0; i < min(_SolAtmosphereLocalLightCount, 16); i++)
+    {
+        float3 toLight = _SolAtmosphereLocalLightData0[i].xyz - positionWS;
+        float range = max(0.01, _SolAtmosphereLocalLightData0[i].w);
+        float distanceToLight = length(toLight);
+        float attenuation = saturate(1.0 - distanceToLight / range);
+        attenuation *= attenuation;
+        if (_SolAtmosphereLocalLightData1[i].w > 0.5)
+        {
+            float3 lightToSample = -toLight / max(distanceToLight, 0.0001);
+            float cone = dot(normalize(_SolAtmosphereLocalLightData2[i].xyz), lightToSample);
+            attenuation *= smoothstep(_SolAtmosphereLocalLightData2[i].w,
+                min(1.0, _SolAtmosphereLocalLightData2[i].w + 0.08), cone);
+        }
+        lighting += _SolAtmosphereLocalLightData1[i].rgb * attenuation;
+    }
+    return SolAtmosphereClampLuminance(lighting);
+}
+
 float SolAtmosphereSkyOpticalDepthScale(float3 viewDirection)
 {
     float horizon = pow(saturate(1.0 - abs(viewDirection.y)), 3.0);
@@ -182,6 +245,18 @@ float3 SolApplyAtmosphere(float3 color, float3 cameraWS, float3 positionWS, floa
     float transmittance = 1.0 - amount;
     float3 inScattering = SolAtmosphereLighting(viewDirection, 1.0) * amount;
     return color * transmittance + inScattering;
+}
+
+float3 SolApplyAtmosphereOptIn(
+    float3 color,
+    float3 cameraWS,
+    float3 positionWS,
+    float3 viewDirection,
+    float isSky)
+{
+    return lerp(color,
+        SolApplyAtmosphere(color, cameraWS, positionWS, viewDirection, isSky),
+        saturate(_SolAtmosphereTransparentFog));
 }
 
 #endif

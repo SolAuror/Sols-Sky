@@ -1,3 +1,4 @@
+using Sol.Environment;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -62,9 +63,13 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
         const int RaymarchPassIndex = 1;
         const int CompositePassIndex = 2;
         const int SpatialFilterPassIndex = 3;
+        const int TemporalPassIndex = 4;
 
         static readonly int UnderwaterFactorID = Shader.PropertyToID("_UnderwaterFactor");
         static readonly int VolumetricTextureID = Shader.PropertyToID("_SolAtmosphereVolumetricTexture");
+        static readonly int HistoryTextureID = Shader.PropertyToID("_SolAtmosphereHistoryTexture");
+        static readonly int PreviousViewProjectionID = Shader.PropertyToID("_SolAtmospherePreviousViewProjection");
+        static readonly int TemporalParamsID = Shader.PropertyToID("_SolAtmosphereTemporalParams");
 
         Material _material;
         bool _debug;
@@ -91,6 +96,16 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             internal Material material;
         }
 
+        sealed class TemporalPassData
+        {
+            internal TextureHandle source;
+            internal TextureHandle depth;
+            internal TextureHandle history;
+            internal Material material;
+            internal Matrix4x4 previousViewProjection;
+            internal float historyWeight;
+        }
+
         public void SetMaterial(Material material, bool debug)
         {
             _material = material;
@@ -114,10 +129,21 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             if (!activeColor.IsValid() || !depth.IsValid())
                 return;
 
-            if (SolAtmosphereController.Active.UsesVolumetricLighting)
-                RecordVolumetric(renderGraph, activeColor, depth);
+            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+            SolAtmosphereQuality quality = SolAtmosphereController.Active.ApplyCameraOverrides(
+                VolumeManager.instance.stack);
+            Vector2Int pixelSize = new(
+                Mathf.Max(1, cameraData.cameraTargetDescriptor.width),
+                Mathf.Max(1, cameraData.cameraTargetDescriptor.height));
+            SolEnvironmentCameraRegistry.Context cameraContext =
+                SolEnvironmentCameraRegistry.BeginCamera(cameraData.camera, pixelSize);
+
+            if (quality != SolAtmosphereQuality.Low)
+                RecordVolumetric(renderGraph, activeColor, depth, cameraData, cameraContext, quality);
             else
                 RecordAnalytic(renderGraph, activeColor);
+
+            SolEnvironmentCameraRegistry.EndCamera(cameraContext);
         }
 
         void RecordAnalytic(RenderGraph renderGraph, TextureHandle activeColor)
@@ -134,7 +160,13 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             renderGraph.AddBlitPass(parameters, passName: "Sol Atmosphere Analytic");
         }
 
-        void RecordVolumetric(RenderGraph renderGraph, TextureHandle activeColor, TextureHandle depth)
+        void RecordVolumetric(
+            RenderGraph renderGraph,
+            TextureHandle activeColor,
+            TextureHandle depth,
+            UniversalCameraData cameraData,
+            SolEnvironmentCameraRegistry.Context cameraContext,
+            SolAtmosphereQuality quality)
         {
             TextureDesc sourceDesc = renderGraph.GetTextureDesc(activeColor);
             TextureDesc halfDesc = CreateHalfResolutionDescriptor(sourceDesc);
@@ -157,16 +189,53 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
                 });
             }
 
+            TextureHandle temporalSource = volumetric;
+            if (quality == SolAtmosphereQuality.High
+                && SolEnvironmentCameraRegistry.EnsureAtmosphereHistory(
+                    cameraContext, cameraData.cameraTargetDescriptor))
+            {
+                TextureHandle history = renderGraph.ImportTexture(cameraContext.AtmosphereHistory);
+                TextureDesc temporalDesc = halfDesc;
+                temporalDesc.name = "_SolAtmosphereVolumetricTemporal";
+                TextureHandle temporal = renderGraph.CreateTexture(temporalDesc);
+                using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<TemporalPassData>(
+                    "Sol Atmosphere Temporal Reprojection", out TemporalPassData passData))
+                {
+                    passData.source = volumetric;
+                    passData.depth = depth;
+                    passData.history = history;
+                    passData.material = _material;
+                    passData.previousViewProjection = cameraContext.PreviousViewProjection;
+                    passData.historyWeight = cameraContext.CameraCut ? 0f : 0.88f;
+                    builder.UseTexture(volumetric, AccessFlags.Read);
+                    builder.UseTexture(depth, AccessFlags.Read);
+                    builder.UseTexture(history, AccessFlags.Read);
+                    builder.SetRenderAttachment(temporal, 0, AccessFlags.Write);
+                    builder.SetRenderFunc(static (TemporalPassData data, RasterGraphContext context) =>
+                    {
+                        data.material.SetTexture(HistoryTextureID, data.history);
+                        data.material.SetMatrix(PreviousViewProjectionID, data.previousViewProjection);
+                        data.material.SetVector(TemporalParamsID,
+                            new Vector4(data.historyWeight, 0.1f, 0f, 0f));
+                        Blitter.BlitTexture(context.cmd, data.source, Vector2.one,
+                            data.material, TemporalPassIndex);
+                    });
+                }
+                renderGraph.AddBlitPass(temporal, history, Vector2.one, Vector2.zero,
+                    passName: "Sol Atmosphere Update History");
+                temporalSource = temporal;
+            }
+
             TextureDesc filteredDesc = halfDesc;
             filteredDesc.name = "_SolAtmosphereVolumetricFiltered";
             TextureHandle filteredVolumetric = renderGraph.CreateTexture(filteredDesc);
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<FilterPassData>(
                 "Sol Atmosphere Spatial Filter", out FilterPassData passData))
             {
-                passData.source = volumetric;
+                passData.source = temporalSource;
                 passData.depth = depth;
                 passData.material = _material;
-                builder.UseTexture(volumetric, AccessFlags.Read);
+                builder.UseTexture(temporalSource, AccessFlags.Read);
                 builder.UseTexture(depth, AccessFlags.Read);
                 builder.SetRenderAttachment(filteredVolumetric, 0, AccessFlags.Write);
                 builder.SetRenderFunc(static (FilterPassData data, RasterGraphContext context) =>

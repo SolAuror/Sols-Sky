@@ -190,8 +190,18 @@ float SolWaterSampleCausticArray(float2 logicalXZ, float waterColumn, float2 pix
         sampler_SolWaterCausticArray, uv, cascade, ddx(uv), ddy(uv)).r;
 
     // The pass accumulates area compression around unity for a flat surface, so
-    // subtract the unfocused baseline and keep only the convergent part.
-    return saturate((caustic - 1.0) * 0.65);
+    // subtract the unfocused baseline. The result is deliberately SIGNED and
+    // unclamped: a caustic field starves light exactly where it concentrates it,
+    // and the dark cells between the bright filaments are most of what makes the
+    // pattern legible. Saturating here threw all of that away and left a faint
+    // additive haze, which is why the effect only showed up in the debug view
+    // where nothing else was competing with it.
+    // Subtract less than the full unfocused baseline of 1.0. Removing all of it put
+    // the mean of the field at zero, so half of every frame darkened the sea bed and
+    // the net effect read as dimming rather than lighting. WaterFX subtracts only a
+    // quarter of its multiplier for the same reason: the dark cells are supposed to
+    // be the minority that make the bright filaments legible, not half the picture.
+    return (caustic - 0.72) * 1.6;
 }
 
 // ---------------------------------------------------------------------------

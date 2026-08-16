@@ -27,6 +27,7 @@ namespace Sol.Water
         [SerializeField] SolEnvironmentWorld environmentWorld;
         [SerializeField] SolWaterQueryService queryService;
         [SerializeField] SolPlanarReflectionRenderer planarReflectionRenderer;
+        [SerializeField] SolWaterWetness wetness;
 
         readonly List<SolWaterBody> _bodies = new(16);
         readonly Dictionary<SolWaterBodyId, SolWaterBody> _byId = new();
@@ -304,6 +305,13 @@ namespace Sol.Water
                 planarReflectionRenderer = GetComponent<SolPlanarReflectionRenderer>();
             if (planarReflectionRenderer == null)
                 planarReflectionRenderer = gameObject.AddComponent<SolPlanarReflectionRenderer>();
+            // Added automatically so converted scenes regain terrain wetness without a
+            // second manual step. The legacy authority that used to publish these globals
+            // is disabled by the converter.
+            if (wetness == null)
+                wetness = GetComponent<SolWaterWetness>();
+            if (wetness == null)
+                wetness = gameObject.AddComponent<SolWaterWetness>();
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

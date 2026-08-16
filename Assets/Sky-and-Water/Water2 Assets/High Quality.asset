@@ -28,9 +28,14 @@ MonoBehaviour:
   ssrDepthTolerance: 0.2
   ssrNormalTolerance: 0.8
   ssrMaximumLuminance: 4
-  planarReflections: 0
+  anisotropicReflections: 1
+  planarReflections: 1
   planarResolutionScale: 0.5
   planarMaximumAgeFrames: 2
+  volumetricWaterLighting: 1
+  volumetricSteps: 12
+  volumetricResolutionScale: 0.5
+  writeDepthForPostProcessing: 0
   underwater: 1
   caustics: 1
   interactionSimulation: 1

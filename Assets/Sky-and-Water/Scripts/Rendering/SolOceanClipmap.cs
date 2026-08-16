@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Sol.Environment;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -8,6 +9,29 @@ namespace Sol.Water.Rendering
     /// <summary>Builds reusable patch geometry and allocation-free per-camera clipmap transforms.</summary>
     internal sealed class SolOceanClipmap : IDisposable
     {
+        /// <summary>
+        /// Hard ceiling on leaves, bounded by the instanced draw arrays below. A split
+        /// adds three, so the guard leaves room for one more.
+        /// </summary>
+        const int MaximumLeaves = 252;
+
+        /// <summary>
+        /// Ceiling for projected-density selection alone, deliberately below
+        /// <see cref="MaximumLeaves"/>. Balancing has to be able to split after selection
+        /// finishes; with a single shared budget, selection consumed nearly all of it and
+        /// the 2:1 rule was skipped exactly in the wide views that need it most — which is
+        /// where the cracks were worst.
+        /// </summary>
+        const int SelectionLeafBudget = 176;
+
+        /// <summary>
+        /// A patch subdivides while it is larger than this fraction of its distance from
+        /// the camera. Smaller values mean finer geometry and more leaves: the count per
+        /// detail ring is roughly 2*pi/ratio, so 0.5 gives about thirteen patches per ring
+        /// and a little over a hundred leaves across the whole horizon before culling.
+        /// </summary>
+        const float PatchSizeToDistanceRatio = 0.5f;
+
         internal sealed class DrawSet
         {
             internal readonly Matrix4x4[] Matrices = new Matrix4x4[256];
@@ -49,10 +73,21 @@ namespace Sol.Water.Rendering
             if (camera == null || ocean == null || quality == null)
                 return null;
 
-            float maximumAmplitude = SolWaterWaveEvaluator.EstimateMaximumAmplitude(ocean.Profile);
-            // Keep the skirt deep enough to cover the residual displacement delta
-            // between adjacent FFT LODs, but bounded so it cannot read as a water
-            // cliff at the shoreline.
+            // The spectrum, not the authored Gerstner set, is what the surface is built
+            // from on Medium and High, so the reach has to be estimated from the wind
+            // driving it. Everything below is sized from this value.
+            bool spectral = quality.FftCascadeCount > 0 && quality.FftResolution > 0;
+            float windSpeed = SolEnvironmentWorld.Active != null
+                ? SolEnvironmentWorld.Active.State.Wind.Speed : 0f;
+            float maximumAmplitude = SolWaterWaveEvaluator.EstimateMaximumAmplitude(
+                ocean.Profile, windSpeed, spectral);
+            // Deep enough to cover the residual displacement delta between adjacent
+            // detail levels, but bounded so it cannot read as a water cliff. Scaling this
+            // with the sea state instead made the skirts plainly visible as vertical
+            // walls: a skirt is only ever meant to plug a crack it sits behind, so the
+            // fix for a visible gap is to remove the gap, not to hang a deeper wall in
+            // it. The corrected amplitude now feeds this, which lifts it off the old
+            // 8 cm floor without approaching the cap.
             float skirtDepth = Mathf.Clamp(maximumAmplitude * 0.04f, 0.08f, 0.18f);
             EnsureMesh(quality.clipmapPatchResolution, skirtDepth);
 
@@ -70,8 +105,9 @@ namespace Sol.Water.Rendering
             int horizonRings = Mathf.CeilToInt(Mathf.Log(
                 Mathf.Max(1f, quality.oceanHorizonDistance / (baseSize * 2f)), 2f)) + 1;
             horizonRings = Mathf.Clamp(Mathf.Max(quality.clipmapRingCount, horizonRings), 3, 9);
-            float verticalExtent = Mathf.Max(8f,
-                maximumAmplitude * 4f);
+            // Culling AABB half-height. Generous on purpose: a patch wrongly culled is a
+            // hole in the ocean, while a patch wrongly kept costs one instanced draw.
+            float verticalExtent = Mathf.Max(8f, maximumAmplitude * 6f);
             GeometryUtility.CalculateFrustumPlanes(camera, _frustumPlanes);
 
             float anchorX = Mathf.Floor(cameraPosition.x / baseSize) * baseSize;
@@ -119,41 +155,63 @@ namespace Sol.Water.Rendering
             // Enforce a 2:1 neighbour rule after projected-density selection. This
             // guarantees that a seam collapse only ever bridges one coarse edge,
             // matching the reusable patch's odd-vertex stitching contract.
+            //
+            // Every violating leaf is split each pass. The previous version set a
+            // `changed` flag and broke out of its scan on the first split, so a pass
+            // performed exactly one — capping the entire balance at 64 splits per frame.
+            // A horizon-scale tree needs far more than that, so the 2:1 rule quietly
+            // failed wherever the budget of splits ran out, and the vertex stitching
+            // (which only ever bridges one level) left real T-junctions behind. Those
+            // are the cracks visible across the ocean.
             for (int iteration = 0; iteration < 64; iteration++)
             {
                 bool changed = false;
-                for (int a = 0; a < _leaves.Count && !changed; a++)
+                // Backwards, so the children appended by a split are not rescanned
+                // until the next pass.
+                for (int index = _leaves.Count - 1; index >= 0; index--)
                 {
-                    QuadNode first = _leaves[a];
-                    for (int b = 0; b < _leaves.Count; b++)
-                    {
-                        if (a == b)
-                            continue;
-                        QuadNode second = _leaves[b];
-                        if (second.Size <= first.Size * 2.001f)
-                            continue;
-                        float xGap = Mathf.Abs(first.Center.x - second.Center.x)
-                            - (first.Size + second.Size) * 0.5f;
-                        float zGap = Mathf.Abs(first.Center.z - second.Center.z)
-                            - (first.Size + second.Size) * 0.5f;
-                        bool touching = (Mathf.Abs(xGap) < 0.01f
-                                && Mathf.Abs(first.Center.z - second.Center.z)
-                                    < (first.Size + second.Size) * 0.5f)
-                            || (Mathf.Abs(zGap) < 0.01f
-                                && Mathf.Abs(first.Center.x - second.Center.x)
-                                    < (first.Size + second.Size) * 0.5f);
-                        if (!touching || second.Level >= maxDepth
-                            || second.Size * 0.5f <= minimumSize
-                            || _leaves.Count + 3 > 220)
-                            continue;
-                        SplitLeaf(b);
-                        changed = true;
+                    if (_leaves.Count + 3 > MaximumLeaves)
                         break;
-                    }
+                    if (!NeedsBalanceSplit(_leaves[index], maxDepth, minimumSize))
+                        continue;
+                    SplitLeaf(index);
+                    changed = true;
                 }
                 if (!changed)
                     break;
             }
+        }
+
+        /// <summary>
+        /// True when this leaf is more than twice the size of a leaf it touches, and can
+        /// still be subdivided. The oversized leaf is the one that has to split: the
+        /// stitching contract is written from the fine side collapsing onto a grid exactly
+        /// one level coarser.
+        /// </summary>
+        bool NeedsBalanceSplit(QuadNode candidate, int maxDepth, float minimumSize)
+        {
+            if (candidate.Level >= maxDepth || candidate.Size * 0.5f <= minimumSize)
+                return false;
+            for (int i = 0; i < _leaves.Count; i++)
+            {
+                QuadNode neighbour = _leaves[i];
+                if (candidate.Size <= neighbour.Size * 2.001f)
+                    continue;
+                if (AreTouching(candidate, neighbour))
+                    return true;
+            }
+            return false;
+        }
+
+        static bool AreTouching(QuadNode first, QuadNode second)
+        {
+            float halfSpan = (first.Size + second.Size) * 0.5f;
+            float xGap = Mathf.Abs(first.Center.x - second.Center.x) - halfSpan;
+            float zGap = Mathf.Abs(first.Center.z - second.Center.z) - halfSpan;
+            return (Mathf.Abs(xGap) < 0.01f
+                    && Mathf.Abs(first.Center.z - second.Center.z) < halfSpan)
+                || (Mathf.Abs(zGap) < 0.01f
+                    && Mathf.Abs(first.Center.x - second.Center.x) < halfSpan);
         }
 
         void SplitLeaf(int index)
@@ -181,20 +239,34 @@ namespace Sol.Water.Rendering
             Bounds bounds = new(node.Center, new Vector3(node.Size, verticalExtent, node.Size));
             if (!GeometryUtility.TestPlanesAABB(_frustumPlanes, bounds))
                 return;
-            float distance = Vector2.Distance(
-                new Vector2(cameraPosition.x, cameraPosition.z),
-                new Vector2(node.Center.x, node.Center.z));
-            float projectedTarget = Mathf.Max(minimumSize,
-                Mathf.Lerp(minimumSize, node.Size * 0.25f,
-                    Mathf.Clamp01(distance / Mathf.Max(1f, horizon))));
-            bool split = node.Level < maxDepth && node.Size * 0.5f > minimumSize
-                && node.Size > projectedTarget * 2.2f;
+            // Full 3D distance, including how far the camera sits above the surface.
+            // Measuring in XZ alone made a camera hovering high over the ocean report a
+            // distance near zero for the patch directly beneath it, so that patch
+            // subdivided to maximum depth despite being hundreds of metres away and the
+            // leaf budget was gone before the rest of the view was considered. A camera
+            // near the waterline hides this, which is why Game view looked correct while
+            // the elevated Scene view camera did not.
+            float distance = Vector3.Distance(cameraPosition, node.Center);
+            // Distance to the node's nearest corner, not its centre. A large node the
+            // camera is standing inside otherwise reports a big centre distance and
+            // refuses to subdivide.
+            float nearDistance = Mathf.Max(1f, distance - node.Size * 0.7071f);
+            // Split purely on distance. The previous test derived its own threshold from
+            // node.Size, so two adjacent nodes at the same distance but different sizes
+            // applied different thresholds and could settle many levels apart — the tree
+            // came out unbalanced by construction and the balance pass then needed more
+            // splits than the leaf ceiling could ever supply, which is exactly what the
+            // budgetBlocked diagnostic reported. With the threshold depending only on
+            // position, neighbours differ by at most one level almost everywhere and the
+            // balance pass has very little left to do.
+            bool split = node.Level < maxDepth && node.Size * 0.5f >= minimumSize
+                && node.Size > nearDistance * PatchSizeToDistanceRatio;
             if (!split)
             {
                 _leaves.Add(node);
                 return;
             }
-            if (_leaves.Count >= 220)
+            if (_leaves.Count >= SelectionLeafBudget)
             {
                 _leaves.Add(node);
                 return;

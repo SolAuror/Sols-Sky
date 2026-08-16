@@ -197,6 +197,15 @@ float2 SolWaterUnrotateCascade(float2 value, int cascade)
         -cs.y * value.x + cs.x * value.y);
 }
 
+// Must stay identical to CascadeSize in SolWaterFFT.compute and to
+// SolWaterFftReadback.CascadeSize on the CPU. Sampling a domain the simulation
+// did not write reads as the whole surface sliding at the wrong scale, so this
+// exists once rather than as a literal at each sampling site.
+float SolWaterCascadeSize(int cascade)
+{
+    return cascade == 0 ? 5.0 : cascade == 1 ? 20.0 : cascade == 2 ? 100.0 : 600.0;
+}
+
 float2 SolWaterCascadeCoord(float2 logicalXZ, float mapSize, int cascade)
 {
     float2 offset = cascade == 0 ? float2(0.0, 0.0)
@@ -296,9 +305,7 @@ SolWaterWaveResult SolEvaluateWaterWaves(float2 localXZ, float geometrySpacing,
         [loop]
         for (int cascade = 0; cascade < min((int)_SolWaterSpectralParams.x, 4); cascade++)
         {
-            float mapSize = cascade == 0 ? 32.0 : cascade == 1 ? 128.0 : cascade == 2 ? 512.0 : 2048.0;
-            float representativeWavelength = cascade == 0 ? 4.0
-                : cascade == 1 ? 18.0 : cascade == 2 ? 72.0 : 288.0;
+            float mapSize = SolWaterCascadeSize(cascade);
             float2 spectralUV = SolWaterCascadeUv(logicalXZ, mapSize, cascade);
             float4 displacementSample = SAMPLE_TEXTURE2D_ARRAY_LOD(
                 _SolWaterSpectralDisplacement, sampler_SolWaterSpectralDisplacement,
@@ -310,15 +317,23 @@ SolWaterWaveResult SolEvaluateWaterWaves(float2 localXZ, float geometrySpacing,
                 displacementSample.xz, cascade);
             normalFoamSample.xz = SolWaterUnrotateCascade(
                 normalFoamSample.xz, cascade);
-            // Short cascades are progressively removed before their texels become
-            // sub-pixel. This is deliberately continuous and independent of clipmap rings.
+            // Short cascades are removed by distance alone, exactly as WaterFX does in
+            // KWS_GetFftFade4. Distance is continuous across a patch boundary, so
+            // neighbouring patches agree on how much of each cascade they carry.
+            //
+            // A second term used to multiply this by the patch's own vertex spacing.
+            // That spacing doubles at every detail step, so two patches sharing an edge
+            // included measurably different sets of waves, and the resulting displacement
+            // step read as rectangular blocks — clearest in shallow water, where it also
+            // shifted the refracted seabed. WaterFX has no such term; the visible-area
+            // schedule above already retires a cascade well before its texels approach
+            // the vertex density, and the per-pixel path keeps its own derivative-driven
+            // footprint filter, which is continuous because derivatives are.
             float filterDistance = SolWaterCascadeVisibleDistance(cascade);
             float cascadeRatio = saturate(cameraDistance / filterDistance);
             float cascadeVisibility = 1.0 - cascadeRatio * cascadeRatio * cascadeRatio;
             if (cascade == (int)_SolWaterSpectralParams.x - 1)
                 cascadeVisibility = 1.0 - saturate(cameraDistance / max(500.0, mapSize * 2.0));
-            cascadeVisibility *= SolWaterGeometryVisibility(
-                representativeWavelength, geometrySpacing);
             spectralDisplacement += displacementSample.xyz * cascadeVisibility;
             spectralNormalOffset += (normalFoamSample.xyz - float3(0, 1, 0)) * cascadeVisibility;
             spectralFoam = max(spectralFoam, normalFoamSample.w * cascadeVisibility);
@@ -400,8 +415,7 @@ void SolEvaluateWaterPixelNormalFoam(float2 localXZ, inout float3 normal, inout 
     [loop]
     for (int cascade = 0; cascade < min((int)_SolWaterSpectralParams.x, 4); cascade++)
     {
-        float mapSize = cascade == 0 ? 32.0 : cascade == 1 ? 128.0
-            : cascade == 2 ? 512.0 : 2048.0;
+        float mapSize = SolWaterCascadeSize(cascade);
         // Use the unwrapped coordinate for derivatives. Taking derivatives of
         // frac() produces a false full-texture footprint at every wrap seam.
         float2 spectralCoord = SolWaterCascadeCoord(logicalXZ, mapSize, cascade);

@@ -295,14 +295,42 @@ namespace Sol.Water
             return true;
         }
 
-        public static float EstimateMaximumAmplitude(SolWaterProfile profile)
+        /// <summary>
+        /// Worst-case vertical reach of the surface, used to size culling bounds and the
+        /// crack-hiding skirts.
+        ///
+        /// Summing the authored Gerstner amplitudes is only right on the Low tier. Medium
+        /// and High zero those amplitudes and drive the surface from the spectrum, so a
+        /// Gerstner-only estimate reported about 1.2 m while a storm sea was several
+        /// metres tall. Everything derived from it was then too small: patches whose
+        /// displaced water was plainly on screen failed the frustum test and vanished, and
+        /// the skirts sat at their 8 cm floor and could not bridge the gap between
+        /// neighbouring detail levels. Both got worse as the wind rose, which is why the
+        /// tearing showed up during weather.
+        /// </summary>
+        public static float EstimateMaximumAmplitude(SolWaterProfile profile,
+            float windSpeed = 0f, bool spectral = false)
         {
-            if (profile == null || profile.gerstnerWaves == null)
+            if (profile == null)
                 return 0f;
-            float amplitude = 0f;
-            for (int i = 0; i < profile.gerstnerWaves.Length; i++)
-                amplitude += Mathf.Max(0f, profile.gerstnerWaves[i].amplitude);
-            return amplitude * 2f;
+
+            float gerstner = 0f;
+            if (profile.gerstnerWaves != null)
+            {
+                for (int i = 0; i < profile.gerstnerWaves.Length; i++)
+                    gerstner += Mathf.Max(0f, profile.gerstnerWaves[i].amplitude);
+            }
+            gerstner *= 2f;
+            if (!spectral)
+                return gerstner;
+
+            // Pierson-Moskowitz significant wave height for a fully developed sea,
+            // Hs = 0.21 * U^2 / g. Individual crests in that sea reach roughly twice Hs,
+            // and bounds are far cheaper to overestimate than to underestimate.
+            float significantHeight = 0.21f * windSpeed * windSpeed / Gravity;
+            float spectralReach = significantHeight * 2f
+                * Mathf.Max(0f, profile.spectralStrength);
+            return Mathf.Max(gerstner, spectralReach);
         }
     }
 }

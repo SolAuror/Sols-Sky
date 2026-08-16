@@ -33,19 +33,13 @@ float _HistoryBlend;
 static const float PI_VALUE = 3.14159265359;
 static const float GRAVITY = 9.81;
 
+// WaterFX's domain schedule. The previous 32/128/512/2048 sizes put the shortest
+// resolvable wave at a quarter-metre, which is what read as blurred and stretched
+// up close; at five metres the same 256 grid resolves down to about two
+// centimetres. The long swell moves from 2048 m to 600 m in exchange.
 float CascadeSize(uint cascade)
 {
-    return cascade == 0 ? 32.0 : cascade == 1 ? 128.0 : cascade == 2 ? 512.0 : 2048.0;
-}
-
-float CascadeLowerWaveNumber(uint cascade)
-{
-    return cascade == 0 ? 0.72 : cascade == 1 ? 0.16 : cascade == 2 ? 0.035 : 0.004;
-}
-
-float CascadeUpperWaveNumber(uint cascade)
-{
-    return cascade == 0 ? 100000.0 : cascade == 1 ? 1.224 : cascade == 2 ? 0.272 : 0.0595;
+    return cascade == 0 ? 5.0 : cascade == 1 ? 20.0 : cascade == 2 ? 100.0 : 600.0;
 }
 
 float2 ComplexMultiply(float2 a, float2 b)
@@ -119,14 +113,17 @@ float SpectrumDensity(float2 waveVector, uint cascade, bool negativeFrequency)
 
     float directional = DirectionalSpreading(waveVector, cascade, negativeFrequency);
 
-    // Each cascade owns a frequency band. This prevents the same long wave from
-    // being added four times and removes concentric cross-cascade interference.
-    float lower = CascadeLowerWaveNumber(cascade);
-    float band = smoothstep(lower, lower * 1.7, waveNumber);
-    float upper = CascadeUpperWaveNumber(cascade);
-    band *= 1.0 - smoothstep(upper / 1.7, upper, waveNumber);
+    // WaterFX applies no wavenumber banding: each cascade evaluates the full
+    // Pierson-Moskowitz spectrum over its own domain, and the per-cascade height
+    // scales in SpatialDisplacement are what keep the overlapping octaves from
+    // summing to too much motion. The disjoint bands that used to sit here were
+    // tuned for the old 32 m shortest domain and, kept alongside the new sizes,
+    // would delete most of the fine detail this change exists to recover.
+    //
+    // The grid-resolution rolloff stays. It is not banding: it removes waves the
+    // cascade physically cannot resolve, which would otherwise alias.
     float maximumResolved = PI_VALUE * _Resolution / CascadeSize(cascade);
-    band *= 1.0 - smoothstep(maximumResolved * 0.55, maximumResolved * 0.85, waveNumber);
+    float band = 1.0 - smoothstep(maximumResolved * 0.55, maximumResolved * 0.85, waveNumber);
 
     float dK = 2.0 * PI_VALUE / CascadeSize(cascade);
     float dOmegaDk = GRAVITY / max(1e-4, 2.0 * omega);

@@ -4,10 +4,9 @@ namespace Sol.Water
 {
     /// <summary>
     /// CPU mirror of the water volume optics in
-    /// <c>Assets/Sky-and-Water/Resources/Water2/SolWaterOptics.hlsl</c>.
-    /// Exists so the absorption curve and scattering response can be validated in
-    /// EditMode without a GPU, following the <see cref="SolOceanSpectrumMath"/>
-    /// precedent. Any change here must be mirrored in the HLSL and vice versa.
+    /// <c>Assets/Sky-and-Water/Shaders/Water2/SolWaterOptics.hlsl</c>.
+    /// Exists so the absorption curve and scattering response can be reasoned about
+    /// without a GPU. Any change here must be mirrored in the HLSL and vice versa.
     /// </summary>
     public static class SolWaterOpticsMath
     {

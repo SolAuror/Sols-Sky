@@ -124,19 +124,21 @@ Shader "Hidden/Sol/Water2/Underwater"
                         causticPattern = smoothstep(0.12, 0.82,
                             caustic0 * 0.68 + caustic1 * 0.32);
                     }
-                    causticPattern = saturate(causticPattern);
+                    // Signed and depth-ramped exactly as the surface does it, so the
+                    // pattern does not change character across the waterline.
+                    if (_SolWaterCausticArrayParams.w <= 0.5)
+                        causticPattern = (causticPattern - 0.35) * 1.6;
+                    causticPattern = clamp(causticPattern, -1.0, 4.0);
                     Light causticLight = GetMainLight(
                         TransformWorldToShadowCoord(positionWS));
                     float cloudShadow = lerp(1.0, 0.45, _SolWaterWeatherExtended.x);
-                    float depthFade = smoothstep(0.12, 1.25, waterColumn)
-                        * (1.0 - smoothstep(max(2.0, _SolWaterVisibilityParams.x),
-                            max(4.0, _SolWaterVisibilityParams.x * 2.5), waterColumn));
+                    float depthFade = saturate(waterColumn * waterColumn);
                     float visibility = hasSceneGeometry
                         * step(0.02, causticLight.direction.y)
                         * causticLight.shadowAttenuation * cloudShadow * depthFade;
                     float3 causticLighting = causticLight.color * causticPattern
                         * visibility * _SolWaterFoamParams.z;
-                    source *= 1.0 + min(causticLighting, 1.5);
+                    source *= max(0.45, 1.0 + clamp(causticLighting * 5.0, -0.45, 4.0));
                 }
 
                 // Same absorption curve and scattering lighting as the surface, so

@@ -57,8 +57,8 @@ namespace Sol.Water
             _hasCurrent ? Mathf.Max(0f, Time.realtimeSinceStartup - _currentRealtime) : 0f;
 
         /// <summary>Domain size in metres of a cascade. Mirrors CascadeSize in SolWaterFFT.compute.</summary>
-        public static float CascadeSize(int cascade) => cascade == 0 ? 32f
-            : cascade == 1 ? 128f : cascade == 2 ? 512f : 2048f;
+        public static float CascadeSize(int cascade) => cascade == 0 ? 5f
+            : cascade == 1 ? 20f : cascade == 2 ? 100f : 600f;
 
         /// <summary>
         /// The render target the downsample pass writes into. The RTHandle wrapper is

@@ -174,7 +174,16 @@ Shader "Sol/Water2/Ocean"
             int resolution = max(2, (int)round(patchData.y));
             int edgeMask = (int)round(patchData.z);
             float vertexStep = patchData.x / resolution;
-            int2 vertexIndex = (int2)round(saturate(input.uv) * resolution);
+            // Skirt vertices are authored as their source perimeter vertex with +2 added
+            // to the UV, so the offset has to come back off before deriving the grid
+            // index. Without this, saturate() collapsed every skirt UV to 1.0 and each
+            // skirt vertex believed it sat at the (resolution, resolution) corner. That
+            // forced the edge morph on for the whole skirt whenever the patch had a
+            // coarse neighbour to the right or above, so the skirt sampled a different
+            // wave set than the surface edge it hangs from and visibly tore away from it
+            // — the vertical striped walls standing along the patch boundaries.
+            float2 patchUV = input.uv - isSkirt * 2.0;
+            int2 vertexIndex = (int2)round(saturate(patchUV) * resolution);
             float edgeMorph = 0.0;
             if ((edgeMask & 1) != 0) edgeMorph = max(edgeMorph, 1.0 - saturate(vertexIndex.x * 0.5));
             if ((edgeMask & 2) != 0) edgeMorph = max(edgeMorph, 1.0 - saturate((resolution - vertexIndex.x) * 0.5));
@@ -185,8 +194,14 @@ Shader "Sol/Water2/Ocean"
                 || (((edgeMask & 2) != 0) && vertexIndex.x == resolution);
             bool horizontalBoundary = (((edgeMask & 4) != 0) && vertexIndex.y == 0)
                 || (((edgeMask & 8) != 0) && vertexIndex.y == resolution);
-            bool stitchVertical = isSkirt < 0.5 && verticalBoundary && ((vertexIndex.y & 1) != 0);
-            bool stitchHorizontal = isSkirt < 0.5 && horizontalBoundary && ((vertexIndex.x & 1) != 0);
+            // Skirts take the same collapse as the surface vertex they hang from. They
+            // used to be excluded, which was necessary while their grid index was being
+            // mangled by saturate() — but now that the index is correct, excluding them
+            // means the surface edge shifts sideways by one step at every odd vertex
+            // while its skirt stays put, tearing a thin sliver open along the boundary.
+            // That is the residual hairline left after the skirts stopped tearing wholesale.
+            bool stitchVertical = verticalBoundary && ((vertexIndex.y & 1) != 0);
+            bool stitchHorizontal = horizontalBoundary && ((vertexIndex.x & 1) != 0);
             if (stitchVertical)
                 baseWS.z += ((edgeMask & 2) != 0 ? 1.0 : -1.0) * vertexStep;
             if (stitchHorizontal)
@@ -493,10 +508,17 @@ Shader "Sol/Water2/Ocean"
                             causticTexture0 * 0.68 + causticTexture1 * 0.32)
                             * focusingModulation;
                     }
-                    causticPattern = saturate(causticPattern);
-                    float causticDepthFade = smoothstep(0.12, 1.25, waterColumn)
-                        * (1.0 - smoothstep(max(2.0, _SolWaterVisibilityParams.x),
-                            max(4.0, _SolWaterVisibilityParams.x * 2.5), waterColumn));
+                    // Signed, so the dark interstitials survive. The authored-texture
+                    // fallback is positive-only, so it is re-centred to match.
+                    if (_SolWaterCausticArrayParams.w <= 0.5)
+                        causticPattern = (causticPattern - 0.35) * 1.6;
+                    causticPattern = clamp(causticPattern, -1.0, 4.0);
+                    // WaterFX ramps in quadratically with depth and never fades back out;
+                    // absorption already dims the sea floor with distance. The previous
+                    // window closed at 2.5x the clarity coefficient, which at the shipped
+                    // value of 10 deleted caustics past about 25 m and treated a unitless
+                    // coefficient as if it were a distance in metres.
+                    float causticDepthFade = saturate(waterColumn * waterColumn);
                     float causticVisibility = refractedHasGeometry
                         * step(0.02, causticLight.direction.y)
                         * causticLight.shadowAttenuation * cloudShadow
@@ -507,7 +529,10 @@ Shader "Sol/Water2/Ocean"
                 // Caustics brighten the seabed before the water column absorbs it, so
                 // depth still dims them. Applying them after absorption also scaled the
                 // volume scattering term, which has nothing to do with the sea floor.
-                refracted *= 1.0 + min(causticLighting, 3.0);
+                // The lower bound lets the dark cells actually darken the floor without
+                // ever driving it to black; WaterFX gains by 5x here for the same reason
+                // the pattern reads at all against a lit sea bed.
+                refracted *= max(0.45, 1.0 + clamp(causticLighting * 5.0, -0.45, 4.0));
 
                 // refractionMaximumDistance bounds the screen-space refraction offset
                 // only. Using it as the optical path as well capped open water at a few

@@ -386,30 +386,30 @@ namespace Sol.Tests.Editor
                 "Terrain wetness add-pass shader contains compilation errors.");
 
             Material material = AssetDatabase.LoadAssetAtPath<Material>(
-                "Assets/Sky-and-Water/Terrain/M_TerrainWetness.mat");
+                "Assets/Sky-and-Water/Shaders/Terrain/M_TerrainWetness.mat");
             Assert.That(material, Is.Not.Null, "Terrain wetness material was not imported.");
             Assert.That(material.shader, Is.SameAs(shader));
 
             string projectRoot = Directory.GetParent(Application.dataPath)!.FullName;
             string shaderSource = File.ReadAllText(Path.Combine(
-                projectRoot, "Assets", "Sky-and-Water", "Terrain", "Sol.TerrainLitWet.shader"));
+                projectRoot, "Assets", "Sky-and-Water", "Shaders", "Terrain", "Sol.TerrainLitWet.shader"));
             StringAssert.Contains("TerrainCompatible", shaderSource);
             StringAssert.Contains("SolApplyTerrainWetness", shaderSource);
             StringAssert.Contains("SolTerrainWetness.hlsl", shaderSource);
             StringAssert.Contains("Hidden/Sol/Terrain/Lit Wetness Add Pass", shaderSource);
             string addPassSource = File.ReadAllText(Path.Combine(
-                projectRoot, "Assets", "Sky-and-Water", "Terrain", "Sol.TerrainLitWetAddPass.shader"));
+                projectRoot, "Assets", "Sky-and-Water", "Shaders", "Terrain", "Sol.TerrainLitWetAddPass.shader"));
             StringAssert.Contains("TERRAIN_SPLAT_ADDPASS", addPassSource);
             StringAssert.Contains("SolApplyTerrainWetness", addPassSource);
             string wetnessSource = File.ReadAllText(Path.Combine(
-                projectRoot, "Assets", "Sky-and-Water", "Terrain", "SolTerrainWetness.hlsl"));
+                projectRoot, "Assets", "Sky-and-Water", "Shaders", "Terrain", "SolTerrainWetness.hlsl"));
             StringAssert.Contains("_Sol_TerrainSandMask", wetnessSource);
             StringAssert.Contains("_Sol_TerrainWetSmoothness", wetnessSource);
             StringAssert.Contains("wetSand", wetnessSource);
             StringAssert.DoesNotContain("max(smoothness, 0.88h)", wetnessSource);
 
             string[] terrainLayerGuids = AssetDatabase.FindAssets(
-                "t:TerrainLayer", new[] { "Assets/Sky-and-Water/Resources/Terrain" });
+                "t:TerrainLayer", new[] { "Assets/Terrain", "Assets/Sky-and-Water/Shaders/Terrain" });
             Assert.That(terrainLayerGuids, Has.Length.EqualTo(6));
             foreach (string guid in terrainLayerGuids)
             {
@@ -725,7 +725,7 @@ namespace Sol.Tests.Editor
             string projectRoot = Directory.GetParent(Application.dataPath)!.FullName;
             string sky = File.ReadAllText(Path.Combine(projectRoot, "Assets", "Sky-and-Water", "TimeOfDay", "CelestialBodies", "Sol_Skybox.shader"));
             string water = File.ReadAllText(Path.Combine(projectRoot, "Assets", "Sky-and-Water", "Water", "Shaders", "Sol.Water.shader"));
-            string feature = File.ReadAllText(Path.Combine(projectRoot, "Assets", "Sky-and-Water", "Management", "SolAtmosphereRendererFeature.cs"));
+            string feature = File.ReadAllText(Path.Combine(projectRoot, "Assets", "Sky-and-Water", "Scripts", "Management", "SolAtmosphereRendererFeature.cs"));
             string renderer = File.ReadAllText(Path.Combine(projectRoot, "Assets", "Settings", "Sol_Renderer.asset"));
 
             StringAssert.Contains("_CloudTime", sky);
@@ -826,9 +826,9 @@ namespace Sol.Tests.Editor
                 string include = File.ReadAllText(Path.Combine(projectRoot,
                     "Assets", "Sky-and-Water", "Water", "Shaders", "SolAtmosphere.hlsl"));
                 string shader = File.ReadAllText(Path.Combine(projectRoot,
-                    "Assets", "Sky-and-Water", "Resources", "SolAtmosphere.shader"));
+                    "Assets", "Sky-and-Water", "Shaders", "SolAtmosphere.shader"));
                 string feature = File.ReadAllText(Path.Combine(projectRoot,
-                    "Assets", "Sky-and-Water", "Management", "SolAtmosphereRendererFeature.cs"));
+                    "Assets", "Sky-and-Water", "Scripts", "Management", "SolAtmosphereRendererFeature.cs"));
 
                 StringAssert.Contains("SolAtmosphereHeightIntegral", include);
                 StringAssert.Contains("SolAtmosphereCornetteShanks", include);
@@ -862,7 +862,7 @@ namespace Sol.Tests.Editor
             string sampler = File.ReadAllText(Path.Combine(projectRoot,
                 "Assets", "Sky-and-Water", "Water", "WaterVolume.cs"));
             string manager = File.ReadAllText(Path.Combine(projectRoot,
-                "Assets", "Sky-and-Water", "Management", "WaterManager.cs"));
+                "Assets", "Sky-and-Water", "Scripts", "Management", "WaterManager.cs"));
 
             foreach (string contract in new[]
             {

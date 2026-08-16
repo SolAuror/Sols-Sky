@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e03a4d1149b85484bad65f92df8c11a9, type: 3}
+  m_Name: Sol Water Quality
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolWaterQualityProfile
+  tier: 2
+  clipmapPatchResolution: 48
+  clipmapRingCount: 9
+  clipmapBasePatchSize: 16
+  oceanHorizonDistance: 8000
+  screenSpaceReflections: 1
+  ssrResolutionScale: 0.5
+  ssrSteps: 24
+  ssrMaximumDistance: 150
+  ssrThickness: 0.35
+  ssrEdgeFade: 0.06
+  ssrBinarySearchSteps: 5
+  ssrHistoryWeight: 0.86
+  ssrDepthTolerance: 0.2
+  ssrNormalTolerance: 0.8
+  ssrMaximumLuminance: 4
+  planarReflections: 0
+  planarResolutionScale: 0.5
+  planarMaximumAgeFrames: 2
+  underwater: 1
+  caustics: 1
+  interactionSimulation: 1
+  interactionResolution: 256

@@ -1,0 +1,331 @@
+#pragma kernel AnimateSpectrum
+#pragma kernel BitReverse
+#pragma kernel Butterfly
+#pragma kernel Finalize
+#pragma kernel DownsampleForReadback
+
+Texture2DArray<float4> _SourceA; // height complex, horizontal-X complex
+Texture2DArray<float4> _SourceB; // horizontal-Z complex, reserved
+RWTexture2DArray<float4> _DestinationA;
+RWTexture2DArray<float4> _DestinationB;
+RWTexture2DArray<float4> _DisplacementOutput; // Dx, height, Dz, reserved
+RWTexture2DArray<float4> _NormalFoamOutput;    // world normal xyz, breaking foam
+Texture2DArray<float4> _PreviousNormalFoam;
+
+// CPU readback of the displacement field. Water queries run on the CPU, so
+// without this the surface gameplay samples is the Gerstner fallback while the
+// screen shows the spectrum: on Medium/High a hull floats on a different sea
+// than the one it is drawn on.
+Texture2DArray<float4> _ReadbackSource;
+RWTexture2DArray<float4> _ReadbackDestination;
+int _ReadbackResolution;
+
+int _Resolution;
+int _CascadeCount;
+int _Stage;
+int _Axis;
+float _WaveTime;
+float4 _Wind;          // direction xz, speed m/s, turbulence
+float4 _Weather;       // water turbulence, rain, wave-speed multiplier, reserved
+float4 _SpectrumParams; // response, choppiness, foam threshold, foam gain
+float _HistoryBlend;
+
+static const float PI_VALUE = 3.14159265359;
+static const float GRAVITY = 9.81;
+
+float CascadeSize(uint cascade)
+{
+    return cascade == 0 ? 32.0 : cascade == 1 ? 128.0 : cascade == 2 ? 512.0 : 2048.0;
+}
+
+float CascadeLowerWaveNumber(uint cascade)
+{
+    return cascade == 0 ? 0.72 : cascade == 1 ? 0.16 : cascade == 2 ? 0.035 : 0.004;
+}
+
+float CascadeUpperWaveNumber(uint cascade)
+{
+    return cascade == 0 ? 100000.0 : cascade == 1 ? 1.224 : cascade == 2 ? 0.272 : 0.0595;
+}
+
+float2 ComplexMultiply(float2 a, float2 b)
+{
+    return float2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+uint Hash(uint value)
+{
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    value ^= value >> 16;
+    return value;
+}
+
+float Hash01(uint value)
+{
+    return (Hash(value) + 0.5) * (1.0 / 4294967296.0);
+}
+
+float2 Gaussian(uint2 coordinate, uint cascade, uint salt)
+{
+    uint seed = coordinate.x * 73856093u ^ coordinate.y * 19349663u
+        ^ cascade * 83492791u ^ salt;
+    float u1 = max(1e-6, Hash01(seed));
+    float u2 = Hash01(seed ^ 0x9e3779b9u);
+    float radius = sqrt(-2.0 * log(u1));
+    float angle = 2.0 * PI_VALUE * u2;
+    float sine;
+    float cosine;
+    sincos(angle, sine, cosine);
+    return radius * float2(cosine, sine);
+}
+
+float DirectionalSpreading(float2 waveVector, uint cascade, bool negativeFrequency)
+{
+    float waveNumber = length(waveVector);
+    if (waveNumber < 1e-5)
+        return 0;
+    float2 windDirection = dot(_Wind.xy, _Wind.xy) > 1e-5
+        ? normalize(_Wind.xy) : float2(1, 0);
+    float alignment = dot(waveVector / waveNumber, windDirection);
+    if (negativeFrequency)
+        alignment = -alignment;
+    float turbulence = cascade == 0 ? max(_Wind.w, 0.5)
+        : cascade == 1 ? max(_Wind.w, 0.25) : _Wind.w;
+    turbulence = saturate(max(turbulence, _Weather.x));
+    // WaterFX uses a positive cosine-squared directional lobe with a
+    // turbulence-dependent isotropic floor. Keep the same normalization and
+    // evaluate the positive/negative frequency lobes independently.
+    float cosine = alignment;
+    return 0.6366197724 * cosine * cosine * (1.0 - turbulence)
+        + 0.3366197724 * turbulence;
+}
+
+float SpectrumDensity(float2 waveVector, uint cascade, bool negativeFrequency)
+{
+    float waveNumber = length(waveVector);
+    if (waveNumber < 1e-5)
+        return 0;
+
+    float windSpeed = max(1.5, _Wind.z);
+    float omega = sqrt(GRAVITY * waveNumber);
+    float peakOmega = 0.87 * GRAVITY / windSpeed;
+    float ratio = peakOmega / max(1e-4, omega);
+    float frequencySpectrum = 0.0081 * GRAVITY * GRAVITY
+        / max(1e-5, pow(omega, 5.0))
+        * exp(-1.291 * pow(ratio, 4.0));
+
+    float directional = DirectionalSpreading(waveVector, cascade, negativeFrequency);
+
+    // Each cascade owns a frequency band. This prevents the same long wave from
+    // being added four times and removes concentric cross-cascade interference.
+    float lower = CascadeLowerWaveNumber(cascade);
+    float band = smoothstep(lower, lower * 1.7, waveNumber);
+    float upper = CascadeUpperWaveNumber(cascade);
+    band *= 1.0 - smoothstep(upper / 1.7, upper, waveNumber);
+    float maximumResolved = PI_VALUE * _Resolution / CascadeSize(cascade);
+    band *= 1.0 - smoothstep(maximumResolved * 0.55, maximumResolved * 0.85, waveNumber);
+
+    float dK = 2.0 * PI_VALUE / CascadeSize(cascade);
+    float dOmegaDk = GRAVITY / max(1e-4, 2.0 * omega);
+    float variance = frequencySpectrum * directional * dOmegaDk
+        / waveNumber * dK * dK;
+    float response = max(0, _SpectrumParams.x);
+    return max(0, variance * band * response * response);
+}
+
+float2 InitialAmplitude(int2 signedIndex, uint cascade, bool negativeFrequency)
+{
+    uint2 stableCoordinate = asuint(signedIndex);
+    float2 waveVector = (2.0 * PI_VALUE / CascadeSize(cascade)) * signedIndex;
+    float standardDeviation = sqrt(max(0, SpectrumDensity(
+        waveVector, cascade, negativeFrequency)));
+    return Gaussian(stableCoordinate, cascade, 0x68bc21ebu) * standardDeviation;
+}
+
+[numthreads(8, 8, 1)]
+void AnimateSpectrum(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint)_Resolution) || id.z >= (uint)_CascadeCount)
+        return;
+
+    // Match WaterFX's centred spectrum contract. SpatialDisplacement applies
+    // the corresponding (-1)^(x+y) phase correction after the inverse FFT.
+    // Using an uncentred spectrum here while retaining that correction creates
+    // an artificial alternating lattice in both displacement and normals.
+    int2 signedIndex = int2(id.xy) - (_Resolution >> 1);
+    float2 waveVector = (2.0 * PI_VALUE / CascadeSize(id.z)) * signedIndex;
+    float waveNumber = length(waveVector);
+    if (waveNumber < 1e-5)
+    {
+        _DestinationA[id] = 0;
+        _DestinationB[id] = 0;
+        return;
+    }
+
+    float2 h0 = InitialAmplitude(signedIndex, id.z, false);
+    float2 h0Minus = InitialAmplitude(-signedIndex, id.z, true);
+    float phase = sqrt(GRAVITY * waveNumber) * _WaveTime;
+    float sine;
+    float cosine;
+    sincos(phase, sine, cosine);
+    float2 positive = ComplexMultiply(h0, float2(cosine, sine));
+    float2 negative = ComplexMultiply(float2(h0Minus.x, -h0Minus.y), float2(cosine, -sine));
+    float2 height = positive + negative;
+
+    float2 direction = waveVector / waveNumber;
+    float choppiness = max(0, _SpectrumParams.y);
+    // Multiplication by -i converts the height spectrum to horizontal displacement.
+    float2 minusIHeight = float2(height.y, -height.x);
+    float2 displacementX = minusIHeight * direction.x * choppiness;
+    float2 displacementZ = minusIHeight * direction.y * choppiness;
+    _DestinationA[id] = float4(height, displacementX);
+    _DestinationB[id] = float4(displacementZ, 0, 0);
+}
+
+[numthreads(8, 8, 1)]
+void BitReverse(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint)_Resolution) || id.z >= (uint)_CascadeCount)
+        return;
+    uint bits = (uint)_Stage;
+    uint2 reversed = uint2(reversebits(id.x) >> (32 - bits), reversebits(id.y) >> (32 - bits));
+    uint3 source = uint3(reversed, id.z);
+    _DestinationA[id] = _SourceA[source];
+    _DestinationB[id] = _SourceB[source];
+}
+
+[numthreads(8, 8, 1)]
+void Butterfly(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint)_Resolution) || id.z >= (uint)_CascadeCount)
+        return;
+    uint coordinate = _Axis == 0 ? id.x : id.y;
+    uint span = 1u << (_Stage + 1);
+    uint halfSpan = span >> 1;
+    uint blockStart = coordinate - (coordinate & (span - 1u));
+    uint butterfly = coordinate & (halfSpan - 1u);
+    uint lower = blockStart + butterfly;
+    uint upper = lower + halfSpan;
+    uint3 lowerCoordinate = _Axis == 0 ? uint3(lower, id.y, id.z) : uint3(id.x, lower, id.z);
+    uint3 upperCoordinate = _Axis == 0 ? uint3(upper, id.y, id.z) : uint3(id.x, upper, id.z);
+    float angle = 2.0 * PI_VALUE * butterfly / span;
+    float sine;
+    float cosine;
+    sincos(angle, sine, cosine);
+    float2 twiddle = float2(cosine, sine);
+
+    float4 lowerA = _SourceA[lowerCoordinate];
+    float4 upperA = _SourceA[upperCoordinate];
+    float4 lowerB = _SourceB[lowerCoordinate];
+    float4 upperB = _SourceB[upperCoordinate];
+    // WaterFX conjugates the packed spectrum for the first (horizontal)
+    // inverse-FFT axis, then leaves the vertical axis unmodified. Applying the
+    // conjugation at the first butterfly stage preserves that convention while
+    // keeping the packed Sol resources layout unchanged.
+    if (_Axis == 0 && _Stage == 0)
+    {
+        lowerA = float4(lowerA.x, -lowerA.y, lowerA.z, -lowerA.w);
+        upperA = float4(upperA.x, -upperA.y, upperA.z, -upperA.w);
+        lowerB = float4(lowerB.x, -lowerB.y, lowerB.z, -lowerB.w);
+        upperB = float4(upperB.x, -upperB.y, upperB.z, -upperB.w);
+    }
+    float4 twiddledA = float4(ComplexMultiply(upperA.xy, twiddle), ComplexMultiply(upperA.zw, twiddle));
+    float4 twiddledB = float4(ComplexMultiply(upperB.xy, twiddle), ComplexMultiply(upperB.zw, twiddle));
+    bool firstHalf = (coordinate & (span - 1u)) < halfSpan;
+    _DestinationA[id] = firstHalf ? lowerA + twiddledA : lowerA - twiddledA;
+    _DestinationB[id] = firstHalf ? lowerB + twiddledB : lowerB - twiddledB;
+}
+
+float3 SpatialDisplacement(int2 pixel, uint cascade)
+{
+    pixel = pixel & (_Resolution - 1);
+    // The spectrum stores physical amplitude per spectral cell, so the desired
+    // spatial surface is the unnormalised sum of all bins.
+    float4 a = _SourceA[int3(pixel, cascade)];
+    float4 b = _SourceB[int3(pixel, cascade)];
+    float3 displacement = float3(a.z, a.x, b.x);
+    displacement.y *= cascade == 0 ? 0.5 : cascade == 1 ? 0.5
+        : cascade == 2 ? 0.6 : 0.9;
+    // The spectrum is indexed around the zero-frequency centre. Undo the
+    // implicit FFT centering phase exactly as WaterFX does after the inverse
+    // transform; omitting this produces the visible checkerboard/dotted wave
+    // pattern at grazing angles.
+    float checkerboard = ((pixel.x + pixel.y) & 1) == 0 ? 1.0 : -1.0;
+    return displacement * checkerboard;
+}
+
+[numthreads(8, 8, 1)]
+void Finalize(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint)_Resolution) || id.z >= (uint)_CascadeCount)
+        return;
+    int2 pixel = int2(id.xy);
+    float3 center = SpatialDisplacement(pixel, id.z);
+    float3 left = SpatialDisplacement(pixel + int2(-1, 0), id.z);
+    float3 right = SpatialDisplacement(pixel + int2(1, 0), id.z);
+    float3 down = SpatialDisplacement(pixel + int2(0, -1), id.z);
+    float3 up = SpatialDisplacement(pixel + int2(0, 1), id.z);
+    float texelWorld = CascadeSize(id.z) / _Resolution;
+
+    float3 tangentX = float3(2.0 * texelWorld + right.x - left.x,
+        right.y - left.y, right.z - left.z);
+    float3 tangentZ = float3(up.x - down.x, up.y - down.y,
+        2.0 * texelWorld + up.z - down.z);
+    float3 normal = normalize(cross(tangentZ, tangentX));
+    if (normal.y < 0)
+        normal = -normal;
+
+    float inverseSpan = 0.5 / max(1e-4, texelWorld);
+    float dDxDx = (right.x - left.x) * inverseSpan;
+    float dDzDx = (right.z - left.z) * inverseSpan;
+    float dDxDz = (up.x - down.x) * inverseSpan;
+    float dDzDz = (up.z - down.z) * inverseSpan;
+    float jacobian = (1.0 + dDxDx) * (1.0 + dDzDz) - dDxDz * dDzDx;
+    float threshold = clamp(_SpectrumParams.z, -0.25, 1.0);
+    float breaking = saturate((threshold - jacobian) * max(0, _SpectrumParams.w));
+    breaking *= smoothstep(3.0, 6.0, _Wind.z);
+    breaking = breaking * breaking * (3.0 - 2.0 * breaking);
+
+    if (_HistoryBlend > 0.001)
+    {
+        float4 previous = _PreviousNormalFoam.Load(int4(pixel, id.z, 0));
+        float previousConfidence = saturate(previous.w);
+        float historyWeight = saturate(_HistoryBlend * (0.25 + previousConfidence * 0.5));
+        normal = normalize(lerp(normal, previous.xyz, historyWeight));
+        breaking = max(breaking, previous.w * (1.0 - 0.045 * _HistoryBlend));
+    }
+
+    _DisplacementOutput[id] = float4(center, 0);
+    _NormalFoamOutput[id] = float4(normal, breaking);
+}
+
+// Box-filters the finalized displacement down to the readback resolution.
+//
+// The averaging is deliberate rather than a point sample: buoyancy integrates
+// over a hull, so the sub-texel chop that survives a point sample only shows up
+// as noise on the force. Filtering here also means the CPU sampler can use plain
+// bilinear interpolation without re-aliasing what it reads.
+[numthreads(8, 8, 1)]
+void DownsampleForReadback(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _ReadbackResolution || (int)id.y >= _ReadbackResolution
+        || (int)id.z >= _CascadeCount)
+        return;
+
+    // Unsigned so the divide does not go through the signed integer path.
+    int ratio = (int)max(1u, (uint)_Resolution / max(1u, (uint)_ReadbackResolution));
+    float4 total = 0;
+    for (int y = 0; y < ratio; y++)
+    {
+        for (int x = 0; x < ratio; x++)
+        {
+            int3 source = int3((int)id.x * ratio + x, (int)id.y * ratio + y, (int)id.z);
+            total += _ReadbackSource.Load(int4(source, 0));
+        }
+    }
+
+    _ReadbackDestination[id] = total / (float)(ratio * ratio);
+}

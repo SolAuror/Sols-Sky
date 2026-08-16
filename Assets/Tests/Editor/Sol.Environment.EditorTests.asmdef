@@ -1,7 +1,9 @@
 {
     "name": "Sol.Environment.EditorTests",
     "rootNamespace": "Sol.Tests.Editor",
-    "references": [],
+    "references": [
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
     "includePlatforms": [
         "Editor"
     ],

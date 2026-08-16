@@ -32,7 +32,10 @@ MonoBehaviour:
   resolveShader: {fileID: 4800000, guid: 9c59a028668fcd64b8ba01c1e190c0b2, type: 3}
   underwaterShader: {fileID: 4800000, guid: 6e44555c5668c2e4dabf4513283aea8d, type: 3}
   fftShader: {fileID: 7200000, guid: c75c17605f5d7bf448d1463370ea594b, type: 3}
+  causticShader: {fileID: 4800000, guid: 68df5c9af8e543fbb3d1844a56c939f6, type: 3}
+  volumetricShader: {fileID: 4800000, guid: 028498c9a40a4fce8465cc48ba6799a9, type: 3}
   renderInSceneView: 1
+  debugMode: 0
   debugLog: 0
 --- !u!114 &11400000
 MonoBehaviour:

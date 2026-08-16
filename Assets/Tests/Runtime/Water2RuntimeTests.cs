@@ -40,6 +40,7 @@ namespace Sol.Tests.Runtime
 
             GameObject cameraObject = new("Water 2 render camera");
             Camera camera = cameraObject.AddComponent<Camera>();
+            ConfigureUrpCamera(cameraObject);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.1f, 0.2f, 0.3f);
             camera.transform.SetPositionAndRotation(
@@ -50,6 +51,10 @@ namespace Sol.Tests.Runtime
                 name = "Water 2 Runtime Test Target",
                 antiAliasing = 2,
             };
+            // URP's player-side RenderGraph treats a request-only destination as the
+            // back buffer. Bind the target to the camera as well so renderer features
+            // receive an intermediate colour target in both Editor and Player tests.
+            camera.targetTexture = target;
 
             try
             {
@@ -70,6 +75,7 @@ namespace Sol.Tests.Runtime
             }
             finally
             {
+                camera.targetTexture = null;
                 target.Release();
                 UnityEngine.Object.Destroy(target);
                 UnityEngine.Object.Destroy(cameraObject);
@@ -117,6 +123,7 @@ namespace Sol.Tests.Runtime
 
             GameObject cameraObject = new("Water 2 sky fallback camera");
             Camera camera = cameraObject.AddComponent<Camera>();
+            ConfigureUrpCamera(cameraObject);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = Color.black;
             camera.transform.SetPositionAndRotation(
@@ -126,6 +133,7 @@ namespace Sol.Tests.Runtime
             {
                 name = "Water 2 Sky Fallback Test Target",
             };
+            camera.targetTexture = target;
 
             try
             {
@@ -162,6 +170,7 @@ namespace Sol.Tests.Runtime
                 RenderSettings.ambientSkyColor = previousSky;
                 RenderSettings.ambientEquatorColor = previousEquator;
                 RenderSettings.ambientGroundColor = previousGround;
+                camera.targetTexture = null;
                 target.Release();
                 UnityEngine.Object.Destroy(target);
                 UnityEngine.Object.Destroy(cameraObject);
@@ -178,6 +187,11 @@ namespace Sol.Tests.Runtime
             WaterTestRig rig = new("four-heading-ocean");
             try
             {
+                // Exercise the production ocean spectrum. A flat test surface cannot
+                // expose downward fallback rays caused by strongly perturbed normals.
+                rig.ConfigureSpectrum(0.85f, 0.92f);
+                Reflection.Set(rig.Quality, "tier",
+                    Enum.Parse(FindType("Sol.Water.SolWaterQualityTier"), "High"));
                 float[] headings = { 0f, 90f, 180f, 270f };
                 foreach (float heading in headings)
                 {
@@ -190,8 +204,16 @@ namespace Sol.Tests.Runtime
                     Color withSsr = ReadLowerWaterAverage(rig.Target);
                     Color left = ReadAverage(rig.Target, new RectInt(12, 8, 40, 20));
                     Color right = ReadAverage(rig.Target, new RectInt(rig.Target.width - 52, 8, 40, 20));
+                    Color middle = ReadAverage(rig.Target,
+                        new RectInt(rig.Target.width / 2 - 20, 8, 40, 20));
 
                     Reflection.Set(rig.Quality, "screenSpaceReflections", false);
+                    // Two renders, matching the SSR-enabled path above. Reading after a
+                    // single frame compared a settled image against a transitional one:
+                    // disabling SSR invalidates per-camera reflection history, and the
+                    // frame that clears it is not representative.
+                    rig.Render();
+                    yield return null;
                     rig.Render();
                     yield return null;
                     Color withoutSsr = ReadLowerWaterAverage(rig.Target);
@@ -199,8 +221,24 @@ namespace Sol.Tests.Runtime
                     AssertTeal(withSsr, $"heading {heading}");
                     AssertColorNear(withSsr, withoutSsr, 0.08f,
                         $"Open-water SSR changed the fallback at heading {heading}.");
-                    Assert.That(Mathf.Abs(Luminance(left) - Luminance(right)), Is.LessThan(0.18f),
-                        $"Open water split into mismatched halves at heading {heading}.");
+                    // This guards against the water splitting into two mismatched halves.
+                    // Comparing the corners alone cannot tell a seam from a legitimate
+                    // gradient, and with the sun off to one side the sky reflection is
+                    // genuinely brighter on that side, so a corner-equality bound fails
+                    // on correct output. A smooth gradient puts the midpoint between the
+                    // two edges; a seam does not.
+                    float leftLuminance = Luminance(left);
+                    float rightLuminance = Luminance(right);
+                    float middleLuminance = Luminance(middle);
+                    float lower = Mathf.Min(leftLuminance, rightLuminance);
+                    float upper = Mathf.Max(leftLuminance, rightLuminance);
+                    float slack = 0.05f + (upper - lower) * 0.25f;
+                    Assert.That(middleLuminance,
+                        Is.InRange(lower - slack, upper + slack),
+                        $"Open water split into mismatched halves at heading {heading}: "
+                        + $"left {leftLuminance:F3}, middle {middleLuminance:F3}, right {rightLuminance:F3}.");
+                    Assert.That(upper - lower, Is.LessThan(0.45f),
+                        $"Open water brightness varied implausibly across the frame at heading {heading}.");
                 }
             }
             finally
@@ -244,15 +282,19 @@ namespace Sol.Tests.Runtime
         [UnityTest]
         public IEnumerator SubmergedTerrain_IsNotAcceptedAsAnSsrReflectionHit()
         {
-            WaterTestRig rig = new("submerged-terrain-rejection");
-            GameObject seabed = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Material seabedMaterial = CreateUnlitMaterial(new Color(1f, 0.02f, 0.7f, 1f));
-            seabed.name = "Bright submerged SSR rejection target";
-            seabed.transform.SetPositionAndRotation(new Vector3(0f, -2.5f, 8f), Quaternion.identity);
-            seabed.transform.localScale = new Vector3(50f, 1f, 50f);
-            seabed.GetComponent<Renderer>().sharedMaterial = seabedMaterial;
+            WaterTestRig rig = null;
+            GameObject seabed = null;
+            Material seabedMaterial = null;
             try
             {
+                rig = new WaterTestRig("submerged-terrain-rejection");
+                seabed = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                seabedMaterial = CreateUnlitMaterial(new Color(1f, 0.02f, 0.7f, 1f));
+                seabed.name = "Bright submerged SSR rejection target";
+                seabed.transform.SetPositionAndRotation(new Vector3(0f, -2.5f, 8f), Quaternion.identity);
+                seabed.transform.localScale = new Vector3(50f, 1f, 50f);
+                seabed.GetComponent<Renderer>().sharedMaterial = seabedMaterial;
+
                 Reflection.Set(rig.Quality, "screenSpaceReflections", true);
                 rig.Render();
                 yield return null;
@@ -272,7 +314,8 @@ namespace Sol.Tests.Runtime
             {
                 UnityEngine.Object.Destroy(seabedMaterial);
                 UnityEngine.Object.Destroy(seabed);
-                rig.Dispose();
+                if (rig != null)
+                    rig.Dispose();
             }
             yield return null;
         }
@@ -280,15 +323,19 @@ namespace Sol.Tests.Runtime
         [UnityTest]
         public IEnumerator AboveWaterGeometry_ProducesOnlyALocalizedReflection()
         {
-            WaterTestRig rig = new("localized-object-reflection");
-            GameObject reflector = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Material reflectorMaterial = CreateUnlitMaterial(new Color(3f, 0.03f, 0.02f, 1f));
-            reflector.name = "Bright above-water SSR target";
-            reflector.transform.SetPositionAndRotation(new Vector3(0f, 2.8f, 5f), Quaternion.identity);
-            reflector.transform.localScale = new Vector3(3f, 5f, 1.5f);
-            reflector.GetComponent<Renderer>().sharedMaterial = reflectorMaterial;
+            WaterTestRig rig = null;
+            GameObject reflector = null;
+            Material reflectorMaterial = null;
             try
             {
+                rig = new WaterTestRig("localized-object-reflection");
+                reflector = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                reflectorMaterial = CreateUnlitMaterial(new Color(3f, 0.03f, 0.02f, 1f));
+                reflector.name = "Bright above-water SSR target";
+                reflector.transform.SetPositionAndRotation(new Vector3(0f, 2.8f, 5f), Quaternion.identity);
+                reflector.transform.localScale = new Vector3(3f, 5f, 1.5f);
+                reflector.GetComponent<Renderer>().sharedMaterial = reflectorMaterial;
+
                 Reflection.Set(rig.Quality, "screenSpaceReflections", false);
                 rig.Render();
                 yield return null;
@@ -323,7 +370,8 @@ namespace Sol.Tests.Runtime
             {
                 UnityEngine.Object.Destroy(reflectorMaterial);
                 UnityEngine.Object.Destroy(reflector);
-                rig.Dispose();
+                if (rig != null)
+                    rig.Dispose();
             }
             yield return null;
         }
@@ -592,6 +640,7 @@ namespace Sol.Tests.Runtime
 
                 cameraObject = new GameObject($"Water 2 {bodyName} camera");
                 Camera = cameraObject.AddComponent<Camera>();
+                ConfigureUrpCamera(cameraObject);
                 Camera.clearFlags = CameraClearFlags.SolidColor;
                 Camera.backgroundColor = Color.black;
                 Camera.transform.SetPositionAndRotation(new Vector3(0f, 5f, -12f),
@@ -601,6 +650,7 @@ namespace Sol.Tests.Runtime
                 {
                     name = $"Water 2 {bodyName} target",
                 };
+                Camera.targetTexture = Target;
                 Assert.That(Target.Create(), Is.True);
                 request = new RenderPipeline.StandardRequest
                 {
@@ -614,11 +664,18 @@ namespace Sol.Tests.Runtime
 
             public void Render() => RenderPipeline.SubmitRenderRequest(Camera, request);
 
+            public void ConfigureSpectrum(float strength, float choppiness)
+            {
+                Reflection.Set(profile, "spectralStrength", strength);
+                Reflection.Set(profile, "spectralChoppiness", choppiness);
+            }
+
             public void Dispose()
             {
                 RenderSettings.ambientSkyColor = previousSky;
                 RenderSettings.ambientEquatorColor = previousEquator;
                 RenderSettings.ambientGroundColor = previousGround;
+                Camera.targetTexture = null;
                 Target.Release();
                 UnityEngine.Object.Destroy(Target);
                 UnityEngine.Object.Destroy(cameraObject);
@@ -687,6 +744,14 @@ namespace Sol.Tests.Runtime
             Material material = new(shader);
             material.SetColor("_BaseColor", color);
             return material;
+        }
+
+        static void ConfigureUrpCamera(GameObject cameraObject)
+        {
+            Type cameraDataType = FindType(
+                "UnityEngine.Rendering.Universal.UniversalAdditionalCameraData");
+            if (cameraObject.GetComponent(cameraDataType) == null)
+                cameraObject.AddComponent(cameraDataType);
         }
 
         static void AssertTeal(Color color, string context)

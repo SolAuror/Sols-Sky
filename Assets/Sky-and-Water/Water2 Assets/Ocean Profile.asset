@@ -12,27 +12,34 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 70b9f93bfa40a074a84e86d9678cae8c, type: 3}
   m_Name: Ocean Profile
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolWaterProfile
-  shallowScattering: {r: 0.035, g: 0.32, b: 0.36, a: 1}
-  deepScattering: {r: 0.003, g: 0.045, b: 0.075, a: 1}
-  absorption: {x: 0.14, y: 0.055, z: 0.028}
-  clarityDistance: 18
+  shallowScattering: {r: 0.03, g: 0.26, b: 0.32, a: 1}
+  deepScattering: {r: 0.004, g: 0.05, b: 0.09, a: 1}
+  absorption: {x: 0.18, y: 0.0216, z: 0.0036}
+  clarityDistance: 10
   indexOfRefraction: 1.333
-  scatteringStrength: 0.62
+  refractionStrength: 0.38
+  refractionMaximumDistance: 10
+  refractionDispersion: 0.12
+  refractionMaximumScreenOffset: 0.018
+  scatteringStrength: 1
   smoothness: 0.94
+  sunSpecularStrength: 0.08
+  sunSpecularRoughness: 0.04
+  sunSpecularMaximum: 3
   rainRoughness: 0.18
   rainNormalStrength: 0.15
   cloudShadowStrength: 0.35
   lightningReflectionStrength: 0.75
   waveSpeed: 1
   windResponse: 1
-  spectralStrength: 0.85
-  spectralChoppiness: 0.92
+  spectralStrength: 0.65
+  spectralChoppiness: 0.78
   spectralFoamThreshold: 0.55
   spectralFoamGain: 1.35
   shorelineMask: {fileID: 0}
   shorelineMaskMapping: {x: 0, y: 0, z: 100, w: 100}
   shorelineMaskStrength: 1
-  shorelineFoamWidth: 1.25
+  shorelineFoamWidth: 2.75
   shorelineWetness: 0.2
   shorelineData: {fileID: 2800000, guid: 7c47da0960c7c6e44b37659d822b3eda, type: 2}
   shorelineDataMapping: {x: 0, y: 0, z: 1000, w: 1000}
@@ -41,6 +48,12 @@ MonoBehaviour:
   shallowWaveAttenuationDepth: 5
   shorelineContactFade: 0.4
   shorelineNormalFlattening: 0.82
+  shorelineBreakerStrength: 0.22
+  shorelineBreakerWidth: 14
+  shorelineBreakerWavelength: 6.5
+  shorelineBreakerSpeed: 1.2
+  shorelineBreakerChoppiness: 0.35
+  shorelineBreakerFoam: 0.667
   gerstnerWaves:
   - wavelength: 18
     amplitude: 0.35
@@ -62,16 +75,19 @@ MonoBehaviour:
     steepness: 0.55
     direction: {x: -0.82110924, y: -0.5707711}
     phaseOffset: 0
-  crestFoamStrength: 0.24
+  crestFoamStrength: 0.61
   shorelineFoamStrength: 0.38
-  foamColor: {r: 0.82, g: 0.9, b: 0.92, a: 1}
+  foamColor: {r: 1, g: 1, b: 1, a: 1}
   foamTexture: {fileID: 2800000, guid: 69eb03f5b913a5142840d4e70d6a1e1f, type: 3}
-  foamTextureScale: 0.07
+  foamTextureScale: 0.1
   foamTextureContrast: 2.6
-  foamBrightness: 0.56
-  causticStrength: 1.2
-  causticScale: 3
-  skyReflectionStrength: 0.9
-  underwaterHaze: {r: 0.015, g: 0.18, b: 0.22, a: 1}
-  underwaterDensity: 0.09
+  foamBrightness: 1
+  causticStrength: 2
+  causticScale: 6.27
+  causticTexture: {fileID: 2800000, guid: 92165e06fce7cb44dbf3862bf7b44cb6, type: 3}
+  skyReflectionStrength: 1
+  reflectionIntensity: 1
+  horizonReflectionStrength: 1
+  underwaterHaze: {r: 0.02, g: 0.19, b: 0.24, a: 1}
+  underwaterDensity: 0.1
   underwaterDistortion: 0.05

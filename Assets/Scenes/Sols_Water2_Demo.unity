@@ -3485,6 +3485,8 @@ GameObject:
   - component: {fileID: 5665088069232259141}
   - component: {fileID: 5665088069232259140}
   - component: {fileID: 8723318279177309094}
+  - component: {fileID: 8723318279177309096}
+  - component: {fileID: 8723318279177309095}
   m_Layer: 0
   m_Name: Sols System Manager 2
   m_TagString: Untagged
@@ -3504,7 +3506,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e245971741925b941936a44f24fc3275, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SolAtmosphereController
-  profile: {fileID: 11400000, guid: 6a90b4a3e8fb49f0a3414da31b2e4451, type: 2}
+  profile: {fileID: 11400000, guid: dbd394e14d1c7dc4ab31305046fb0ce5, type: 2}
   timeOfDay: {fileID: 7289805970471111700}
   weatherManager: {fileID: 5836892427009264645}
   disableLegacyFog: 1
@@ -3556,11 +3558,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d37dd67e74289c409bc7f7f04ba0beb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolWaterWorld
-  defaultProfile: {fileID: 11400000, guid: 0d96b69ce2c2f2e4ead18e20f6d2aefc, type: 2}
-  qualityProfile: {fileID: 11400000, guid: d1bb68b705aeb2e47a7e10f1fa310306, type: 2}
+  defaultProfile: {fileID: 11400000, guid: 6c2a2e522688b814f9d9cf858092b4b0, type: 2}
+  qualityProfile: {fileID: 11400000, guid: 96a339c953509684f90e7ab8a4e7a264, type: 2}
   environmentWorld: {fileID: 5665088069232259141}
-  queryService: {fileID: 0}
-  planarReflectionRenderer: {fileID: 0}
+  queryService: {fileID: 8723318279177309096}
+  planarReflectionRenderer: {fileID: 8723318279177309095}
 --- !u!114 &5665088069232259141
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3874,6 +3876,36 @@ MonoBehaviour:
   dayStart: 9
   afternoonStart: 14
   nightStart: 18
+--- !u!114 &8723318279177309095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4069933975666731442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7346011a9aeb6094dbecb8661c11f873, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.Rendering.SolPlanarReflectionRenderer
+  cullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  clipPlaneOffset: 0.07
+  renderSceneView: 0
+  enableExperimentalNestedRendering: 0
+--- !u!114 &8723318279177309096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4069933975666731442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72b0ef330d012454b9a5ac432b8c699b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolWaterQueryService
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -582,12 +582,13 @@ The legacy five-value restore overload remains only as an obsolete compatibility
 The replacement environment API is documented in `Documentation/Water2 Overhaul.md`. Its principal public contracts are:
 
 - `Sol.Environment.SolEnvironmentWorld`, `SolEnvironmentState`, `SolEnvironmentCommand`, and `SolEnvironmentSnapshot`.
-- `Sol.Water.SolWaterProfile` exposes world-space foam texture scale/contrast/brightness, dynamic sky-reflection blending, and optional logical-world shoreline depth/distance data with shallow-wave attenuation and contact controls alongside the existing optics, waves, shoreline, and underwater controls.
+- `Sol.Water.SolWaterProfile` exposes physical refraction strength/distance/dispersion and maximum viewport offset, clarity, projected-caustic texture/strength/scale, world-space foam texture scale/contrast/brightness, dynamic sky-reflection blending plus fallback/horizon energy controls, and optional logical-world shoreline depth/distance data with shallow-wave attenuation, contact controls, and shore-directed breaker strength/width/wavelength/speed/choppiness/foam alongside the existing optics, waves, shoreline, and underwater controls.
 - `Sol.Water.SolWaterQualityProfile` exposes SSR traversal distance/thickness/edge fade, binary refinement, temporal history weight, depth/normal validation tolerances, and maximum reflected luminance.
-- `Sol.Water.Rendering.SolWaterDebugMode` selects raw SSR, validated SSR, confidence, dynamic-sky fallback, or pre-texture foam-confidence visualization on `SolWaterRendererFeature`.
+- `Sol.Water.Rendering.SolWaterDebugMode` selects raw SSR, validated SSR, confidence, dynamic-sky fallback, pre-texture foam confidence, accepted refraction, or projected-caustic visualization on `SolWaterRendererFeature`.
 - `Sol.Environment.SolEnvironmentCameraRegistry` and `SolWorldOriginService`.
 - `Sol.Water.SolWaterWorld`, `SolWaterBody`, `SolWaterBodyId`, `SolWaterCommand`, and `SolWaterSnapshot`.
 - `Sol.Water.ISolWaterQueryService` and `SolWaterSurfaceSample`.
+- `Sol.Water.ISolWaterGeometry` and `SolWaterGeometrySample` are the finite-body bridge used by `SolRiverGeometry`, `SolLakeGeometry`, and `SolWaterfallGeometry`. Generated geometry supplies bounded mesh rendering plus matching position, normal, depth, flow, and foam data to the existing query service.
 - `Sol.Hydrology.SolHydrologyAsset`, `SolHydrologyWorld`, `SolHydrologyCommand`, and `SolHydrologySnapshot`.
 - `Sol.Streaming.IEnvironmentCellProvider` and `SolEnvironmentCellId`.
 

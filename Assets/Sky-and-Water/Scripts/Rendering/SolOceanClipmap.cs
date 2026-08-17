@@ -13,29 +13,32 @@ namespace Sol.Water.Rendering
         /// Hard ceiling on leaves, bounded by the instanced draw arrays below. A split
         /// adds three, so the guard leaves room for one more.
         /// </summary>
-        const int MaximumLeaves = 252;
+        const int MaximumLeaves = 380;
 
         /// <summary>
-        /// Ceiling for projected-density selection alone, deliberately below
-        /// <see cref="MaximumLeaves"/>. Balancing has to be able to split after selection
-        /// finishes; with a single shared budget, selection consumed nearly all of it and
-        /// the 2:1 rule was skipped exactly in the wide views that need it most — which is
-        /// where the cracks were worst.
+        /// Ceiling for projected-density selection alone. The gap to
+        /// <see cref="MaximumLeaves"/> is the balance pass's working room, and it has to
+        /// stay generous: raising this without raising the ceiling starves balancing and
+        /// the cracks come straight back, which is exactly what happened when the two
+        /// were pushed together.
         /// </summary>
-        const int SelectionLeafBudget = 176;
+        const int SelectionLeafBudget = 220;
 
         /// <summary>
         /// A patch subdivides while it is larger than this fraction of its distance from
         /// the camera. Smaller values mean finer geometry and more leaves: the count per
-        /// detail ring is roughly 2*pi/ratio, so 0.5 gives about thirteen patches per ring
-        /// and a little over a hundred leaves across the whole horizon before culling.
+        /// detail ring is roughly 2*pi/ratio, so 0.35 gives about eighteen patches per
+        /// ring and around a hundred and sixty leaves across the horizon before culling.
+        /// Raise it for cheaper, flatter water; lower it for more geometric wave relief.
         /// </summary>
-        const float PatchSizeToDistanceRatio = 0.5f;
+        const float PatchSizeToDistanceRatio = 0.35f;
 
         internal sealed class DrawSet
         {
-            internal readonly Matrix4x4[] Matrices = new Matrix4x4[256];
-            internal readonly Vector4[] PatchData = new Vector4[256];
+            // Sized above MaximumLeaves so the ceiling, not the array, is what bounds the
+            // tree. DrawMeshInstanced allows up to 1023 per call.
+            internal readonly Matrix4x4[] Matrices = new Matrix4x4[384];
+            internal readonly Vector4[] PatchData = new Vector4[384];
             internal readonly MaterialPropertyBlock Properties = new();
             internal readonly Vector4[] WaveDataA = new Vector4[8];
             internal readonly Vector4[] WaveDataB = new Vector4[8];

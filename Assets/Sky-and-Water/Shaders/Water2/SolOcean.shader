@@ -168,7 +168,7 @@ Shader "Sol/Water2/Ocean"
             UNITY_SETUP_INSTANCE_ID(input);
             UNITY_TRANSFER_INSTANCE_ID(input, output);
             UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-            float3 baseWS = TransformObjectToWorld(input.positionOS.xyz);
+            float3 positionOS = input.positionOS.xyz;
             float isSkirt = step(1.5, input.uv.x);
             float4 patchData = UNITY_ACCESS_INSTANCED_PROP(SolOceanPatch, _SolOceanPatchData);
             int resolution = max(2, (int)round(patchData.y));
@@ -184,6 +184,25 @@ Shader "Sol/Water2/Ocean"
             // — the vertical striped walls standing along the patch boundaries.
             float2 patchUV = input.uv - isSkirt * 2.0;
             int2 vertexIndex = (int2)round(saturate(patchUV) * resolution);
+
+            // A skirt only has a crack to plug where this patch meets a coarser one.
+            // The mesh carries a skirt around the whole perimeter because it is shared
+            // by every patch, so on the three edges that typically face a same-sized
+            // neighbour it is pure overdraw hanging below the surface — plainly visible
+            // from underwater or side-on at a crest. Collapse those back onto the
+            // surface so they occupy no volume.
+            if (isSkirt > 0.5)
+            {
+                bool skirtNeeded =
+                    (vertexIndex.x == 0 && (edgeMask & 1) != 0)
+                    || (vertexIndex.x == resolution && (edgeMask & 2) != 0)
+                    || (vertexIndex.y == 0 && (edgeMask & 4) != 0)
+                    || (vertexIndex.y == resolution && (edgeMask & 8) != 0);
+                if (!skirtNeeded)
+                    positionOS.y = 0.0;
+            }
+            float3 baseWS = TransformObjectToWorld(positionOS);
+
             float edgeMorph = 0.0;
             if ((edgeMask & 1) != 0) edgeMorph = max(edgeMorph, 1.0 - saturate(vertexIndex.x * 0.5));
             if ((edgeMask & 2) != 0) edgeMorph = max(edgeMorph, 1.0 - saturate((resolution - vertexIndex.x) * 0.5));
@@ -287,6 +306,13 @@ Shader "Sol/Water2/Ocean"
             Tags { "LightMode"="SolWaterForward" }
             ZWrite Off
             // Visible water pixels are accepted from the depth-tested prepass.
+            //
+            // Depth testing here does NOT give water-against-water occlusion, and turning
+            // it on is actively harmful: this pass alpha-blends, so every fragment that
+            // passes the test still composites in draw order. A far patch drawn first is
+            // blended, then a near patch blends over it — the far surface is still in the
+            // result. Real occlusion needs exactly one water fragment per pixel, which
+            // means a depth-only pass ahead of this one and ZTest Equal here.
             ZTest Always
             Cull Off
             Blend SrcAlpha OneMinusSrcAlpha

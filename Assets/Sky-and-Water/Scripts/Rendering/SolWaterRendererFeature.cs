@@ -18,6 +18,56 @@ namespace Sol.Water.Rendering
         FoamConfidence,
         Refraction,
         Caustics,
+        // These seven existed in SolOcean.shader's debug branch but had no enum entry,
+        // so they were unreachable from the renderer feature inspector.
+        Scattering,
+        Transmittance,
+        Opacity,
+        SunSpecular,
+        VolumetricScattering,
+        /// <summary>
+        /// Paints red exactly the water fragments the nearest-surface test rejects —
+        /// distant patches behind a near crest, and the skirt walls at detail
+        /// boundaries. Before the depth-resolved prepass every red pixel here was a
+        /// fragment that shaded and alpha-composited over the surface in front of it.
+        /// </summary>
+        SurfaceOverlap,
+        /// <summary>
+        /// Magenta where the visible surface is a patch skirt rather than the water
+        /// surface proper. If a reported dark stroke follows the magenta, the skirt
+        /// walls are shading it and the fix belongs in the clipmap, not the optics.
+        /// </summary>
+        PatchSkirts,
+        /// <summary>
+        /// Refraction leak rejection. Black means the refracted sample was discarded as
+        /// implausible and the fragment fell back to the unrefracted seabed.
+        /// </summary>
+        RefractionConfidence,
+        /// <summary>
+        /// Optical path length feeding absorption, normalized against clarity distance.
+        /// Absorption is superlinear, so a bright filament here is already black on
+        /// screen — this is the direct view of what causes the dark strokes.
+        /// </summary>
+        AbsorptionPathLength,
+        /// <summary>
+        /// Shaded surface normal. A stroke of uniform colour through otherwise varied
+        /// water means the normal is discontinuous, placing the cause in the vertex or
+        /// spectral path rather than in the optics.
+        /// </summary>
+        SurfaceNormal,
+        /// <summary>
+        /// Spectral detail fade. Black strokes are pixels whose derivative footprint
+        /// suppressed all cascade detail, leaving a flat, foamless normal.
+        /// </summary>
+        SpectralDetailFade,
+        /// <summary>
+        /// Caustic response headroom: green is brightening against its ceiling, red is
+        /// darkening against its limit. A healthy field is a sparse bright web over
+        /// mostly dim ground. Flat saturated green means the gain is too hot and the
+        /// pattern has been clipped away — raise or lower `causticStrength` on the water
+        /// profile until the web is visible.
+        /// </summary>
+        CausticResponse,
     }
 
     /// <summary>
@@ -27,6 +77,17 @@ namespace Sol.Water.Rendering
     [System.Serializable]
     public sealed class SolWaterRendererFeature : ScriptableRendererFeature
     {
+        // The ocean is the only water shader drawn through DrawMeshInstanced, so it is
+        // the only one whose INSTANCING_ON variant has to survive into a player build.
+        // Built-in shader stripping keeps that variant only for shaders a *material
+        // asset* in the build enables instancing on, and every material here is created
+        // from a shader at runtime, which the build cannot see. So the ocean material is
+        // authored as an asset with GPU instancing ticked and instantiated from, rather
+        // than created from `oceanShader`. Without it the player keeps only the
+        // non-instanced variant, unity_ObjectToWorld and _SolOceanPatchData arrive as
+        // zero for every patch, and the whole clipmap collapses to nothing — silently,
+        // with no error anywhere, and only in builds.
+        [SerializeField] Material oceanMaterial;
         [SerializeField] Shader oceanShader;
         [SerializeField] Shader resolveShader;
         [SerializeField] Shader underwaterShader;
@@ -60,9 +121,35 @@ namespace Sol.Water.Rendering
             cameraColorDesc.msaaSamples = MSAASamples.None;
             cameraColorDesc.bindTextureMS = false;
             cameraColorDesc.enableRandomWrite = false;
+            // Every channel here is an identifier or a depth, never a colour. Filtering
+            // blends the body hash and the surface depth of neighbouring fragments into
+            // a value that describes no real surface, so consumers point sample and the
+            // descriptor refuses to hand them anything else.
+            cameraColorDesc.filterMode = FilterMode.Point;
             cameraColorDesc.clearBuffer = true;
             cameraColorDesc.clearColor = Color.clear;
             return cameraColorDesc;
+        }
+
+        /// <summary>
+        /// Private depth buffer for the water prepass, matching its colour target.
+        /// This is what resolves water against water: without it the prepass is
+        /// last-writer-wins, so a distant patch or a detail-boundary skirt can claim a
+        /// pixel that a near crest actually occupies, and every pass reading the prepass
+        /// downstream inherits that wrong surface.
+        /// </summary>
+        internal static TextureDesc BuildPrepassDepthDescriptor(TextureDesc prepassDesc, string name)
+        {
+            prepassDesc.name = name;
+            prepassDesc.colorFormat = GraphicsFormat.None;
+            prepassDesc.depthBufferBits = DepthBits.Depth32;
+            // Matching the colour target's sample count is the whole reason binding
+            // depth is safe here; see the SolWaterPrepass pass block in SolOcean.shader.
+            prepassDesc.msaaSamples = MSAASamples.None;
+            prepassDesc.bindTextureMS = false;
+            prepassDesc.enableRandomWrite = false;
+            prepassDesc.clearBuffer = true;
+            return prepassDesc;
         }
 
         public override void Create()
@@ -79,7 +166,11 @@ namespace Sol.Water.Rendering
                 volumetricShader, "Hidden/Sol/Water2/Volumetrics", "SolWaterVolumetrics");
             fftShader = SolAssetResolver.ResolveCompute(fftShader, "SolWaterFFT");
 
-            _oceanMaterial = CreateMaterial(oceanShader, "Sol Ocean Runtime Material");
+            oceanMaterial = SolAssetResolver.ResolveMaterial(oceanMaterial, "M_SolOcean");
+
+            _oceanMaterial = oceanMaterial != null
+                ? CreateMaterial(oceanMaterial, "Sol Ocean Runtime Material")
+                : CreateMaterial(oceanShader, "Sol Ocean Runtime Material");
             _resolveMaterial = CreateMaterial(resolveShader, "Sol Water Resolve Runtime Material");
             _underwaterMaterial = CreateMaterial(underwaterShader, "Sol Underwater Runtime Material");
             _causticMaterial = CreateMaterial(causticShader, "Sol Water Caustic Runtime Material");
@@ -117,6 +208,8 @@ namespace Sol.Water.Rendering
             if (!renderInSceneView && cameraData.isSceneViewCamera)
                 return;
 
+            PublishUnderwaterState(cameraData.camera, SolWaterWorld.Active);
+
             _oceanPass.requiresIntermediateTexture = true;
             _oceanPass.Setup(
                 _oceanMaterial,
@@ -138,6 +231,50 @@ namespace Sol.Water.Rendering
                 _underwaterPass.Setup(_underwaterMaterial, _fallbackProfile, debugLog);
                 renderer.EnqueuePass(_underwaterPass);
             }
+        }
+
+        // Shared with the legacy Water 1 stack. SolAtmosphereRendererFeature gates its
+        // aerial perspective on _UnderwaterFactor, and only the legacy
+        // UnderwaterVolumeController ever wrote it -- so in a Water 2 scene the gate never
+        // fired and a submerged camera still got full-strength fog over the underwater
+        // view. The legacy UnderwaterRendererFeature reads the same global, so it has to
+        // stay disabled in the renderer asset or both stacks composite underwater.
+        static readonly int UnderwaterFactorId = Shader.PropertyToID("_UnderwaterFactor");
+        static readonly int UnderwaterDepthId = Shader.PropertyToID("_UnderwaterDepth");
+
+        /// <summary>
+        /// Resolves camera submersion and publishes the _UnderwaterFactor contract.
+        ///
+        /// This runs from AddRenderPasses rather than from UnderwaterPass, because the
+        /// atmosphere reads the global in its own RecordRenderGraph at
+        /// BeforeRenderingTransparents, which is earlier than the underwater pass records
+        /// at BeforeRenderingPostProcessing. Publishing from the pass left the fog gate a
+        /// frame behind, so surfacing and submerging both flashed the wrong sky for a
+        /// frame. Every path here publishes, including the not-submerged one: leaving the
+        /// global stranded keeps the sky suppressed after the camera leaves the water.
+        /// </summary>
+        static void PublishUnderwaterState(Camera camera, SolWaterWorld world)
+        {
+            float factor = 0f;
+            float depth = 0f;
+            if (camera != null && world != null)
+            {
+                SolWaterQualityProfile quality = world.QualityProfile;
+                bool underwaterEnabled = quality == null || quality.underwater;
+                if (underwaterEnabled
+                    && world.TrySampleApproximate(camera.transform.position,
+                        out SolWaterSurfaceSample sample)
+                    && sample.HasWater && sample.Depth > 0.001f)
+                {
+                    // Matches the transition term UnderwaterPass hands the composition
+                    // shader, so the fog gate and the underwater tint cross over together.
+                    factor = Mathf.SmoothStep(0f, 1f, sample.Depth / 0.2f);
+                    depth = sample.Depth;
+                }
+            }
+
+            Shader.SetGlobalFloat(UnderwaterFactorId, factor);
+            Shader.SetGlobalFloat(UnderwaterDepthId, depth);
         }
 
         protected override void Dispose(bool disposing)
@@ -164,6 +301,25 @@ namespace Sol.Water.Rendering
             _oceanPass = null;
             _underwaterPass = null;
             SolEnvironmentCameraRegistry.Clear();
+        }
+
+        /// <summary>
+        /// Copies the authored material so the per-frame state this feature writes never
+        /// dirties the asset. The copy inherits the source's instancing flag, and more
+        /// importantly the source's presence in the build is what kept the instancing
+        /// variants compilable in the first place.
+        /// </summary>
+        static Material CreateMaterial(Material source, string name)
+        {
+            if (source == null)
+                return null;
+            Material material = new(source)
+            {
+                name = name,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            material.enableInstancing = true;
+            return material;
         }
 
         static Material CreateMaterial(Shader shader, string name)
@@ -310,8 +466,41 @@ namespace Sol.Water.Rendering
                 _finiteDrawSet.Build(cameraData.camera, world, _debugMode);
                 bool drawOcean = drawSet != null && drawSet.Count > 0 && _clipmap.PatchMesh != null;
                 bool drawFinite = _finiteDrawSet.Count > 0;
-                if (!drawOcean && !drawFinite)
+                // A submerged camera still needs the spectrum and the caustic array even
+                // when it can see no surface at all. The clipmap frustum-culls its
+                // patches, so looking straight down from underwater selects no leaves,
+                // `drawOcean` goes false, and bailing here would take the FFT and the
+                // caustic pass with it — leaving the underwater composition to sample a
+                // caustic array nothing rendered this frame.
+                //
+                // Gated on there being an ocean: a camera submerged in a finite body is
+                // Gerstner-only and consumes no spectrum, so the FFT would be wasted.
+                bool cameraSubmerged = false;
+                float waterSurfaceHeight = 0f;
+                if (quality.underwater
+                    && world.TrySampleApproximate(
+                        cameraData.camera.transform.position,
+                        out SolWaterSurfaceSample cameraSample)
+                    && cameraSample.HasWater && cameraSample.Depth > 0.001f)
                 {
+                    cameraSubmerged = true;
+                    waterSurfaceHeight = cameraSample.Position.y;
+                }
+                // Submersion itself carries no ocean gate: a camera inside a lake is as
+                // underwater as one in the sea, and requiring an ocean here is what left
+                // finite-body volumetrics switching on and off with whether the lake
+                // surface happened to be in frustum. The ocean gate belongs only on the
+                // spectral chain, where it means something -- a Gerstner-only body
+                // consumes no FFT, so running one for it would be wasted work.
+                bool submergedNeedsSpectrum = cameraSubmerged && hasOcean;
+                if (!drawOcean && !drawFinite && !cameraSubmerged)
+                {
+                    // Both of these are shader globals, so leaving them untouched here
+                    // would strand last frame's value and let a later pass sample a
+                    // caustic array or volumetric buffer this frame never rendered.
+                    Shader.SetGlobalVector(SolWaterCausticRenderGraph.ArrayParamsId,
+                        SolWaterCausticRenderGraph.ArrayParams(0, false));
+                    Shader.SetGlobalVector(VolumetricParamsId, Vector4.zero);
                     SolEnvironmentCameraRegistry.EndCamera(cameraContext);
                     return;
                 }
@@ -324,8 +513,10 @@ namespace Sol.Water.Rendering
                         profile.reflectionIntensity));
                 // Finite bodies are Gerstner-only and consume SpectralParams = zero, so
                 // running the whole inverse-FFT chain for a frame that draws no ocean is
-                // roughly eighteen wasted compute dispatches.
-                SolWaterFftRenderGraph.SpectralResources spectral = drawOcean
+                // roughly eighteen wasted compute dispatches. A submerged camera is the
+                // exception: the underwater composition projects the same live caustics
+                // the surface does, so the chain has to run even with no patch on screen.
+                SolWaterFftRenderGraph.SpectralResources spectral = drawOcean || submergedNeedsSpectrum
                     ? SolWaterFftRenderGraph.Record(
                         renderGraph, _fftShader, quality, profile, world, cameraContext)
                     : default;
@@ -347,8 +538,20 @@ namespace Sol.Water.Rendering
                     : default;
                 Vector4 causticArrayParams = SolWaterCausticRenderGraph.ArrayParams(
                     quality.FftCascadeCount, causticArray.IsValid());
-                _oceanMaterial.SetVector(
+                // Global rather than per material, so every consumer sees what this frame
+                // actually rendered. The underwater pass used to restate these from the
+                // quality and profile settings alone, which asserted the array was valid
+                // whenever caustics were merely *enabled* — so on a frame where no array
+                // was produced it still took the live-array branch and sampled a target
+                // nothing had drawn into. That reads back as a uniform -1.15 and dimmed
+                // the sea bed flat instead of lighting it.
+                Shader.SetGlobalVector(
                     SolWaterCausticRenderGraph.ArrayParamsId, causticArrayParams);
+
+                // With no surface on screen there is nothing to reflect or refract, but
+                // the volumetric march below still has a water volume to walk when the
+                // camera is inside it, so this does not return early.
+                bool hasSurfaceToDraw = drawOcean || drawFinite;
                 if (SolPlanarReflectionRenderer.TryGet(cameraData.camera,
                     out RenderTexture planarTexture,
                     out Matrix4x4 planarViewProjection,
@@ -370,6 +573,10 @@ namespace Sol.Water.Rendering
                 TextureDesc prepassDesc = BuildPrepassDescriptor(
                     sourceDesc, "_SolWaterPrepassData");
                 TextureHandle prepassData = renderGraph.CreateTexture(prepassDesc);
+                // Ocean and finite bodies share this buffer, so a finite body in front
+                // of the ocean now wins the pixel on depth instead of on draw order.
+                TextureHandle prepassDepth = renderGraph.CreateTexture(
+                    BuildPrepassDepthDescriptor(prepassDesc, "_SolWaterPrepassDepth"));
 
                 if (drawOcean)
                 {
@@ -378,6 +585,7 @@ namespace Sol.Water.Rendering
                         "Sol Ocean Prepass",
                         prepassData,
                         depth,
+                        prepassDepth,
                         _clipmap.PatchMesh,
                         drawSet,
                         _oceanMaterial,
@@ -386,22 +594,29 @@ namespace Sol.Water.Rendering
                 if (drawFinite)
                 {
                     RecordFiniteDraw(renderGraph, "Sol Finite Water Prepass",
-                        prepassData, default, depth,
+                        prepassData, default, depth, prepassDepth,
                         default, default, _finiteDrawSet, _oceanMaterial, PrepassIndex);
                 }
 
-                TextureDesc sceneDesc = sourceDesc;
-                sceneDesc.name = "_SolWaterSceneColor";
-                sceneDesc.msaaSamples = MSAASamples.None;
-                sceneDesc.bindTextureMS = false;
-                sceneDesc.clearBuffer = false;
-                TextureHandle sceneColor = renderGraph.CreateTexture(sceneDesc);
-                renderGraph.AddBlitPass(activeColor, sceneColor, Vector2.one, Vector2.zero,
-                    passName: "Sol Water Capture Scene Color");
+                // Only the surface refracts, so a frame that draws none needs neither the
+                // scene colour copy nor the reflection chain.
+                TextureHandle sceneColor = default;
+                if (hasSurfaceToDraw)
+                {
+                    TextureDesc sceneDesc = sourceDesc;
+                    sceneDesc.name = "_SolWaterSceneColor";
+                    sceneDesc.msaaSamples = MSAASamples.None;
+                    sceneDesc.bindTextureMS = false;
+                    sceneDesc.clearBuffer = false;
+                    sceneColor = renderGraph.CreateTexture(sceneDesc);
+                    renderGraph.AddBlitPass(activeColor, sceneColor, Vector2.one, Vector2.zero,
+                        passName: "Sol Water Capture Scene Color");
+                }
 
                 int reflectionSignature = CalculateReflectionSignature(world, quality, _debugMode);
                 TextureHandle ssr = renderGraph.defaultResources.blackTexture;
-                if (quality.screenSpaceReflections && quality.ssrResolutionScale > 0f)
+                if (hasSurfaceToDraw && quality.screenSpaceReflections
+                    && quality.ssrResolutionScale > 0f)
                 {
                     float resolutionScale = Mathf.Clamp(quality.ssrResolutionScale, 0.2f, 1f);
                     TextureDesc rawDesc = sourceDesc;
@@ -482,9 +697,7 @@ namespace Sol.Water.Rendering
                         TextureHandle filtered = renderGraph.CreateTexture(anisoDesc);
                         // Wind widens the angular spread of a reflected ray; the scale
                         // converts that into a viewport-relative smear.
-                        float windSpeed = SolEnvironmentWorld.Active != null
-                            ? SolEnvironmentWorld.Active.State.Wind.Speed
-                            : 0f;
+                        float windSpeed = SolEnvironmentWorld.ResolveState().Wind.Speed;
                         Vector4 anisoParams = new(
                             Mathf.Min(0.08f, windSpeed * 0.004f
                                 * profile.anisotropicReflectionScale),
@@ -507,13 +720,17 @@ namespace Sol.Water.Rendering
                 // Volumetric scattering needs the prepass and the caustic array, and has
                 // to publish before the forward draw reads it.
                 bool wantsVolumetrics = quality.volumetricWaterLighting
-                    && cameraContext != null && prepassData.IsValid();
+                    && cameraContext != null && prepassData.IsValid()
+                    && (hasSurfaceToDraw || cameraSubmerged);
                 TextureHandle volumetric = wantsVolumetrics
                     ? SolWaterVolumetricsRenderGraph.Record(
                         renderGraph, _volumetricMaterial, activeColor, prepassData,
-                        cameraData, cameraContext, quality, profile)
+                        cameraData, cameraContext, quality, profile,
+                        cameraSubmerged, waterSurfaceHeight)
                     : default;
-                _oceanMaterial.SetVector(VolumetricParamsId,
+                // Global rather than on the ocean material: the underwater composition
+                // reads the same flag, and it never sees a material set made here.
+                Shader.SetGlobalVector(VolumetricParamsId,
                     new Vector4(volumetric.IsValid() ? 1f : 0f, 0f, 0f, 0f));
 
                 if (drawOcean)
@@ -530,7 +747,7 @@ namespace Sol.Water.Rendering
                 if (drawFinite)
                 {
                     RecordFiniteDraw(renderGraph, "Sol Finite Water Surface",
-                        activeColor, default, depth, sceneColor, ssr,
+                        activeColor, default, depth, default, sceneColor, ssr,
                         _finiteDrawSet, _oceanMaterial, ForwardPassIndex);
                 }
 
@@ -547,6 +764,7 @@ namespace Sol.Water.Rendering
                 string passName,
                 TextureHandle target0,
                 TextureHandle depth,
+                TextureHandle resolveDepth,
                 Mesh mesh,
                 SolOceanClipmap.DrawSet drawSet,
                 Material material,
@@ -561,6 +779,10 @@ namespace Sol.Water.Rendering
                 passData.Properties = drawSet.Properties;
                 passData.PassIndex = passIndex;
                 builder.SetRenderAttachment(target0, 0, AccessFlags.Write);
+                // The private prepass depth attachment, not the camera's. `depth` stays
+                // a plain texture read for the SampleSceneDepth clip against terrain.
+                if (resolveDepth.IsValid())
+                    builder.SetRenderAttachmentDepth(resolveDepth, AccessFlags.ReadWrite);
                 builder.UseTexture(depth, AccessFlags.Read);
                 builder.UseAllGlobalTextures(true);
                 builder.SetGlobalTextureAfterPass(target0, PrepassDataId);
@@ -727,7 +949,15 @@ namespace Sol.Water.Rendering
                                 continue;
                             hash = hash * 397 ^ body.PrepassHash;
                             hash = hash * 397 ^ (int)body.BodyType;
-                            hash = hash * 397 ^ body.SurfaceLevel.GetHashCode();
+                            // SurfaceLevel deliberately excluded. Every other member here
+                            // is an authored setting or a structural identity; the level is
+                            // animated state. A tide or flood driving it through
+                            // SetRuntimeSurfaceLevel changed this hash every frame, which
+                            // raised CameraCut every frame, which zeroed the SSR, the
+                            // volumetric and the FFT foam history blends at once -- so all
+                            // three temporal accumulations died for as long as the water
+                            // level moved. Geometry that moves is what depth reprojection
+                            // and the SSR validation history are already there to handle.
                         }
                     }
                     return hash;
@@ -740,6 +970,7 @@ namespace Sol.Water.Rendering
                 TextureHandle target0,
                 TextureHandle target1,
                 TextureHandle depth,
+                TextureHandle resolveDepth,
                 TextureHandle sceneColor,
                 TextureHandle ssr,
                 SolFiniteWaterDrawSet drawSet,
@@ -764,9 +995,12 @@ namespace Sol.Water.Rendering
                 if (target1.IsValid())
                     builder.SetRenderAttachment(target1, 1, AccessFlags.ReadWrite);
                 if (passIndex == PrepassIndex)
-                    builder.UseTexture(depth, AccessFlags.Read);
-                if (passIndex == PrepassIndex)
                 {
+                    builder.UseTexture(depth, AccessFlags.Read);
+                    // Shared with the ocean prepass, so both resolve into one nearest
+                    // water surface per pixel regardless of which recorded first.
+                    if (resolveDepth.IsValid())
+                        builder.SetRenderAttachmentDepth(resolveDepth, AccessFlags.ReadWrite);
                     builder.SetGlobalTextureAfterPass(target0, PrepassDataId);
                 }
                 builder.SetRenderFunc(static (FinitePassData data, RasterGraphContext context) =>
@@ -851,6 +1085,12 @@ namespace Sol.Water.Rendering
 
         sealed class UnderwaterPass : ScriptableRenderPass
         {
+            sealed class UnderwaterPassData
+            {
+                internal Material Material;
+                internal TextureHandle Source;
+            }
+
             Material _material;
             SolWaterProfile _fallbackProfile;
             bool _debug;
@@ -891,13 +1131,11 @@ namespace Sol.Water.Rendering
                     transition,
                     sample.Depth));
                 _material.SetColor(SolWaterShaderIds.UnderwaterColor, profile.underwaterHaze);
-                // The caustic array is published as a graph global by the ocean pass; only
-                // its cascade domains need restating on this material.
-                _material.SetVector(SolWaterCausticRenderGraph.ArrayParamsId,
-                    SolWaterCausticRenderGraph.ArrayParams(
-                        quality != null ? quality.FftCascadeCount : 0,
-                        quality != null && quality.caustics
-                            && profile.causticStrength > 0.0001f));
+                // Caustic array params are deliberately NOT set here. The ocean pass
+                // publishes them as a shader global describing what it actually rendered,
+                // and a material set would shadow that global with this pass's guess.
+                // Restating them from the settings is what made the underwater
+                // composition claim a live array on frames where none was produced.
 
                 if (SolEnvironmentCameraRegistry.TryGet(camera, out SolEnvironmentCameraRegistry.Context context))
                 {
@@ -912,8 +1150,28 @@ namespace Sol.Water.Rendering
                 TextureHandle copy = renderGraph.CreateTexture(copyDesc);
                 renderGraph.AddBlitPass(activeColor, copy, Vector2.one, Vector2.zero,
                     passName: "Sol Underwater Copy Color");
-                RenderGraphUtils.BlitMaterialParameters parameters = new(copy, activeColor, _material, 0);
-                renderGraph.AddBlitPass(parameters, passName: "Sol Underwater Composition");
+                // Explicit raster pass rather than AddBlitPass. SolUnderwater.shader calls
+                // GetMainLight and TransformWorldToShadowCoord for its caustic visibility
+                // term, so the pass has to declare access to the shadow map and the other
+                // global textures. AddBlitPass declares none -- the ocean and volumetric
+                // passes both call UseAllGlobalTextures for exactly this reason and this
+                // one was the odd pass out.
+                using (IRasterRenderGraphBuilder builder =
+                    renderGraph.AddRasterRenderPass<UnderwaterPassData>(
+                        "Sol Underwater Composition", out UnderwaterPassData passData))
+                {
+                    passData.Material = _material;
+                    passData.Source = copy;
+                    builder.UseTexture(copy, AccessFlags.Read);
+                    builder.UseAllGlobalTextures(true);
+                    builder.SetRenderAttachment(activeColor, 0, AccessFlags.Write);
+                    builder.SetRenderFunc(
+                        static (UnderwaterPassData data, RasterGraphContext context) =>
+                        {
+                            Blitter.BlitTexture(context.cmd, data.Source, Vector2.one,
+                                data.Material, 0);
+                        });
+                }
 
                 if (_debug)
                     Debug.Log($"[SolWater] Underwater {body.name}, depth {sample.Depth:F2}m", body);
@@ -924,9 +1182,7 @@ namespace Sol.Water.Rendering
         {
             if (material == null || profile == null || world == null)
                 return;
-            SolEnvironmentState environment = SolEnvironmentWorld.Active != null
-                ? SolEnvironmentWorld.Active.State
-                : default;
+            SolEnvironmentState environment = SolEnvironmentWorld.ResolveState();
             SolDouble3 origin = SolWorldOriginService.Active?.LogicalOrigin ?? default;
             material.SetFloat(SolWaterShaderIds.WaveTime, (float)world.WaveTime);
             material.SetVector(SolWaterShaderIds.WorldOrigin,

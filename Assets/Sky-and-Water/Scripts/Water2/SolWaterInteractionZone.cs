@@ -17,6 +17,12 @@ namespace Sol.Water
     /// Bounded visual shallow-water simulation. It deliberately does not own a body's volume;
     /// hydrology remains deterministic on the CPU while this zone supplies local ripples and foam.
     /// </summary>
+    // Runs outside play mode so the Scene View shows the interaction field the scene
+    // actually has. While this was play-only, SolOceanClipmap saw IsReady false and forced
+    // InteractionStrength to zero in the editor, so a zone could not be positioned or
+    // sized against what it does. It only dispatches when the environment clock advances,
+    // so a static preview allocates its targets and then sits idle.
+    [ExecuteAlways]
     [DisallowMultipleComponent]
     public sealed class SolWaterInteractionZone : MonoBehaviour, ISolOriginShiftParticipant
     {
@@ -107,7 +113,14 @@ namespace Sol.Water
             if (mode == SolWaterInteractionZoneMode.FollowTarget)
                 UpdateFollowCenter();
 
-            _accumulator += Mathf.Min(Time.deltaTime, 0.1f);
+            // Raw Time.deltaTime here ignored the Sol pause and both time scales, so
+            // ripples kept propagating in a paused world and crawled relative to the
+            // swell whenever time was scaled up.
+            SolEnvironmentWorld environment = SolEnvironmentWorld.Active;
+            float worldDelta = environment != null
+                ? (float)environment.WorldDeltaSeconds
+                : Time.deltaTime;
+            _accumulator += Mathf.Min(Mathf.Max(0f, worldDelta), 0.1f);
             int iterations = 0;
             while (_accumulator >= fixedStep && iterations++ < 4)
             {

@@ -29,14 +29,20 @@ namespace Sol.Water.Rendering
         /// </summary>
         internal const int CausticCascadeCount = 2;
 
-        /// <summary>Cascade domain sizes, mirroring the table in SolWaterWaves2.hlsl.</summary>
-        internal static float CascadeDomainSize(int cascade) => cascade switch
-        {
-            0 => 32f,
-            1 => 128f,
-            2 => 512f,
-            _ => 2048f,
-        };
+        /// <summary>
+        /// Cascade domain size in metres, delegated to the one CPU-side definition rather
+        /// than restated here.
+        ///
+        /// This used to carry its own table of 32 / 128 / 512 / 2048 while claiming to
+        /// mirror SolWaterWaves2.hlsl, which had already moved to 5 / 20 / 100 / 600 along
+        /// with SolWaterFFT.compute and SolWaterFftReadback. The caustic pass was
+        /// therefore dividing displacement by a domain about 6.4x too large and sampling
+        /// the result back over that same wrong domain, so the projected pattern sat at
+        /// the wrong scale relative to the waves that produced it. Delegating removes the
+        /// fourth copy that made the drift possible.
+        /// </summary>
+        internal static float CascadeDomainSize(int cascade) =>
+            SolWaterFftReadback.CascadeSize(cascade);
 
         sealed class PassData
         {
@@ -48,40 +54,83 @@ namespace Sol.Water.Rendering
         }
 
         static Mesh _grid;
-        static int _gridResolution;
+        static int _gridDensity;
+        static int _gridMarginQuads;
 
         /// <summary>
-        /// A regular grid over the cascade domain in UV space. Resolution drives how
-        /// finely the area-compression derivative is sampled, which is what resolves
-        /// individual caustic cells rather than a smooth wash.
+        /// How far past the cascade domain the grid extends, in UV, on every side.
+        ///
+        /// This is what keeps the domain seamless. Rasterization does not wrap, so a quad
+        /// displaced past the edge is clipped and leaves the strip it vacated at zero,
+        /// which the surface reads as darkening along a world-locked line. Beginning the
+        /// grid outside the domain means the quads that displace inward are rasterized
+        /// instead. Quads that stay outside are clipped before they cost a fragment, so
+        /// this covers the same wrap region as replicating the grid over the eight
+        /// neighbouring tiles at a fraction of the vertex count.
+        ///
+        /// Must exceed the largest horizontal displacement in UV, which is
+        /// `displacement / domain * choppiness`. The domain shrinks with the cascade but
+        /// so does the displacement it carries, so one margin covers both.
         /// </summary>
-        static Mesh GetGrid(int resolution)
+        const float GridMargin = 0.25f;
+
+        /// <summary>
+        /// Quads per unit of cascade UV. Deliberately finer than the FFT texture: area
+        /// compression is a derivative, and a grid at texture resolution measures it with
+        /// the crudest one-texel finite difference available.
+        ///
+        /// Density does not affect how much energy lands on the target — see the note on
+        /// fragment energy in <see cref="Record"/> — so this trades vertex cost for a
+        /// better conditioned derivative and nothing else.
+        /// </summary>
+        static int GridDensity(int resolution) =>
+            Mathf.Clamp(Mathf.RoundToInt(resolution * 1.5f), 64, 384);
+
+        /// <summary>
+        /// A regular grid over the cascade domain in UV space, extended by
+        /// <see cref="GridMargin"/> on every side. Density drives how finely the
+        /// area-compression derivative is sampled, which is what resolves individual
+        /// caustic cells rather than a smooth wash.
+        /// </summary>
+        static Mesh GetGrid(int density, float margin)
         {
-            if (_grid != null && _gridResolution == resolution)
+            int marginQuads = Mathf.CeilToInt(density * margin);
+            if (_grid != null && _gridDensity == density
+                && _gridMarginQuads == marginQuads)
                 return _grid;
 
             if (_grid != null)
                 CoreUtils.Destroy(_grid);
 
-            int verticesPerSide = resolution + 1;
+            // The step stays exactly one quad of the interior grid, and the margin is a
+            // whole number of those quads, so the covered region is [-margin, 1+margin]
+            // with the interior still landing on the same lattice it always did.
+            int spanQuads = density + 2 * marginQuads;
+            float step = 1f / density;
+            float origin2D = -marginQuads * step;
+
+            int verticesPerSide = spanQuads + 1;
             Vector3[] positions = new Vector3[verticesPerSide * verticesPerSide];
             Vector2[] uvs = new Vector2[positions.Length];
-            for (int y = 0; y <= resolution; y++)
+            for (int y = 0; y <= spanQuads; y++)
             {
-                for (int x = 0; x <= resolution; x++)
+                for (int x = 0; x <= spanQuads; x++)
                 {
                     int index = y * verticesPerSide + x;
-                    Vector2 uv = new((float)x / resolution, (float)y / resolution);
+                    // UVs run outside [0,1] in the margin. The displacement texture is
+                    // sampled with Repeat, so a margin vertex reads the wrapped source
+                    // it stands in for.
+                    Vector2 uv = new(origin2D + x * step, origin2D + y * step);
                     uvs[index] = uv;
                     positions[index] = new Vector3(uv.x, uv.y, 0f);
                 }
             }
 
-            int[] indices = new int[resolution * resolution * 6];
+            int[] indices = new int[spanQuads * spanQuads * 6];
             int cursor = 0;
-            for (int y = 0; y < resolution; y++)
+            for (int y = 0; y < spanQuads; y++)
             {
-                for (int x = 0; x < resolution; x++)
+                for (int x = 0; x < spanQuads; x++)
                 {
                     int origin = y * verticesPerSide + x;
                     indices[cursor++] = origin;
@@ -107,7 +156,8 @@ namespace Sol.Water.Rendering
             // The grid is drawn with an identity clip transform, so real bounds would
             // only invite culling.
             _grid.bounds = new Bounds(Vector3.zero, Vector3.one * 1000f);
-            _gridResolution = resolution;
+            _gridDensity = density;
+            _gridMarginQuads = marginQuads;
             return _grid;
         }
 
@@ -116,7 +166,8 @@ namespace Sol.Water.Rendering
             if (_grid != null)
                 CoreUtils.Destroy(_grid);
             _grid = null;
-            _gridResolution = 0;
+            _gridDensity = 0;
+            _gridMarginQuads = 0;
         }
 
         /// <summary>
@@ -149,9 +200,7 @@ namespace Sol.Water.Rendering
             };
             TextureHandle caustic = renderGraph.CreateTexture(desc);
 
-            // The grid is deliberately denser than the FFT texture: area compression is
-            // a derivative, so it needs more samples than the signal it differentiates.
-            Mesh grid = GetGrid(Mathf.Clamp(resolution, 64, 256));
+            Mesh grid = GetGrid(GridDensity(resolution), GridMargin);
 
             for (int cascade = 0; cascade < slices; cascade++)
             {
@@ -163,14 +212,25 @@ namespace Sol.Water.Rendering
                 passData.Grid = grid;
                 passData.Displacement = displacement;
                 passData.Cascade = cascade;
-                // The intensity scale compensates for every grid quad contributing
-                // additively; without it the accumulated field scales with grid density.
-                float intensityScale = 1f / Mathf.Max(1, _gridResolution);
+                // Energy each fragment deposits, and it is deliberately 1.0 rather than a
+                // function of grid density.
+                //
+                // A quad writes flatArea/displacedArea to every texel it covers, so it
+                // lays down textureResolution^2 * flatArea * energy in total. Summed over
+                // the density^2 quads, each of flat area 1/density^2, the mean over the
+                // target is exactly `energy` whatever the density. Grid density therefore
+                // changes how well the derivative is resolved and nothing about the
+                // field's level, which is what makes GridDensity a free knob.
+                //
+                // The previous expression multiplied a 1/gridResolution scale straight
+                // back out to this same 1.0 and read as though it were compensating for
+                // something, which is what made the coupling look fragile.
+                const float fragmentEnergy = 1f;
                 passData.Params = new Vector4(
                     cascade,
                     CascadeDomainSize(cascade),
                     displacementGain,
-                    intensityScale * _gridResolution);
+                    fragmentEnergy);
 
                 builder.UseTexture(displacement, AccessFlags.Read);
                 builder.SetRenderAttachment(caustic, 0, AccessFlags.Write, 0, cascade);
@@ -182,6 +242,9 @@ namespace Sol.Water.Rendering
                 {
                     data.Material.SetTexture(DisplacementId, data.Displacement);
                     data.Material.SetVector(ParamsId, data.Params);
+                    // A single draw: the grid already extends past the domain by
+                    // GridMargin on every side, so the quads that wrap in are part of
+                    // this mesh and the ones that stay outside are clipped for free.
                     context.cmd.DrawMesh(data.Grid, Matrix4x4.identity, data.Material, 0, 0);
                 });
             }

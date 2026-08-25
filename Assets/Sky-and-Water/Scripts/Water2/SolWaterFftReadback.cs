@@ -42,7 +42,6 @@ namespace Sol.Water
         static Vector4[] _previous;
         static double _currentWaveTime;
         static double _previousWaveTime;
-        static float _currentRealtime;
         static bool _hasCurrent;
         static bool _hasPrevious;
 
@@ -52,9 +51,14 @@ namespace Sol.Water
         /// <summary>Cascades present in the mirror.</summary>
         public static int CascadeCount => _cascades;
 
-        /// <summary>Seconds since the mirrored frame was captured.</summary>
+        /// <summary>
+        /// Wave-domain seconds between the mirrored frame and the most recently recorded
+        /// one. This is measured in the same clock the sample is indexed by, so it stays
+        /// meaningful when time is scaled; real seconds since capture answered a question
+        /// nobody was asking and understated staleness by the whole time-scale factor.
+        /// </summary>
         public static float SampleAgeSeconds =>
-            _hasCurrent ? Mathf.Max(0f, Time.realtimeSinceStartup - _currentRealtime) : 0f;
+            _hasCurrent ? Mathf.Max(0f, (float)(_recordedWaveTime - _currentWaveTime)) : 0f;
 
         /// <summary>Domain size in metres of a cascade. Mirrors CascadeSize in SolWaterFFT.compute.</summary>
         public static float CascadeSize(int cascade) => cascade == 0 ? 5f
@@ -175,7 +179,6 @@ namespace Sol.Water
             }
 
             _currentWaveTime = waveTime;
-            _currentRealtime = Time.realtimeSinceStartup;
             _hasCurrent = true;
         }
 

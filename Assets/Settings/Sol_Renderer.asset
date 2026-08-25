@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 548fcdd807fbda54e884cf25cb685760, type: 3}
   m_Name: UnderwaterRendererFeature
   m_EditorClassIdentifier: Assembly-CSharp::UnderwaterRendererFeature
-  m_Active: 1
+  m_Active: 0
   overlayMaterial: {fileID: 2100000, guid: 521639a91cdf8824d8ddefe6971fb597, type: 2}
   debugLog: 0
 --- !u!114 &-720534754304029497
@@ -28,6 +28,7 @@ MonoBehaviour:
   m_Name: SolWaterRendererFeature
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.Rendering.SolWaterRendererFeature
   m_Active: 1
+  oceanMaterial: {fileID: 2100000, guid: 4c1f0a7b93d84f2ea6c5d81b7e40cf13, type: 2}
   oceanShader: {fileID: 4800000, guid: 68a8756cdb8921f459a61b8f9c91c6bb, type: 3}
   resolveShader: {fileID: 4800000, guid: 9c59a028668fcd64b8ba01c1e190c0b2, type: 3}
   underwaterShader: {fileID: 4800000, guid: 6e44555c5668c2e4dabf4513283aea8d, type: 3}

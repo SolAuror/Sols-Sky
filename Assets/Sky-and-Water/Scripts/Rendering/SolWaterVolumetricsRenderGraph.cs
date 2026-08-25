@@ -30,6 +30,8 @@ namespace Sol.Water.Rendering
         static readonly int WorldOriginId = Shader.PropertyToID("_SolWaterWorldOrigin");
         static readonly int TemporalParamsId =
             Shader.PropertyToID("_SolWaterVolumetricTemporalParams");
+        static readonly int ViewParamsId =
+            Shader.PropertyToID("_SolWaterVolumetricViewParams");
         static readonly int PreviousViewProjectionId =
             Shader.PropertyToID("_SolWaterVolumetricPreviousViewProjection");
         static readonly int VolumetricTextureId =
@@ -45,6 +47,7 @@ namespace Sol.Water.Rendering
             public Vector4 Turbidity;
             public Vector4 WorldOrigin;
             public Vector4 TemporalParams;
+            public Vector4 ViewParams;
             public Matrix4x4 PreviousViewProjection;
         }
 
@@ -93,7 +96,9 @@ namespace Sol.Water.Rendering
             UniversalCameraData cameraData,
             SolEnvironmentCameraRegistry.Context cameraContext,
             SolWaterQualityProfile quality,
-            SolWaterProfile profile)
+            SolWaterProfile profile,
+            bool cameraSubmerged,
+            float waterSurfaceHeight)
         {
             if (volumetricMaterial == null || !prepassData.IsValid()
                 || quality == null || profile == null)
@@ -125,6 +130,11 @@ namespace Sol.Water.Rendering
                 passData.PrepassData = prepassData;
                 passData.Params = volumeParams;
                 passData.Turbidity = turbidity;
+                // Submerged the march starts at the camera instead of at the surface, and
+                // needs the surface height to know where an upward ray leaves the water
+                // and how deep each sample sits under it.
+                passData.ViewParams = new Vector4(
+                    cameraSubmerged ? 1f : 0f, waterSurfaceHeight, 0f, 0f);
                 SolDouble3 origin = SolWorldOriginService.Active?.LogicalOrigin ?? default;
                 passData.WorldOrigin = new Vector4(
                     (float)origin.X, (float)origin.Y, (float)origin.Z, 0f);
@@ -140,6 +150,7 @@ namespace Sol.Water.Rendering
                     data.Material.SetVector(ParamsId, data.Params);
                     data.Material.SetVector(TurbidityId, data.Turbidity);
                     data.Material.SetVector(WorldOriginId, data.WorldOrigin);
+                    data.Material.SetVector(ViewParamsId, data.ViewParams);
                     Blitter.BlitTexture(context.cmd, data.Source, Vector2.one,
                         data.Material, RaymarchPassIndex);
                 });
@@ -166,6 +177,10 @@ namespace Sol.Water.Rendering
                     passData.PreviousViewProjection = cameraContext.PreviousViewProjection;
                     passData.TemporalParams = new Vector4(
                         cameraContext.CameraCut ? 0f : 0.9f, 0.1f, 0f, 0f);
+                    // Restated per pass rather than relying on the raymarch's set still
+                    // being resident on the shared material.
+                    passData.ViewParams = new Vector4(
+                        cameraSubmerged ? 1f : 0f, waterSurfaceHeight, 0f, 0f);
                     builder.UseTexture(raymarched, AccessFlags.Read);
                     builder.UseTexture(prepassData, AccessFlags.Read);
                     builder.UseTexture(history, AccessFlags.Read);
@@ -178,6 +193,7 @@ namespace Sol.Water.Rendering
                         data.Material.SetMatrix(PreviousViewProjectionId,
                             data.PreviousViewProjection);
                         data.Material.SetVector(TemporalParamsId, data.TemporalParams);
+                        data.Material.SetVector(ViewParamsId, data.ViewParams);
                         Blitter.BlitTexture(context.cmd, data.Source, Vector2.one,
                             data.Material, TemporalPassIndex);
                     });
@@ -198,6 +214,8 @@ namespace Sol.Water.Rendering
                 passData.Material = volumetricMaterial;
                 passData.Source = temporalSource;
                 passData.PrepassData = prepassData;
+                passData.ViewParams = new Vector4(
+                    cameraSubmerged ? 1f : 0f, waterSurfaceHeight, 0f, 0f);
                 builder.UseTexture(temporalSource, AccessFlags.Read);
                 builder.UseTexture(prepassData, AccessFlags.Read);
                 builder.SetRenderAttachment(filtered, 0, AccessFlags.Write);
@@ -206,6 +224,7 @@ namespace Sol.Water.Rendering
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
                     data.Material.SetTexture(PrepassDataId, data.PrepassData);
+                    data.Material.SetVector(ViewParamsId, data.ViewParams);
                     Blitter.BlitTexture(context.cmd, data.Source, Vector2.one,
                         data.Material, FilterPassIndex);
                 });

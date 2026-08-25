@@ -39,7 +39,6 @@ Shader "Sol/Water2/Ocean"
         TEXTURE2D_X(_SolWaterSceneColor);
         SAMPLER(sampler_SolWaterSceneColor);
         TEXTURE2D_X(_SolWaterPrepassData);
-        SAMPLER(sampler_SolWaterPrepassData);
         TEXTURE2D_X(_SolWaterSSRTexture);
         SAMPLER(sampler_SolWaterSSRTexture);
         TEXTURE2D_X(_SolWaterSSRRawTexture);
@@ -48,6 +47,39 @@ Shader "Sol/Water2/Ocean"
         SAMPLER(sampler_SolWaterPlanarReflectionTexture);
         float4x4 _SolWaterPlanarViewProjection;
         float4 _SolWaterPlanarParams; // valid, body hash, temporal confidence, reserved
+
+        // True only for the fragment that won the prepass at this pixel.
+        //
+        // The prepass now resolves water against water with its own depth buffer, so
+        // _SolWaterPrepassData carries the nearest water surface: which body it belongs
+        // to, and the device depth it was at. Every later pass has to reject anything
+        // behind that, because those passes alpha blend — a fragment that is genuinely
+        // occluded would otherwise still composite over the surface in front of it.
+        // Two things arrive here occluded: a distant patch seen through a near crest,
+        // and the skirt wall hanging below a detail boundary.
+        //
+        // The comparison is on linear eye depth with a one-sided relative tolerance,
+        // not on equality. The prepass target is a half float, so the stored depth
+        // carries roughly a 0.05% relative error, and an exact test would drop the
+        // winning fragment on a one-ULP disagreement — the failure mode there is water
+        // vanishing rather than looking wrong. A relative tolerance also tracks the
+        // artefact: it widens with distance at the same rate the occluded sliver
+        // shrinks toward sub-pixel.
+        bool SolWaterFragmentIsNearest(float2 screenUV, float fragmentDeviceDepth,
+            out float4 prepassData)
+        {
+            prepassData = SAMPLE_TEXTURE2D_X_LOD(
+                _SolWaterPrepassData, sampler_PointClamp, screenUV, 0);
+            // Point sampling matters as much as the depth test: a bilinear tap blends
+            // the body id and depth of up to four different fragments, which both
+            // erodes a hairline at every water silhouette and feeds the test below a
+            // depth that belongs to no actual surface.
+            if (abs(prepassData.x - _SolWaterBodyHash) >= 0.002)
+                return false;
+            float nearestEyeDepth = LinearEyeDepth(prepassData.y, _ZBufferParams);
+            float fragmentEyeDepth = LinearEyeDepth(fragmentDeviceDepth, _ZBufferParams);
+            return fragmentEyeDepth <= nearestEyeDepth * 1.0015 + 0.001;
+        }
 
         float3 SolWaterOpenSkyReflectionDirection(float3 reflectionDirectionWS)
         {
@@ -267,10 +299,22 @@ Shader "Sol/Water2/Ocean"
         {
             Name "SolWaterPrepass"
             Tags { "LightMode"="SolWaterPrepass" }
-            ZWrite Off
-            // Depth is sampled explicitly because Unity 6 Scene View may expose a
-            // resolved color target beside an incompatible MSAA depth attachment.
-            ZTest Always
+            // Water against water is resolved here, and only here. The pass owns a
+            // private non-MSAA depth buffer sized to its own colour target, so the
+            // nearest water fragment per pixel is the one that survives into
+            // _SolWaterPrepassData and the alpha-blending passes downstream can gate
+            // themselves on it.
+            //
+            // Binding depth here does not reintroduce the Scene View problem the rest
+            // of this shader works around. That constraint is about pairing a resolved
+            // colour target with an MSAA depth attachment; both attachments here are
+            // ours and both are non-MSAA, so the sample counts cannot disagree.
+            //
+            // Water against *scene* geometry is still a clip() against the camera depth
+            // texture below, not a depth test, because the camera depth buffer is
+            // exactly the attachment that cannot be bound safely.
+            ZWrite On
+            ZTest LEqual
             Cull Off
             Blend Off
 
@@ -305,14 +349,16 @@ Shader "Sol/Water2/Ocean"
             Name "SolWaterForward"
             Tags { "LightMode"="SolWaterForward" }
             ZWrite Off
-            // Visible water pixels are accepted from the depth-tested prepass.
+            // Still no depth state, and still deliberately so: this pass alpha blends,
+            // so a fragment that passes a hardware depth test would go on to composite
+            // over whatever already blended, and the occluded surface would survive in
+            // the result anyway. Occlusion needs exactly one *shaded* fragment per
+            // pixel, not merely one that passes a test.
             //
-            // Depth testing here does NOT give water-against-water occlusion, and turning
-            // it on is actively harmful: this pass alpha-blends, so every fragment that
-            // passes the test still composites in draw order. A far patch drawn first is
-            // blended, then a near patch blends over it — the far surface is still in the
-            // result. Real occlusion needs exactly one water fragment per pixel, which
-            // means a depth-only pass ahead of this one and ZTest Equal here.
+            // That single fragment is selected by SolWaterFragmentIsNearest against the
+            // prepass, which is the pass that actually owns a depth buffer. Doing it in
+            // the shader rather than through an attachment also keeps this pass legal
+            // beside URP Scene View's resolved-colour/MSAA-depth pairing.
             ZTest Always
             Cull Off
             Blend SrcAlpha OneMinusSrcAlpha
@@ -326,19 +372,47 @@ Shader "Sol/Water2/Ocean"
             half4 WaterForwardFragment(Varyings input) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(input);
+                float2 screenUV = GetNormalizedScreenSpaceUV(input.positionCS);
+                // Visibility comes from the depth-resolved water prepass: the right body
+                // for this pixel, and the nearest surface of it. Besides preventing
+                // hidden water from shading through terrain, this lets the forward pass
+                // work with URP Scene View cameras whose resolved color and MSAA depth
+                // targets cannot legally share a native pass.
+                //
+                // Resolved before anything else so an occluded fragment costs one texture
+                // fetch rather than a full spectral normal evaluation. Derivatives taken
+                // further down stay valid: a discarded fragment becomes a helper
+                // invocation and keeps feeding its quad neighbours.
+                float4 visibleWater;
+                bool isNearestSurface = SolWaterFragmentIsNearest(
+                    screenUV, input.positionCS.z, visibleWater);
+                int debugMode = (int)round(_SolWaterReflectionParams.y);
+                // These two views run before the discard on purpose: they exist to show
+                // what the nearest-surface test throws away, and discarding first would
+                // leave nothing to look at.
+                if (debugMode == 13)
+                {
+                    if (isNearestSurface
+                        || abs(visibleWater.x - _SolWaterBodyHash) >= 0.002)
+                        discard;
+                    return half4(1.0, 0.0, 0.0, 1.0);
+                }
+                if (debugMode == 14)
+                {
+                    if (!isNearestSurface)
+                        discard;
+                    return input.data.z > 0.01
+                        ? half4(1.0, 0.0, 1.0, 1.0)
+                        : half4(0.08, 0.08, 0.08, 1.0);
+                }
+                if (!isNearestSurface)
+                    discard;
+
                 float3 normalWS = normalize(input.normalWS);
                 float surfaceFoam = input.data.x;
                 if (_SolWaterSpectralParams.x > 0.5)
                     SolEvaluateWaterPixelNormalFoam(input.positionWS.xz, normalWS, surfaceFoam);
                 float3 viewDirection = SafeNormalize(GetCameraPositionWS() - input.positionWS);
-                float2 screenUV = GetNormalizedScreenSpaceUV(input.positionCS);
-                // Visibility comes from the depth-tested water prepass. Besides
-                // preventing hidden water from shading through terrain, this lets
-                // the forward pass work with URP Scene View cameras whose resolved
-                // color and MSAA depth targets cannot legally share a native pass.
-                float4 visibleWater = SAMPLE_TEXTURE2D_X_LOD(
-                    _SolWaterPrepassData, sampler_SolWaterPrepassData, screenUV, 0);
-                clip(0.002 - abs(visibleWater.x - _SolWaterBodyHash));
                 float rawDepth = SampleSceneDepth(screenUV);
                 float sceneDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
                 float thickness = max(0, sceneDepth - input.data.y);
@@ -385,8 +459,36 @@ Shader "Sol/Water2/Ocean"
                 float refractedEyeDepth = LinearEyeDepth(refractedRawDepth, _ZBufferParams);
                 // WaterFX leak rejection: any ray that lands in front of the
                 // surface returns to the undisplaced scene/depth sample.
+                //
+                // This test used to be one-sided, which is what produced the thin dark
+                // strokes on the surface. It rejected a refracted sample that landed in
+                // front of the water but accepted one that landed arbitrarily far
+                // *behind* it — so wherever the bounded screen-space offset carried the
+                // sample across a scene depth edge (a sandbar silhouetted against open
+                // water, or off the terrain onto sky) the seabed a metre down was
+                // swapped for geometry tens or hundreds of metres away.
+                //
+                // rayLength below turns that straight into blackness rather than a soft
+                // error: SolWaterComputeAbsorption raises path length to the power 1.5,
+                // so even a 1 m -> 20 m jump drives transmittance onto its
+                // (0.0005, 0.001, 0.025) floor in one step. The band is thin because
+                // only pixels within the maximum screen offset of an edge can cross it,
+                // and it is dark rather than merely blue because the remaining volume
+                // scattering is itself dim under a low sun.
+                //
+                // A legitimate refracted sample describes roughly the same seabed as the
+                // unrefracted one, and the ray can only bend within the water column, so
+                // the column depth bounds how far apart they may plausibly land.
+                float refractionSpread = abs(refractedEyeDepth - sceneDepth);
+                float refractionSpreadLimit = max(0.5, thickness * 2.0 + 0.5);
+                // Only meaningful where the unrefracted sample hit something: over open
+                // water sceneDepth is the far plane and the comparison is noise.
+                float refractionFarConfidence = lerp(1.0,
+                    1.0 - smoothstep(refractionSpreadLimit,
+                        refractionSpreadLimit * 2.0, refractionSpread),
+                    hasSceneGeometry);
                 float refractionConfidence = smoothstep(0.0, 0.12,
-                    refractedEyeDepth - input.data.y);
+                    refractedEyeDepth - input.data.y) * refractionFarConfidence;
                 refractUV = lerp(screenUV, refractUV, refractionConfidence);
                 refractedRawDepth = lerp(rawDepth, refractedRawDepth, refractionConfidence);
                 refractedEyeDepth = lerp(sceneDepth, refractedEyeDepth, refractionConfidence);
@@ -472,9 +574,8 @@ Shader "Sol/Water2/Ocean"
                         input.positionWS.y - refractedWorldPosition.y);
                     Light causticLight = GetMainLight(
                         TransformWorldToShadowCoord(refractedWorldPosition));
-                    float lightElevation = max(0.08, causticLight.direction.y);
-                    float2 causticSurfaceXZ = refractedWorldPosition.xz
-                        + causticLight.direction.xz * (waterColumn / lightElevation);
+                    float2 causticSurfaceXZ = SolWaterCausticSurfaceXZ(
+                        refractedWorldPosition.xz, waterColumn, causticLight.direction);
                     float3 causticNormal = float3(0.0, 1.0, 0.0);
                     float causticFoam = 0.0;
                     SolEvaluateWaterPixelNormalFoam(
@@ -500,8 +601,8 @@ Shader "Sol/Water2/Ocean"
                         ? normalize(causticWind) : float2(1.0, 0.0);
                     float causticScale = max(0.25, _SolWaterFoamParams.w);
                     float2 causticDrift = causticWind * _SolWaterWaveTime * 0.035;
-                    float2 warpedCausticXZ = logicalCausticXZ
-                        + causticNormal.xz * waterColumn * 1.4;
+                    float2 warpedCausticXZ = SolWaterCausticSampleXZ(
+                        logicalCausticXZ, waterColumn, causticNormal);
                     float focusingModulation = lerp(0.78, 1.22,
                         saturate((focusingRatio - 1.0) * 0.4));
                     float causticPattern;
@@ -555,10 +656,12 @@ Shader "Sol/Water2/Ocean"
                 // Caustics brighten the seabed before the water column absorbs it, so
                 // depth still dims them. Applying them after absorption also scaled the
                 // volume scattering term, which has nothing to do with the sea floor.
-                // The lower bound lets the dark cells actually darken the floor without
-                // ever driving it to black; WaterFX gains by 5x here for the same reason
-                // the pattern reads at all against a lit sea bed.
-                refracted *= max(0.45, 1.0 + clamp(causticLighting * 5.0, -0.45, 4.0));
+                // WaterFX gains by 5x here so the pattern reads at all against a lit bed.
+                //
+                // Both sides saturate smoothly rather than clamping; see
+                // SolWaterApplyCausticResponse for why the old hard clamps flattened the
+                // field into blotches instead of a pattern.
+                refracted *= SolWaterApplyCausticResponse(causticLighting);
 
                 // refractionMaximumDistance bounds the screen-space refraction offset
                 // only. Using it as the optical path as well capped open water at a few
@@ -574,10 +677,17 @@ Shader "Sol/Water2/Ocean"
                 float3 transmittance = absorption.rgb;
                 // Volume scattering is lit by sun elevation and the live sky instead of
                 // being a fixed authored colour, so the water tracks time of day.
+                // The cast-shadow term belongs here as well as the cloud term. This value
+                // is not just the fallback when volumetrics are off: the composite below
+                // takes max() against it, so an unshadowed analytic term acts as a floor
+                // that a shadowed volumetric sample cannot darken past. That floor is what
+                // stopped cliff and cloud shadows from reading on the water body at all.
+                // Every other lighting term in this shader already multiplies both.
                 float3 scattering = SolWaterVolumeScattering(
                     _SolWaterShallowColor.rgb,
                     SolWaterDynamicSky(float3(0.0, 1.0, 0.0)),
-                    mainLight.color, mainLight.direction, cloudShadow,
+                    mainLight.color, mainLight.direction,
+                    mainLight.shadowAttenuation * cloudShadow,
                     _SolWaterOptics.z);
                 // Volumetric scattering, when available, replaces the analytic term with
                 // a shadowed and caustic-modulated one. The analytic value stays as the
@@ -664,14 +774,19 @@ Shader "Sol/Water2/Ocean"
                 // sampled for refraction was already fogged over camera-to-scene; this
                 // fogs the shorter camera-to-surface span, and the reflection and
                 // scattering terms were previously never fogged at all.
-                sourceColor = SolApplyAtmosphere(
+                // Shadowed: the screen-space atmosphere pass marches the shadow map for
+                // every other pixel in the frame, and this analytic call is what fogs the
+                // water. Handing it the surface's own shadow term is what lets a light
+                // shaft crossing the shoreline carry on over the water instead of ending
+                // at the waterline.
+                sourceColor = SolApplyAtmosphereShadowed(
                     sourceColor,
                     GetCameraPositionWS(),
                     input.positionWS,
                     -viewDirection,
-                    0.0);
+                    0.0,
+                    mainLight.shadowAttenuation);
 
-                int debugMode = (int)round(_SolWaterReflectionParams.y);
                 if (debugMode == 1)
                     return half4(rawSsr.rgb, 1.0);
                 if (debugMode == 2)
@@ -697,6 +812,47 @@ Shader "Sol/Water2/Ocean"
                 if (debugMode == 12)
                     return half4(SAMPLE_TEXTURE2D_X_LOD(_SolWaterVolumetricTexture,
                         sampler_SolWaterVolumetricTexture, screenUV, 0).rgb, 1.0);
+                // Black here means the refracted sample was rejected as a leak and the
+                // fragment fell back to the unrefracted seabed. Before the two-sided
+                // test above, those same pixels kept a sample from far behind the
+                // surface and absorption turned them into the dark strokes.
+                if (debugMode == 15)
+                    return half4(refractionConfidence.xxx, 1.0);
+                // Path length feeding absorption, normalized against the clarity
+                // distance. A thin bright filament crossing otherwise dim shallow water
+                // is a refraction leak; absorption is superlinear, so anything past a
+                // few multiples of clarity is already on the transmittance floor.
+                if (debugMode == 16)
+                    return half4(saturate(rayLength
+                        / max(1.0, _SolWaterVisibilityParams.x * 4.0)).xxx, 1.0);
+                // Shaded surface normal. A stroke of uniform colour through otherwise
+                // varied water means the normal itself is discontinuous, which puts the
+                // cause in the vertex or spectral path rather than in the optics.
+                if (debugMode == 17)
+                    return half4(normalWS * 0.5 + 0.5, 1.0);
+                // Spectral detail fade. Black strokes here are pixels whose derivative
+                // footprint suppressed all cascade detail, leaving a flat, foamless
+                // normal. If the reported lines appear in this view they are a
+                // derivative artefact, not a lighting or absorption one.
+                if (debugMode == 18)
+                    return half4(
+                        SolWaterDebugSpectralDetailFade(input.positionWS.xz).xxx, 1.0);
+                // Caustic response headroom. Green is how far the sea bed is being
+                // brightened as a fraction of the ceiling, red how far it is darkened
+                // against its own limit. Flat saturated green over most of the bed means
+                // the gain is too hot and the field has no pattern left in it, which is
+                // the failure the response curve exists to avoid; a healthy field is a
+                // sparse bright web over mostly dim ground.
+                if (debugMode == 19)
+                {
+                    float3 causticResponse =
+                        SolWaterApplyCausticResponse(causticLighting);
+                    float causticUp = saturate((causticResponse.g - 1.0)
+                        / SOL_WATER_CAUSTIC_MAX_BRIGHTENING);
+                    float causticDown = saturate((1.0 - causticResponse.g)
+                        / SOL_WATER_CAUSTIC_MAX_DARKENING);
+                    return half4(causticDown, causticUp, 0.0, 1.0);
+                }
                 return half4(sourceColor, opacity);
             }
             ENDHLSL
@@ -731,11 +887,12 @@ Shader "Sol/Water2/Ocean"
                 UNITY_SETUP_INSTANCE_ID(input);
                 // Same visibility test the forward pass uses, so depth is only written
                 // where this body actually shaded. Without it, water hidden behind
-                // terrain would still occlude post-process effects.
+                // terrain would still occlude post-process effects, and the skirt walls
+                // would hand depth-of-field a surface 8-18 cm below the one on screen.
                 float2 screenUV = GetNormalizedScreenSpaceUV(input.positionCS);
-                float4 visibleWater = SAMPLE_TEXTURE2D_X_LOD(
-                    _SolWaterPrepassData, sampler_SolWaterPrepassData, screenUV, 0);
-                clip(0.002 - abs(visibleWater.x - _SolWaterBodyHash));
+                float4 visibleWater;
+                if (!SolWaterFragmentIsNearest(screenUV, input.positionCS.z, visibleWater))
+                    discard;
             }
             ENDHLSL
         }

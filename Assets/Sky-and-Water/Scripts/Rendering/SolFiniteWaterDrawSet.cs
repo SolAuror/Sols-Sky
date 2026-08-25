@@ -108,9 +108,7 @@ namespace Sol.Water.Rendering
                 }
             }
 
-            SolEnvironmentState environment = SolEnvironmentWorld.Active != null
-                ? SolEnvironmentWorld.Active.State
-                : default;
+            SolEnvironmentState environment = SolEnvironmentWorld.ResolveState();
             SolDouble3 origin = SolWorldOriginService.Active?.LogicalOrigin ?? default;
             properties.SetVectorArray(SolWaterShaderIds.WaveDataA, waveA);
             properties.SetVectorArray(SolWaterShaderIds.WaveDataB, waveB);

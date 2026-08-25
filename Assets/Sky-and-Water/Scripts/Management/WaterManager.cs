@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using Sol.ToD;
+using Sol.Water;
 
 /// <summary>
 /// ---------------------------------------------------------------------------
@@ -176,6 +177,7 @@ public class SolWaterManager : MonoBehaviour
     static readonly int _SolWindStrengthID           = Shader.PropertyToID("_Sol_WindStrength");
     static readonly int _SolGlobalWaveSpeedMulID     = Shader.PropertyToID("_Sol_GlobalWaveSpeedMul");
     static readonly int _SolWaveTimeID               = Shader.PropertyToID("_Sol_WaveTime");
+    static readonly int _SolSurfaceWetnessID         = Shader.PropertyToID("_Sol_SurfaceWetness");
     static readonly int _SolRainIntensityID          = Shader.PropertyToID("_Sol_RainIntensity");
     static readonly int _SolRainRoughnessBoostID     = Shader.PropertyToID("_Sol_RainRoughnessBoost");
     static readonly int _SolRainNormalBoostID        = Shader.PropertyToID("_Sol_RainNormalBoost");
@@ -196,6 +198,7 @@ public class SolWaterManager : MonoBehaviour
     float _lastWaterLevel = float.NaN;
     Vector4 _lastWaterDynamics = new(float.NaN, float.NaN, float.NaN, float.NaN);
     float _lastRainIntensity = float.NaN;
+    float _lastSurfaceWetness = float.NaN;
     float _lastRainRoughnessBoost = float.NaN;
     float _lastRainNormalBoost = float.NaN;
     float _lastRainReflectionDampen = float.NaN;
@@ -343,7 +346,7 @@ public class SolWaterManager : MonoBehaviour
             _lastGlobalWaveSpeedMultiplier = globalWaveSpeedMultiplier;
         }
 
-        if (!Mathf.Approximately(_lastWaterLevel, waterLevel))
+        if (!Water2OwnsSurfaceGlobals && !Mathf.Approximately(_lastWaterLevel, waterLevel))
         {
             Shader.SetGlobalFloat(_SolGlobalWaterLevelID, waterLevel);
             _lastWaterLevel = waterLevel;
@@ -365,12 +368,53 @@ public class SolWaterManager : MonoBehaviour
 
     // --- Weather Push ----------------------------------------------------
 
+    /// <summary>
+    /// True when a Water 2 <see cref="SolWaterWetness"/> owns the terrain wetness and
+    /// water level globals.
+    ///
+    /// Both components write the same seven globals from their own duplicated inspector
+    /// fields -- this one from Update, the Water 2 one from LateUpdate -- so with both
+    /// alive the last writer each frame won and the shoreline height and rain response
+    /// oscillated between two independent sources. Water 2 wins where it is present; in a
+    /// Water 1 only scene nothing changes.
+    /// </summary>
+    static bool Water2OwnsSurfaceGlobals => SolWaterWetness.Active != null;
+
+    /// <summary>
+    /// Forces the contested globals to be rewritten the next time this manager owns them.
+    ///
+    /// The publish paths are cache-gated on the last value *this* component wrote. While
+    /// Water 2 owns the globals those caches keep going stale against what Water 2 wrote,
+    /// so if the Water 2 world is torn down at runtime the legacy fields would compare
+    /// equal to their own cache and never republish, stranding Water 2's final values.
+    /// </summary>
+    void InvalidateSurfaceGlobalCache()
+    {
+        _lastWaterLevel = float.NaN;
+        _lastRainIntensity = float.NaN;
+        _lastSurfaceWetness = float.NaN;
+        _lastTerrainWetness = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastTerrainWetSmoothness = float.NaN;
+        _lastTerrainSandMask = null;
+        _lastTerrainSandChannel = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+        _lastTerrainOriginInvSize = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
+    }
+
     void PushWeather()
     {
-        if (!Mathf.Approximately(_lastRainIntensity, rainIntensity))
+        if (!Water2OwnsSurfaceGlobals && !Mathf.Approximately(_lastRainIntensity, rainIntensity))
         {
             Shader.SetGlobalFloat(_SolRainIntensityID, rainIntensity);
             _lastRainIntensity = rainIntensity;
+        }
+
+        // Water 1 has no wetness integrator, so it feeds the terrain the instantaneous
+        // value. Publishing it anyway is what keeps a Water 1 only scene from reading a
+        // never-written global as zero and rendering permanently dry ground.
+        if (!Water2OwnsSurfaceGlobals && !Mathf.Approximately(_lastSurfaceWetness, rainIntensity))
+        {
+            Shader.SetGlobalFloat(_SolSurfaceWetnessID, rainIntensity);
+            _lastSurfaceWetness = rainIntensity;
         }
 
         if (!Mathf.Approximately(_lastRainRoughnessBoost, rainRoughnessBoost))
@@ -391,26 +435,33 @@ public class SolWaterManager : MonoBehaviour
             _lastRainReflectionDampen = rainReflectionDampen;
         }
 
-        Vector4 terrainWetness = new(
-            Mathf.Clamp01(terrainRainWetness),
-            Mathf.Clamp01(terrainWaterWetness),
-            Mathf.Max(0.01f, terrainWaterWetnessRange),
-            Mathf.Clamp(terrainSandWetDarkening, 0f, 0.4f));
-        if (_lastTerrainWetness != terrainWetness)
+        if (!Water2OwnsSurfaceGlobals)
         {
-            Shader.SetGlobalVector(_SolTerrainWetnessID, terrainWetness);
-            _lastTerrainWetness = terrainWetness;
-        }
+            Vector4 terrainWetness = new(
+                Mathf.Clamp01(terrainRainWetness),
+                Mathf.Clamp01(terrainWaterWetness),
+                Mathf.Max(0.01f, terrainWaterWetnessRange),
+                Mathf.Clamp(terrainSandWetDarkening, 0f, 0.4f));
+            if (_lastTerrainWetness != terrainWetness)
+            {
+                Shader.SetGlobalVector(_SolTerrainWetnessID, terrainWetness);
+                _lastTerrainWetness = terrainWetness;
+            }
 
-        float wetSmoothness = Mathf.Clamp(terrainWetSmoothness, 0f, 0.8f);
-        if (!Mathf.Approximately(_lastTerrainWetSmoothness, wetSmoothness))
+            float wetSmoothness = Mathf.Clamp(terrainWetSmoothness, 0f, 0.8f);
+            if (!Mathf.Approximately(_lastTerrainWetSmoothness, wetSmoothness))
+            {
+                Shader.SetGlobalFloat(_SolTerrainWetSmoothnessID, wetSmoothness);
+                _lastTerrainWetSmoothness = wetSmoothness;
+            }
+
+            ResolveTerrainSandMask(force: false);
+            PushTerrainSandMask();
+        }
+        else
         {
-            Shader.SetGlobalFloat(_SolTerrainWetSmoothnessID, wetSmoothness);
-            _lastTerrainWetSmoothness = wetSmoothness;
+            InvalidateSurfaceGlobalCache();
         }
-
-        ResolveTerrainSandMask(force: false);
-        PushTerrainSandMask();
 
         if (!Mathf.Approximately(_lastLightningFlash, lightningFlash))
         {

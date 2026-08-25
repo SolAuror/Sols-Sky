@@ -105,6 +105,15 @@ public class UnderwaterVolumeController : MonoBehaviour
 
     void LateUpdate()
     {
+        // Water 2 owns the submersion contract wherever it is live: SolWaterRendererFeature
+        // publishes _UnderwaterFactor / _UnderwaterDepth from its own bodies during
+        // AddRenderPasses. This controller resolves submersion from Water 1 WaterVolume
+        // components, so in a Water 2 scene it found nothing and pinned the globals to
+        // zero every frame, which is what kept the atmosphere's underwater gate from ever
+        // firing. Yield rather than fight; a Water 1 only scene is unaffected.
+        if (Sol.Water.SolWaterWorld.Active != null)
+            return;
+
         _timeOfDayRetryTimer -= Time.unscaledDeltaTime;
         if (_timeOfDay == null && _timeOfDayRetryTimer <= 0f)
         {

@@ -44,6 +44,26 @@ namespace Sol.Environment
         }
 
         /// <summary>
+        /// Materials cannot be located by name at runtime at all, so outside the editor
+        /// the serialized reference is the only option. The editor search exists so an
+        /// unassigned field repairs itself and can be saved.
+        /// </summary>
+        public static Material ResolveMaterial(Material serialized, string assetFileName)
+        {
+            if (serialized != null)
+                return serialized;
+
+            Material found = null;
+#if UNITY_EDITOR
+            found = FindByName<Material>(assetFileName);
+#endif
+            if (found == null)
+                Debug.LogWarning($"[Sol] Could not resolve material '{assetFileName}'. " +
+                    "Assign it explicitly; materials cannot be located by name at runtime.");
+            return found;
+        }
+
+        /// <summary>
         /// Compute shaders have no equivalent of <see cref="Shader.Find"/>, so outside the
         /// editor the serialized reference is the only option. The editor search exists so
         /// an unassigned field repairs itself and can be saved.

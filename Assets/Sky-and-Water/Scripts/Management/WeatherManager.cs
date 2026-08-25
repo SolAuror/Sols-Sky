@@ -29,7 +29,17 @@ using Sol.ToD;
 /// event, CurrentProfile / TargetProfile / IsTransitioning.
 /// ---------------------------------------------------------------------------
 /// </summary>
-[DefaultExecutionOrder(-500)]
+// Runs before SolEnvironmentWorld (-900), which reads CurrentState when it publishes.
+// At -500 it ran after, so everything fed through SolEnvironmentWorld -- all of Water2 --
+// saw last frame's weather while SolAtmosphereController (-100) saw this frame's, leaving
+// sky and water one frame apart on every weather channel. Only TimeOfDay (-1000) has to
+// run first, for WorldDeltaHours.
+// Runs outside play mode so the editor previews the authored weather instead of a
+// default-constructed one. Without it SolEnvironmentWorld read CurrentState = default in
+// the editor, so the sky showed zero cloudiness and dim and the water zero rain and
+// turbulence, no matter which profile was selected.
+[ExecuteAlways]
+[DefaultExecutionOrder(-950)]
 public class SolWeatherManager : MonoBehaviour
 {
     // --- Singleton -------------------------------------------------------
@@ -296,6 +306,17 @@ public class SolWeatherManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            // Never destroy scene objects in edit mode: Destroy is deferred and illegal
+            // there, and silently deleting an author's GameObject is not a reasonable
+            // response to a duplicate anyway. Disable and say so.
+            if (!Application.isPlaying)
+            {
+                Debug.LogWarning("[SolWeatherManager] Duplicate instance disabled. "
+                    + "Weather must have one active authority.", gameObject);
+                enabled = false;
+                return;
+            }
+
             Debug.LogWarning("[SolWeatherManager] Duplicate instance detected. Destroying.", gameObject);
             Destroy(gameObject);
             return;
@@ -393,7 +414,10 @@ public class SolWeatherManager : MonoBehaviour
         if (!_hasOwnedWaterState)
             CaptureOwnedWaterState();
 
-        float deltaHours = ComputeDeltaHours();
+        // Edit mode presents the authored target profile rather than cycling. PickNextIndex
+        // draws from UnityEngine.Random, so advancing the timeline outside play mode would
+        // change the scene's weather at random while the author is working on it.
+        float deltaHours = Application.isPlaying ? ComputeDeltaHours() : 0f;
         float worldDeltaSeconds = ComputeDeltaSeconds();
         float presentationDeltaSeconds = ComputePresentationDeltaSeconds();
         RefreshClimateTarget();
@@ -446,8 +470,9 @@ public class SolWeatherManager : MonoBehaviour
     float ComputeDeltaHours()
     {
         if (todManager != null) return (float)todManager.WorldDeltaHours;
-        // No world clock: fall back to the default 10-minute day pacing.
-        return Time.deltaTime / 600f * 24f;
+        // No world clock: fall back to the default 10-minute day pacing. Time.deltaTime is
+        // not meaningful outside play mode, so a clockless editor session holds still.
+        return Application.isPlaying ? Time.deltaTime / 600f * 24f : 0f;
     }
 
     float ComputeDeltaSeconds()

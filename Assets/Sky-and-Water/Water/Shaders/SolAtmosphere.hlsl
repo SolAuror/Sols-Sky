@@ -236,17 +236,40 @@ float SolAtmosphereAmount(float3 cameraWS, float3 positionWS, float3 viewDirecti
     return min(amount, _SolAtmosphereParams0.w);
 }
 
-float3 SolApplyAtmosphere(float3 color, float3 cameraWS, float3 positionWS, float3 viewDirection, float isSky)
+// Shadowed variant of the analytic path.
+//
+// The analytic form has no march to sample shadows along, so it assumed full sun.
+// The screen-space pass that fogs everything else *does* march the shadow map, and
+// the two models meet at every water silhouette -- unshadowed fog on the water side
+// of that line was the most visible way they disagreed, and it is why a light shaft
+// crossing the shoreline appeared to stop at the water. A caller that already holds a
+// shadow term for its surface point can hand it over and close most of that gap.
+//
+// Pass the cast-shadow term only. Cloud attenuation is already folded in by
+// SolAtmosphereLighting through _SolAtmosphereLightingParams, so passing a cloud
+// factor here as well would count it twice.
+float3 SolApplyAtmosphereShadowed(float3 color, float3 cameraWS, float3 positionWS,
+    float3 viewDirection, float isSky, float shadowAttenuation)
 {
     if (_SolAtmosphereActive < 0.5)
         return color;
 
     float amount = SolAtmosphereAmount(cameraWS, positionWS, viewDirection, isSky);
     float transmittance = 1.0 - amount;
-    float3 inScattering = SolAtmosphereLighting(viewDirection, 1.0) * amount;
+    float3 inScattering = SolAtmosphereLighting(viewDirection, shadowAttenuation) * amount;
     return color * transmittance + inScattering;
 }
 
+float3 SolApplyAtmosphere(float3 color, float3 cameraWS, float3 positionWS, float3 viewDirection, float isSky)
+{
+    return SolApplyAtmosphereShadowed(color, cameraWS, positionWS, viewDirection, isSky, 1.0);
+}
+
+// NOTE: nothing calls this. _SolAtmosphereTransparentFog is written by
+// SolTransparentAtmosphereBinding into a per-renderer property block, but every shader
+// in the project uses the unconditional SolApplyAtmosphere above, so attaching that
+// component currently has no effect. Kept rather than deleted because it is a public
+// component that scenes may already reference; wire a shader to this before relying on it.
 float3 SolApplyAtmosphereOptIn(
     float3 color,
     float3 cameraWS,

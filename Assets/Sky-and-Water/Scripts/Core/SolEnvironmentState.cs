@@ -122,6 +122,13 @@ namespace Sol.Environment
         public readonly ulong Revision;
         public readonly long SimulationTick;
         public readonly double AbsoluteWorldSeconds;
+        /// <summary>
+        /// Wave-domain clock. This is the integral of world delta against the weather's
+        /// wave speed multiplier, not the product of absolute time and the current
+        /// multiplier. The product form made every weather change shift wave phase by
+        /// the whole elapsed session, which re-randomised the ocean mid-frame.
+        /// </summary>
+        public readonly double WaveSeconds;
         public readonly long WorldDayIndex;
         public readonly float ClockHour;
         public readonly SolEnvironmentLightingState Lighting;
@@ -133,6 +140,7 @@ namespace Sol.Environment
             ulong revision,
             long simulationTick,
             double absoluteWorldSeconds,
+            double waveSeconds,
             long worldDayIndex,
             float clockHour,
             in SolEnvironmentLightingState lighting,
@@ -143,6 +151,7 @@ namespace Sol.Environment
             Revision = revision;
             SimulationTick = simulationTick;
             AbsoluteWorldSeconds = Math.Max(0d, absoluteWorldSeconds);
+            WaveSeconds = Math.Max(0d, waveSeconds);
             WorldDayIndex = worldDayIndex;
             ClockHour = Mathf.Repeat(clockHour, 24f);
             Lighting = lighting;

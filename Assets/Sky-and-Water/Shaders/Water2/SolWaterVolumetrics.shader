@@ -37,6 +37,8 @@ Shader "Hidden/Sol/Water2/Volumetrics"
         // x: history weight, y: neighbourhood clamp expansion
         float4 _SolWaterVolumetricTemporalParams;
         float4x4 _SolWaterVolumetricPreviousViewProjection;
+        // x: camera is submerged, y: water surface height, zw reserved
+        float4 _SolWaterVolumetricViewParams;
 
         float4 SolVolumePrepass(float2 uv)
         {
@@ -66,15 +68,46 @@ Shader "Hidden/Sol/Water2/Volumetrics"
             {
                 float2 uv = input.texcoord;
                 float4 waterData = SolVolumePrepass(uv);
-                // Only pixels covered by water have a volume to march.
-                if (waterData.x <= 0.000001)
+                bool submerged = _SolWaterVolumetricViewParams.x > 0.5;
+                // Seen from above, only pixels the surface covers have a volume behind
+                // them. Submerged, the eye is already inside the medium and every pixel
+                // does — including the ones looking at sea bed the surface never covers,
+                // which is most of the screen looking down.
+                if (!submerged && waterData.x <= 0.000001)
                     return 0;
 
-                float3 entryWS = ComputeWorldSpacePosition(uv, waterData.y, UNITY_MATRIX_I_VP);
+                // A mid-range depth rather than the far plane: inverse-VP precision at
+                // the far plane is poor enough to produce infinities, and this is only
+                // needed as a direction.
+                float3 viewDirectionWS = SafeNormalize(
+                    ComputeWorldSpacePosition(uv, 0.5, UNITY_MATRIX_I_VP)
+                        - GetCameraPositionWS());
+
+                // Entry is where the ray enters the water: the surface when looking in
+                // from outside, the camera itself when already under it.
+                float3 entryWS = submerged
+                    ? GetCameraPositionWS()
+                    : ComputeWorldSpacePosition(uv, waterData.y, UNITY_MATRIX_I_VP);
                 float rawSceneDepth = SampleSceneDepth(uv);
                 float3 exitWS = SolVolumeHasSceneDepth(rawSceneDepth)
                     ? ComputeWorldSpacePosition(uv, rawSceneDepth, UNITY_MATRIX_I_VP)
-                    : entryWS + (entryWS - GetCameraPositionWS()) * 4.0;
+                    : entryWS + viewDirectionWS
+                        * max(1.0, _SolWaterVolumetricParams.y);
+
+                // Submerged, a ray angled upward leaves through the surface and stops
+                // scattering there; without this the march keeps accumulating water above
+                // the waterline and the sky gains a haze that belongs to the sea.
+                if (submerged)
+                {
+                    float3 span = exitWS - entryWS;
+                    if (span.y > 0.0001)
+                    {
+                        float surfaceT =
+                            (_SolWaterVolumetricViewParams.y - entryWS.y) / span.y;
+                        if (surfaceT >= 0.0 && surfaceT < 1.0)
+                            exitWS = entryWS + span * surfaceT;
+                    }
+                }
 
                 float3 rayVector = exitWS - entryWS;
                 float rayLength = length(rayVector);
@@ -117,7 +150,14 @@ Shader "Hidden/Sol/Water2/Volumetrics"
                     if (_SolWaterCausticArrayParams.w > 0.5
                         && _SolWaterVolumetricParams.w > 0.0001)
                     {
-                        float columnAbove = max(0.0, entryWS.y - samplePosition.y);
+                        // Depth of water above the sample, which sets how far the
+                        // caustic field has converged by the time light reaches it.
+                        // Measured from the surface, not from the entry point: submerged
+                        // those differ by however deep the camera is, and using the
+                        // camera would make the shafts change character as it descends.
+                        float causticSurfaceY = submerged
+                            ? _SolWaterVolumetricViewParams.y : entryWS.y;
+                        float columnAbove = max(0.0, causticSurfaceY - samplePosition.y);
                         caustic = SolWaterSampleCausticArray(
                             samplePosition.xz + _SolWaterWorldOrigin.xz,
                             columnAbove, input.positionCS.xy)
@@ -162,12 +202,24 @@ Shader "Hidden/Sol/Water2/Volumetrics"
                 if (weight <= 0.0001)
                     return current;
 
+                bool submerged = _SolWaterVolumetricViewParams.x > 0.5;
                 float4 waterData = SolVolumePrepass(input.texcoord);
-                if (waterData.x <= 0.000001)
+                if (!submerged && waterData.x <= 0.000001)
                     return current;
 
+                // Reprojection needs the depth of whatever the marched column ended on.
+                // Looking in from above that is the surface the prepass recorded;
+                // submerged the prepass is empty over most of the screen, so the sea bed
+                // stands in. With neither, there is nothing to reproject against.
+                float reprojectDepth = waterData.y;
+                if (submerged)
+                {
+                    reprojectDepth = SampleSceneDepth(input.texcoord);
+                    if (!SolVolumeHasSceneDepth(reprojectDepth))
+                        return current;
+                }
                 float3 positionWS = ComputeWorldSpacePosition(
-                    input.texcoord, waterData.y, UNITY_MATRIX_I_VP);
+                    input.texcoord, reprojectDepth, UNITY_MATRIX_I_VP);
                 float4 previousClip = mul(_SolWaterVolumetricPreviousViewProjection,
                     float4(positionWS, 1.0));
                 if (previousClip.w <= 0.0001)
@@ -216,8 +268,12 @@ Shader "Hidden/Sol/Water2/Volumetrics"
             {
                 float4 center = SAMPLE_TEXTURE2D_X_LOD(
                     _BlitTexture, sampler_LinearClamp, input.texcoord, 0);
+                // Submerged the prepass is empty over most of the screen, but the march
+                // still produced a jittered result there that needs resolving; the body
+                // comparison below then trivially matches and the taps blend as intended.
+                bool submerged = _SolWaterVolumetricViewParams.x > 0.5;
                 float4 waterData = SolVolumePrepass(input.texcoord);
-                if (waterData.x <= 0.000001)
+                if (!submerged && waterData.x <= 0.000001)
                     return center;
 
                 float2 texel = _BlitTexture_TexelSize.xy;

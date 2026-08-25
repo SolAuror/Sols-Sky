@@ -7,6 +7,12 @@ float4 _Sol_TerrainWetness;
 float4 _Sol_TerrainSandChannel;
 float4 _Sol_TerrainOriginInvSize;
 float _Sol_RainIntensity;
+// Smoothed ground wetness: accumulates while it rains and dries slowly afterwards.
+// Distinct from _Sol_RainIntensity, which is instantaneous precipitation and is what
+// the legacy water shader wants for its ripple and roughness response. Driving the
+// terrain from the instantaneous value made the ground snap dry the moment rain
+// stopped, and left SolEnvironmentWorld's wetness integrator with no consumer at all.
+float _Sol_SurfaceWetness;
 float _Sol_GlobalWaterLevel;
 float _Sol_TerrainWetSmoothness;
 TEXTURE2D(_Sol_TerrainSandMask);
@@ -17,7 +23,7 @@ float SolTerrainWetness(float3 positionWS)
     float shorelineRange = max(_Sol_TerrainWetness.z, 0.001);
     float waterProximity = saturate(
         (_Sol_GlobalWaterLevel + shorelineRange - positionWS.y) / shorelineRange);
-    float rainWetness = saturate(_Sol_RainIntensity * _Sol_TerrainWetness.x);
+    float rainWetness = saturate(_Sol_SurfaceWetness * _Sol_TerrainWetness.x);
     float waterWetness = waterProximity * saturate(_Sol_TerrainWetness.y);
     return saturate(rainWetness + waterWetness);
 }

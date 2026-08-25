@@ -53,6 +53,15 @@ public sealed class SolAtmosphereController : MonoBehaviour
         ?? (profile != null ? profile.quality : fallbackQuality);
     public Color CurrentFogColor { get; private set; }
     public float CurrentDensity { get; private set; }
+
+    /// <summary>
+    /// Directional scattering after the weather multiplier. Exposed because the per-camera
+    /// override path rewrites the same global and has to reapply it: writing the raw
+    /// setting there silently reverted fog scattering to its un-weathered value for the
+    /// whole frame whenever a SolAtmosphereVolume was active -- including for the water,
+    /// which draws afterwards.
+    /// </summary>
+    public float CurrentDirectionalScattering { get; private set; }
     public Light CurrentDominantLight { get; private set; }
     public bool UsesVolumetricLighting => Quality != SolAtmosphereQuality.Low;
 
@@ -82,7 +91,7 @@ public sealed class SolAtmosphereController : MonoBehaviour
         Shader.SetGlobalColor(FogColorID, color);
         Shader.SetGlobalVector(Params0ID, new Vector4(density, start, maximum, opacity));
         Shader.SetGlobalVector(Params2ID, new Vector4(
-            SettingsDirectionalScattering, SettingsPhaseAnisotropy, SettingsSkyFog, (float)quality));
+            CurrentDirectionalScattering, SettingsPhaseAnisotropy, SettingsSkyFog, (float)quality));
         Shader.SetGlobalVector(VolumetricParamsID, new Vector4(
             SettingsShadowedScattering,
             Mathf.Min(SettingsRaymarchDistance, maximum),
@@ -180,6 +189,7 @@ public sealed class SolAtmosphereController : MonoBehaviour
         Color directionalColor = ResolveLightColor(scatteringColor);
         float scattering = SettingsDirectionalScattering
                          * (weatherManager != null ? weather.LightScattering : 1f);
+        CurrentDirectionalScattering = scattering;
         float mistiness = weatherManager != null ? weather.Mistiness : 0f;
         float effectiveBaseHeight = Mathf.Lerp(SettingsBaseHeight, SettingsMistBaseHeight, mistiness);
         float effectiveHeightFalloff = Mathf.Lerp(SettingsHeightFalloff, SettingsMistHeightFalloff, mistiness);

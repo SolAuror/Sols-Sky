@@ -37,6 +37,18 @@ TEXTURE2D_ARRAY(_SolWaterSpectralNormalFoam);
 SAMPLER(sampler_SolWaterSpectralNormalFoam);
 float4 _SolWaterSpectralParams; // cascade count, strength, resolution, reserved
 
+// Wind speed in metres per second that counts as a full gale. Mirrors
+// SolWaterWaveEvaluator.WindResponseReferenceSpeed -- keep the two in step.
+#define SOL_WATER_WIND_REFERENCE_SPEED 24.0
+
+// Normalised wind response, 0 at dead calm and 1 at gale. _SolWaterWeather.x is a
+// speed in metres per second; the divide-by-3 and divide-by-8 forms this replaced were
+// written against the old authored 0..3 range and saturated at a light breeze.
+float SolWaterWindResponse01(float windSpeedMetresPerSecond)
+{
+    return saturate(windSpeedMetresPerSecond / SOL_WATER_WIND_REFERENCE_SPEED);
+}
+
 struct SolWaterWaveResult
 {
     float3 displacement;
@@ -134,7 +146,7 @@ void SolApplyShorelineBreaker(float2 localXZ, float4 shorelineData,
     float cosine;
     sincos(phase, sine, cosine);
     float windScale = lerp(0.65, 1.15,
-        saturate(_SolWaterWeather.x / 8.0));
+        SolWaterWindResponse01(_SolWaterWeather.x));
     float amplitude = strength * envelope * windScale;
     float choppiness = max(0.0, _SolWaterShorelineBreakerDetail.x);
 
@@ -237,7 +249,7 @@ SolWaterWaveResult SolEvaluateWaterWaves(float2 localXZ, float geometrySpacing,
     wind = dot(wind, wind) > 0.0001 ? normalize(wind) : float2(1, 0);
     float turbulence = saturate(_SolWaterWeather.y);
     float weatherAmplitude = lerp(1.0, 1.8, turbulence)
-        * lerp(0.65, 1.35, saturate(_SolWaterWeather.x / 3.0));
+        * lerp(0.65, 1.35, SolWaterWindResponse01(_SolWaterWeather.x));
     // Gerstner is the deterministic Low-tier fallback. Medium/High use the
     // directional spectrum directly; stacking both produces coherent sine bands
     // that expose the clipmap triangulation at grazing angles.
@@ -399,6 +411,40 @@ SolWaterWaveResult SolEvaluateWaterWaves(float2 localXZ, float geometrySpacing,
         }
     }
     return result;
+}
+
+// Debug only. Returns the strongest per-cascade detail fade the pixel spectral path
+// applies at this point, so a screenshot can show where that fade collapses.
+//
+// This is the one term in the surface shading that can go to zero along a line: when it
+// does, `normal` falls back to flat (0,1,0) and the cascade foam disappears with it, so a
+// stroke of flat, foamless water appears in an otherwise choppy surface. Mirrors the fade
+// computed in SolEvaluateWaterPixelNormalFoam; keep the two in step if either changes.
+float SolWaterDebugSpectralDetailFade(float2 localXZ)
+{
+    if (_SolWaterSpectralParams.x < 0.5 || _SolWaterSpectralParams.y <= 0.0001)
+        return 1.0;
+    float2 logicalXZ = localXZ + _SolWaterWorldOrigin.xz;
+    float cameraDistance = distance(localXZ, GetCameraPositionWS().xz);
+    float strongestFade = 0.0;
+    [loop]
+    for (int cascade = 0; cascade < min((int)_SolWaterSpectralParams.x, 4); cascade++)
+    {
+        float mapSize = SolWaterCascadeSize(cascade);
+        float2 spectralCoord = SolWaterCascadeCoord(logicalXZ, mapSize, cascade);
+        float2 derivativeX = ddx(spectralCoord);
+        float2 derivativeY = ddy(spectralCoord);
+        float footprintTexels = sqrt(max(dot(derivativeX, derivativeX),
+            dot(derivativeY, derivativeY))) * max(1.0, _SolWaterSpectralParams.z);
+        float fade = saturate(cameraDistance
+            / max(1.0, SolWaterCascadeVisibleDistance(cascade)));
+        fade = 1.0 - fade * fade * fade;
+        if (cascade == (int)_SolWaterSpectralParams.x - 1)
+            fade = 1.0 - saturate(cameraDistance / max(500.0, mapSize * 2.0));
+        fade *= 1.0 - smoothstep(0.8, 2.4, footprintTexels);
+        strongestFade = max(strongestFade, fade);
+    }
+    return strongestFade;
 }
 
 void SolEvaluateWaterPixelNormalFoam(float2 localXZ, inout float3 normal, inout float foam)

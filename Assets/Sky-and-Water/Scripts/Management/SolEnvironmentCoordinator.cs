@@ -34,6 +34,7 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_Sol_GlobalWaveSpeedMul"),
         Shader.PropertyToID("_Sol_WaveTime"),
         Shader.PropertyToID("_Sol_RainIntensity"),
+        Shader.PropertyToID("_Sol_SurfaceWetness"),
         Shader.PropertyToID("_Sol_GlobalWaterLevel"),
         Shader.PropertyToID("_Sol_RainRoughnessBoost"),
         Shader.PropertyToID("_Sol_RainNormalBoost"),

@@ -435,10 +435,17 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("Initialize a fresh scene instance at the configured calendar start date. Disable when an external bootstrap restores time before Start.")]
     [SerializeField] bool initializeNewGameOnStart = true;
 
+    [Tooltip("Advance the clock in edit mode so the sky, weather and water animate in the "
+        + "Scene View without entering play mode. Everything downstream already shares one "
+        + "clock, so this drives the whole environment. Off by default because animating "
+        + "moves the sun and moon transforms every frame, which keeps the scene marked "
+        + "dirty; turn it on while dialling a look in, off for ordinary editing.")]
+    [SerializeField] bool animateInEditMode;
+
     // -- SEASONAL VARIATION ---------------------------
     [Header("-- Seasonal Variation -------------")]
     [Tooltip("Enable seasonal variation of day length based on calendar position within the year.")]
-    [SerializeField] bool enableSeasons;
+    [SerializeField] bool enableSeasons = true;
 
     [Tooltip("How much the day ratio varies across seasons (0 = none, 0.2 = moderate, 0.4 = extreme).")]
     [Range(0f, 0.4f)]
@@ -460,6 +467,7 @@ public class TimeOfDay : MonoBehaviour
     bool calendarInitialized;
     float worldDeltaSeconds;
     double worldDeltaHours;
+    double _editorClockStamp;
     float presentationDeltaSeconds;
     float cloudTime;
     SolEnvironmentCoordinator environmentCoordinator;
@@ -527,6 +535,12 @@ public class TimeOfDay : MonoBehaviour
     public event Action<float, float> TimeScaleChanged;
 
     /// <summary>Resolve the active time service without requiring callers to know scene wiring.</summary>
+    /// <summary>
+    /// True when this authority is advancing its clock outside play mode. The editor
+    /// driver reads this to decide whether to keep the Scene View repainting.
+    /// </summary>
+    public bool AnimatesInEditMode => animateInEditMode;
+
     public static TimeOfDay ResolveInstance()
     {
         if (Instance != null)
@@ -757,31 +771,71 @@ public class TimeOfDay : MonoBehaviour
     }
 
     /// <summary>
-    /// Lightweight preview path for edit mode. Computes sun/moon directions,
-    /// day factor, and the environment state without spawning prefabs.
+    /// Edit-mode preview. Runs the same solvers as the play path so what the Scene View
+    /// shows is what will actually ship: the moon used to be approximated here as
+    /// sunAngle + initialLunarPhase * 360, which put it in the wrong place in every
+    /// editor screenshot, and eclipses were zeroed outright. Only the two steps that
+    /// spawn prefab instances are skipped.
+    ///
+    /// With animateInEditMode set, the clock advances too, so the sky, the weather and
+    /// the water all move together off one clock exactly as they do in play mode.
     /// </summary>
     void UpdateEditModePreview()
     {
+        AdvanceEditModeClock();
+
         float effectiveDayRatio = GetEffectiveDayRatio();
+        double worldDay = Calendar != null ? Calendar.WorldDayIndex : 0L;
+        float daysFraction = (float)(worldDay + timeOfDay);
 
-        // Reconstruct sun angle & dayFactor the same way UpdateSun does.
-        float sunAngle = ComputeSunAngle(timeOfDay, effectiveDayRatio);
-
-        Quaternion sunRot = Quaternion.AngleAxis(sunAngle, Vector3.right);
-        float dot = Vector3.Dot(sunRot * Vector3.forward, Vector3.down);
-        const float horizonThreshold = -0.05f;
-        cachedDayFactor   = Mathf.InverseLerp(horizonThreshold, 1f, dot);
-        cachedSunDirection = -(sunRot * Vector3.forward);
-
-        // Approximate moon direction for edit-mode preview (assumes quarter phase).
-        Quaternion moonRot = Quaternion.AngleAxis(sunAngle + initialLunarPhase * 360f, Vector3.right);
-        cachedMoonDirection = -(moonRot * Vector3.forward);
-
-        // Reset eclipse factors (no eclipse simulation in edit mode)
-        solarEclipseFactor = 0f;
-        lunarEclipseFactor = 0f;
-
+        UpdateSun(effectiveDayRatio);
+        UpdateMoon(daysFraction);
+        UpdateEclipses();
+        UpdateDominantAtmosphereLight();
         UpdateEnvironment();
+    }
+
+    /// <summary>
+    /// Advances the clock while the editor is not playing. Uses the editor's own wall
+    /// clock rather than Time.deltaTime, which is not meaningful outside play mode.
+    /// Leaves every delta at zero when previewing statically, so downstream simulations
+    /// hold still rather than stepping on whatever value was last left in them.
+    /// </summary>
+    void AdvanceEditModeClock()
+    {
+        presentationDeltaSeconds = 0f;
+        worldDeltaSeconds = 0f;
+        worldDeltaHours = 0d;
+
+#if UNITY_EDITOR
+        double now = UnityEditor.EditorApplication.timeSinceStartup;
+        double elapsed = now - _editorClockStamp;
+        _editorClockStamp = now;
+        if (!animateInEditMode)
+            return;
+        // A domain reload, a long inspector drag or a paused editor can leave an
+        // arbitrarily large gap. Bound it so the preview eases forward instead of
+        // teleporting the sun across the sky.
+        float editorDelta = Mathf.Clamp((float)elapsed, 0f, 0.1f);
+
+        presentationDeltaSeconds = GetPresentationDeltaSeconds(editorDelta);
+        worldDeltaSeconds = GetWorldDeltaSeconds(editorDelta);
+        worldDeltaHours = GetWorldDeltaHours(worldDeltaSeconds);
+        cloudTime += worldDeltaSeconds
+                   * cloudBaseSpeed
+                   * (10f / Mathf.Max(cycleDurationMinutes, 0.1f))
+                   * Mathf.Max(WeatherCloudSpeedMul, 0f);
+
+        if (worldDeltaHours > 0d)
+        {
+            float dayProgress = (float)(worldDeltaHours / 24d);
+            ApplyNormalizedDelta(
+                dayProgress,
+                TimeChangeRequest.AdvanceHours(dayProgress * 24f, this, "EditModeTick"),
+                fireSkipped: false,
+                countPlayerTime: false);
+        }
+#endif
     }
     #endregion
 

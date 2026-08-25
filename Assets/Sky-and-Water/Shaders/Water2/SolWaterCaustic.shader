@@ -66,8 +66,18 @@ Shader "Hidden/Sol/Water2/Caustic"
 
                 output.flatUV = flatUV;
                 output.displacedUV = displacedUV;
-                // Render the displaced position into the caustic texture. Wrapping is
-                // handled by the sampler, so the domain stays seamless.
+                // Rasterization does not wrap. A quad displaced past the domain edge is
+                // clipped away and leaves the strip it vacated at the cleared value,
+                // which the surface reads back as zero focusing and darkens the sea bed
+                // by the caustic floor. Sampling with Repeat cannot recover coverage
+                // that was never drawn.
+                //
+                // The grid the pass draws therefore starts outside the domain and ends
+                // outside it, by SolWaterCausticRenderGraph.GridMargin. The quads that
+                // displace inward from the margin fill the strip; the ones that stay
+                // outside are clipped before they cost a fragment. Their uv is outside
+                // [0,1] and the displacement sampler wraps, so a margin quad carries the
+                // same source data as the quad it stands in for.
                 output.positionCS = float4(displacedUV * 2.0 - 1.0, 0.0, 1.0);
                 #if UNITY_UV_STARTS_AT_TOP
                     output.positionCS.y = -output.positionCS.y;

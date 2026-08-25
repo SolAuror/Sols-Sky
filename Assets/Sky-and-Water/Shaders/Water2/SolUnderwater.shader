@@ -30,6 +30,13 @@ Shader "Hidden/Sol/Water2/Underwater"
             float4 _SolWaterVisibilityParams; // clarity distance, underwater density, horizon reflection, reserved
             TEXTURE2D(_SolWaterCausticTexture);
             SAMPLER(sampler_SolWaterCausticTexture);
+            // Shadow-marched in-water scattering, published as a graph global by the
+            // ocean pass. Submerged it is marched from the camera rather than from the
+            // surface, so it covers the whole screen instead of only the pixels the
+            // surface happens to overlap.
+            TEXTURE2D_X(_SolWaterVolumetricTexture);
+            SAMPLER(sampler_SolWaterVolumetricTexture);
+            float4 _SolWaterVolumetricSurfaceParams; // x: volumetric available
 
             float Hash21(float2 value)
             {
@@ -93,7 +100,21 @@ Shader "Hidden/Sol/Water2/Underwater"
                     causticWind = dot(causticWind, causticWind) > 0.0001
                         ? normalize(causticWind) : float2(1.0, 0.0);
                     float causticScale = max(0.25, _SolWaterFoamParams.w);
-                    float2 logicalXZ = positionWS.xz + _SolWaterWorldOrigin.xz;
+                    // Resolved before the pattern is sampled: the sampling position
+                    // depends on the light direction, which is the whole point of the
+                    // shared projection below.
+                    Light causticLight = GetMainLight(
+                        TransformWorldToShadowCoord(positionWS));
+                    // Project to where the light entered the surface, exactly as the
+                    // surface pass does, so the pattern does not slide sideways when the
+                    // camera crosses the waterline. The normal warp is skipped -- this
+                    // pass does not bind the wave field, so it cannot evaluate the
+                    // surface normal -- but the light slant is the dominant term.
+                    float2 causticSurfaceXZ = SolWaterCausticSurfaceXZ(
+                        positionWS.xz, waterColumn, causticLight.direction);
+                    float2 logicalXZ = SolWaterCausticSampleXZ(
+                        causticSurfaceXZ + _SolWaterWorldOrigin.xz, waterColumn,
+                        float3(0.0, 1.0, 0.0));
                     float2 causticDrift = causticWind * _SolWaterWaveTime * 0.035;
                     float causticPattern;
 
@@ -129,8 +150,6 @@ Shader "Hidden/Sol/Water2/Underwater"
                     if (_SolWaterCausticArrayParams.w <= 0.5)
                         causticPattern = (causticPattern - 0.35) * 1.6;
                     causticPattern = clamp(causticPattern, -1.0, 4.0);
-                    Light causticLight = GetMainLight(
-                        TransformWorldToShadowCoord(positionWS));
                     float cloudShadow = lerp(1.0, 0.45, _SolWaterWeatherExtended.x);
                     float depthFade = saturate(waterColumn * waterColumn);
                     float visibility = hasSceneGeometry
@@ -138,7 +157,9 @@ Shader "Hidden/Sol/Water2/Underwater"
                         * causticLight.shadowAttenuation * cloudShadow * depthFade;
                     float3 causticLighting = causticLight.color * causticPattern
                         * visibility * _SolWaterFoamParams.z;
-                    source *= max(0.45, 1.0 + clamp(causticLighting * 5.0, -0.45, 4.0));
+                    // Same response as the surface pass, so a sea bed does not change
+                    // brightness as the camera crosses the waterline.
+                    source *= SolWaterApplyCausticResponse(causticLighting);
                 }
 
                 // Same absorption curve and scattering lighting as the surface, so
@@ -163,6 +184,19 @@ Shader "Hidden/Sol/Water2/Underwater"
                     SolWaterDynamicSky(float3(0.0, 1.0, 0.0)),
                     volumeLight.color, volumeLight.direction, volumeCloudShadow,
                     0.72 + 0.28 * saturate(_SolUnderwaterParams.w * 0.25));
+                // The analytic term above is flat: no shadowing, no directionality, so it
+                // fogs the view without ever producing a shaft. Where the raymarch is
+                // available it replaces that with the shadowed, caustic-modulated
+                // version, keeping the analytic value as the floor so turning the pass
+                // off changes the detail rather than the colour of the water. Same form
+                // the surface pass uses, so crossing the waterline does not pop.
+                if (_SolWaterVolumetricSurfaceParams.x > 0.5)
+                {
+                    float4 volume = SAMPLE_TEXTURE2D_X_LOD(_SolWaterVolumetricTexture,
+                        sampler_SolWaterVolumetricTexture, uv, 0);
+                    inscattering = max(inscattering * lerp(0.35, 1.0, volume.a),
+                        volume.rgb);
+                }
                 float3 color = lerp(absorption.rgb * source, inscattering, absorption.a);
                 float composition = _SolUnderwaterParams.z * saturate(0.35 + depthConfidence);
                 return half4(lerp(source, color, composition), 1);

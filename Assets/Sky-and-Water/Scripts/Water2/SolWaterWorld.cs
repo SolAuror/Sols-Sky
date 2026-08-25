@@ -40,8 +40,13 @@ namespace Sol.Water
         public SolWaterQualityProfile QualityProfile => qualityProfile;
         public IReadOnlyList<SolWaterBody> Bodies => _bodies;
         public ISolWaterQueryService QueryService => queryService;
+        /// <summary>
+        /// Wave-domain clock, integrated by <see cref="SolEnvironmentWorld"/> against the
+        /// weather's wave speed multiplier. Reading it as absoluteSeconds * multiplier
+        /// jumped the whole elapsed session's phase on every weather change.
+        /// </summary>
         public double WaveTime => environmentWorld != null
-            ? environmentWorld.State.AbsoluteWorldSeconds * environmentWorld.State.Weather.WaveSpeedMultiplier
+            ? environmentWorld.State.WaveSeconds
             : Time.timeAsDouble;
 
         void Awake()

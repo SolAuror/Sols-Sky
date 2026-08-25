@@ -54164,6 +54164,7 @@ GameObject:
   - component: {fileID: 1209748161}
   - component: {fileID: 1209748160}
   - component: {fileID: 1209748159}
+  - component: {fileID: 1209748162}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -54213,12 +54214,12 @@ Terrain:
   m_HeightmapMaximumLOD: 0
   m_ShadowCastingMode: 2
   m_DrawHeightmap: 1
-  m_DrawInstanced: 0
+  m_DrawInstanced: 1
   m_DrawTreesAndFoliage: 1
   m_StaticShadowCaster: 0
   m_IgnoreQualitySettings: 0
   m_ReflectionProbeUsage: 1
-  m_MaterialTemplate: {fileID: 2100000, guid: 9ee5c632ca1e4ae4af8a5d9af2d5a71b, type: 2}
+  m_MaterialTemplate: {fileID: 2100000, guid: 8f491478af09ed44ba385b1136ffaaa9, type: 2}
   m_BakeLightProbesForTrees: 1
   m_PreserveTreePrototypeLayers: 0
   m_DeringLightProbesForTrees: 1
@@ -54246,6 +54247,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1209748162
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1209748158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b4b148a2090d2449919692f761f3a58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeDriver
+  landscapeTerrain: {fileID: 1209748160}
+  config: {fileID: 11400000, guid: bece3aa074dbac04a881501fdc5e9094, type: 2}
 --- !u!1 &1210099661
 GameObject:
   m_ObjectHideFlags: 0

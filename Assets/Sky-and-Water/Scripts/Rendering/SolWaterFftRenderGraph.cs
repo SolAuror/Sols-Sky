@@ -105,11 +105,13 @@ namespace Sol.Water.Rendering
             complexDesc.name = "_SolWaterFftB1";
             TextureHandle b1 = renderGraph.CreateTexture(complexDesc);
 
-            SolEnvironmentState environment = SolEnvironmentWorld.Active != null
-                ? SolEnvironmentWorld.Active.State : default;
+            // ResolveState carries the fair-weather fallback, so the local 6 m/s stand-in
+            // that used to live here is gone: it built a moderate sea inside culling
+            // bounds the clipmap had sized for dead calm from its own 0 m/s fallback.
+            SolEnvironmentState environment = SolEnvironmentWorld.ResolveState();
             Vector3 windDirection = environment.Wind.Direction.sqrMagnitude > 0.0001f
                 ? environment.Wind.Direction.normalized : Vector3.right;
-            float windSpeed = environment.Wind.Speed > 0.01f ? environment.Wind.Speed : 6f;
+            float windSpeed = environment.Wind.Speed;
             Vector4 wind = new(windDirection.x, windDirection.z, windSpeed, environment.Wind.Turbulence);
             Vector4 weather = new(environment.Weather.WaterTurbulence, environment.Weather.Rain,
                 Mathf.Max(0.01f, environment.Weather.WaveSpeedMultiplier), 0f);

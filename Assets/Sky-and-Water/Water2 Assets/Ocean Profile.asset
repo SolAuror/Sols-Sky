@@ -21,7 +21,7 @@ MonoBehaviour:
   refractionMaximumDistance: 10
   refractionDispersion: 0.12
   refractionMaximumScreenOffset: 0.018
-  scatteringStrength: 1
+  scatteringStrength: 0.65
   smoothness: 0.94
   sunSpecularStrength: 0.08
   sunSpecularRoughness: 0.04

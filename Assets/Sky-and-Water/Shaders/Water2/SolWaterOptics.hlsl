@@ -87,6 +87,38 @@ float SolWaterSunElevationPhase(float3 lightDirectionWS)
     return smoothstep(-0.25, 1.0, dot(lightDirectionWS, float3(0.0, 1.0, 0.0)));
 }
 
+// ---------------------------------------------------------------------------
+// Caustic projection
+//
+// Caustics are cast by the surface, not by the ground. The pattern landing on a
+// sea bed point belongs to the patch of surface the refracted light passed
+// through, which sits up-light of the point directly overhead by the light's
+// slant -- tens of metres for a low sun over a deep column.
+//
+// The surface pass projected along the light and then warped by the surface
+// normal; the submerged pass sampled the sea bed's own XZ with neither. Same bed,
+// two different patterns, so the caustics slid sideways as the camera crossed the
+// waterline. Both sides now call these, which is what sharing this header is for.
+// ---------------------------------------------------------------------------
+
+// Where the light landing at `groundXZ` entered the water surface.
+float2 SolWaterCausticSurfaceXZ(float2 groundXZ, float waterColumn,
+    float3 lightDirectionWS)
+{
+    float lightElevation = max(0.08, lightDirectionWS.y);
+    return groundXZ + lightDirectionWS.xz * (waterColumn / lightElevation);
+}
+
+// Surface-normal warp applied on top of the light projection, in logical space.
+// `surfaceNormal` is the water normal at the entry point; pass float3(0, 1, 0)
+// where the wave field is not bound and only the light slant can be accounted
+// for -- the slant is the dominant term, the warp a metre-scale refinement.
+float2 SolWaterCausticSampleXZ(float2 logicalSurfaceXZ, float waterColumn,
+    float3 surfaceNormal)
+{
+    return logicalSurfaceXZ + surfaceNormal.xz * waterColumn * 1.4;
+}
+
 // Volume scattering radiance. Lighting the turbidity colour by sun elevation and
 // ambient sky is what makes the water track time of day; a fixed authored colour
 // reads dead at every hour.
@@ -167,6 +199,42 @@ float4 SolWaterSampleStochastic(TEXTURE2D_PARAM(sourceTexture, sourceSampler),
 // One slice per near cascade, produced by SolWaterCausticRenderGraph. Shared by
 // the surface and the submerged composition so both project the same field.
 // ---------------------------------------------------------------------------
+// Response curve for the caustic field, shared by the surface and the submerged
+// composition so both project the same lighting.
+//
+// The field is the area compression of the displaced surface, centred so that a typical
+// sea bed texel sits near zero, with bright filaments above and dark cells below. Both
+// sides are shaped as saturating exponentials rather than clamps: a clamp collapses
+// everything past its limit onto one value, which is what turns a caustic field into flat
+// blotches instead of a pattern.
+//
+// GAIN replaces a hardcoded 5.0. That value was tuned when the caustic pass divided
+// displacement by a cascade domain about 6.4x too large, so the density deviations it saw
+// were correspondingly small. With the domain corrected the same gain — 16.5x once the
+// profile's causticStrength is folded in — pushed almost the whole field past the
+// brightening ceiling, leaving a uniformly blown sea bed whose only visible structure was
+// the minority of texels dark enough to fall out the bottom.
+//
+// causticStrength in the water profile remains the authored knob and multiplies this.
+#define SOL_WATER_CAUSTIC_GAIN 0.35
+// Most a caustic field may add to, or take back off, the sea bed. Caustics redistribute
+// light, so the dark cells are a dip in an otherwise lit floor, not a shadow, and the
+// bright filaments carry most of the contrast.
+#define SOL_WATER_CAUSTIC_MAX_BRIGHTENING 1.75
+#define SOL_WATER_CAUSTIC_MAX_DARKENING 0.28
+
+// Applies the response above to a signed caustic field value. Returns the multiplier the
+// refracted sea bed is scaled by, which is 1.0 exactly where the field is neutral.
+float3 SolWaterApplyCausticResponse(float3 causticLighting)
+{
+    float3 gained = causticLighting * SOL_WATER_CAUSTIC_GAIN;
+    float3 brightening = SOL_WATER_CAUSTIC_MAX_BRIGHTENING
+        * (1.0 - exp2(-max(0.0, gained)));
+    float3 darkening = SOL_WATER_CAUSTIC_MAX_DARKENING
+        * (1.0 - exp2(-max(0.0, -gained)));
+    return 1.0 + brightening - darkening;
+}
+
 TEXTURE2D_ARRAY(_SolWaterCausticArray);
 SAMPLER(sampler_SolWaterCausticArray);
 // x/y: cascade 0/1 domain size in metres, z: slice count, w: array valid

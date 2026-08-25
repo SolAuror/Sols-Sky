@@ -76,12 +76,18 @@ namespace Sol.Water.Rendering
             if (camera == null || ocean == null || quality == null)
                 return null;
 
+            // The ocean is issued through DrawMeshInstanced, which bypasses layer culling
+            // entirely, so a camera that deliberately masks out the water layer still got
+            // the full ocean drawn into it. SolFiniteWaterDrawSet already filters this way
+            // for finite bodies; the clipmap was the one that did not.
+            if ((camera.cullingMask & (1 << ocean.gameObject.layer)) == 0)
+                return null;
+
             // The spectrum, not the authored Gerstner set, is what the surface is built
             // from on Medium and High, so the reach has to be estimated from the wind
             // driving it. Everything below is sized from this value.
             bool spectral = quality.FftCascadeCount > 0 && quality.FftResolution > 0;
-            float windSpeed = SolEnvironmentWorld.Active != null
-                ? SolEnvironmentWorld.Active.State.Wind.Speed : 0f;
+            float windSpeed = SolEnvironmentWorld.ResolveState().Wind.Speed;
             float maximumAmplitude = SolWaterWaveEvaluator.EstimateMaximumAmplitude(
                 ocean.Profile, windSpeed, spectral);
             // Deep enough to cover the residual displacement delta between adjacent
@@ -507,9 +513,21 @@ namespace Sol.Water.Rendering
             Color nadir = RenderSettings.ambientGroundColor;
             Color warm = new(horizon.r, horizon.g, horizon.b, 0f);
             Vector4 gradient = new(1f, 1f, 1f, 4f);
-            Vector3 sunDirection = RenderSettings.sun != null
-                ? -RenderSettings.sun.transform.forward
-                : Vector3.up;
+            // This direction positions the warm horizon in the *reflected sky*, so it has
+            // to be the actual sun -- the same thing the Sol skybox uses to place its own
+            // gradient -- or the water reflects a sky that is not the one overhead.
+            //
+            // RenderSettings.sun is the *dominant* light, which TimeOfDay swaps to the moon
+            // at night. Reading it here meant the horizon glow followed the sun when a Sol
+            // skybox was assigned (the override below wins) and jumped to the moon when one
+            // was not: the same scene behaved two different ways depending on an unrelated
+            // setting. Prefer the environment's sun, and fall back to the scene light only
+            // when there is no environment authority to ask.
+            Vector3 sunDirection = SolEnvironmentWorld.Active != null
+                ? SolEnvironmentWorld.Active.State.Lighting.SunDirection
+                : RenderSettings.sun != null
+                    ? -RenderSettings.sun.transform.forward
+                    : Vector3.up;
 
             Material sky = RenderSettings.skybox;
             bool solGradient = sky != null

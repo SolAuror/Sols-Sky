@@ -7,11 +7,13 @@ namespace Sol.Water
     /// Publishes the terrain wetness shader contract consumed by
     /// <c>Shaders/Terrain/SolTerrainWetness.hlsl</c>.
     ///
-    /// These globals used to come from the legacy <c>SolWaterManager</c>, which the
-    /// one-way Water 2 converter disables. Nothing in Water 2 replaced them, so a
-    /// converted scene silently lost terrain wetness entirely: rain stopped darkening
-    /// the ground and the shoreline stopped reading as wet. This restores the same
-    /// contract from Water 2's own authorities.
+    /// These globals are also written by the legacy <c>SolWaterManager</c>, from its own
+    /// duplicated set of inspector fields. Earlier comments here claimed a one-way Water 2
+    /// converter disabled that component, but no such converter exists in the project, so
+    /// with both alive the two authorities wrote the same seven globals every frame -- this
+    /// one from LateUpdate, the legacy one from Update -- and the terrain's rain response
+    /// and shoreline height flipped between two independent sources. <see cref="Active"/>
+    /// makes the hand-off explicit: the legacy manager checks it and yields.
     ///
     /// <c>SolEnvironmentCoordinator</c> already captures and restores every global written
     /// here, so this only has to publish.
@@ -42,6 +44,7 @@ namespace Sol.Water
         [Range(0f, 0.8f)] public float wetSmoothness = 0.48f;
 
         static readonly int RainIntensityId = Shader.PropertyToID("_Sol_RainIntensity");
+        static readonly int SurfaceWetnessId = Shader.PropertyToID("_Sol_SurfaceWetness");
         static readonly int GlobalWaterLevelId = Shader.PropertyToID("_Sol_GlobalWaterLevel");
         static readonly int TerrainWetnessId = Shader.PropertyToID("_Sol_TerrainWetness");
         static readonly int TerrainWetSmoothnessId = Shader.PropertyToID("_Sol_TerrainWetSmoothness");
@@ -52,6 +55,7 @@ namespace Sol.Water
         // Redundant global writes are not free and this runs every frame, so each value
         // is only pushed when it actually moves. NaN seeds force the first write.
         float _lastRainIntensity = float.NaN;
+        float _lastSurfaceWetness = float.NaN;
         float _lastWaterLevel = float.NaN;
         float _lastWetSmoothness = float.NaN;
         Vector4 _lastWetness = new(float.NaN, float.NaN, float.NaN, float.NaN);
@@ -69,7 +73,24 @@ namespace Sol.Water
         Vector4 _sandChannel;
         Vector4 _originInvSize;
 
-        void OnEnable() => Invalidate();
+        /// <summary>
+        /// The live wetness authority, or null when Water 2 is not publishing. The legacy
+        /// <c>SolWaterManager</c> reads this to decide whether to yield the terrain
+        /// wetness and water level globals.
+        /// </summary>
+        public static SolWaterWetness Active { get; private set; }
+
+        void OnEnable()
+        {
+            Active = this;
+            Invalidate();
+        }
+
+        void OnDisable()
+        {
+            if (Active == this)
+                Active = null;
+        }
 
         void OnValidate() => Invalidate();
 
@@ -83,6 +104,7 @@ namespace Sol.Water
         public void Invalidate()
         {
             _lastRainIntensity = float.NaN;
+            _lastSurfaceWetness = float.NaN;
             _lastWaterLevel = float.NaN;
             _lastWetSmoothness = float.NaN;
             _lastWetness = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
@@ -94,12 +116,22 @@ namespace Sol.Water
 
         void Publish()
         {
-            float rain = SolEnvironmentWorld.Active != null
-                ? Mathf.Clamp01(SolEnvironmentWorld.Active.State.Weather.Rain) : 0f;
+            SolEnvironmentState environment = SolEnvironmentWorld.ResolveState();
+            float rain = Mathf.Clamp01(environment.Weather.Rain);
             if (!Mathf.Approximately(_lastRainIntensity, rain))
             {
                 Shader.SetGlobalFloat(RainIntensityId, rain);
                 _lastRainIntensity = rain;
+            }
+
+            // The smoothed accumulator rather than raw rain: SolEnvironmentWorld already
+            // integrates wetting and drying rates against world time, and nothing consumed
+            // the result, so the ground used to snap between wet and dry with the weather.
+            float surfaceWetness = Mathf.Clamp01(environment.Surface.Wetness);
+            if (!Mathf.Approximately(_lastSurfaceWetness, surfaceWetness))
+            {
+                Shader.SetGlobalFloat(SurfaceWetnessId, surfaceWetness);
+                _lastSurfaceWetness = surfaceWetness;
             }
 
             float level = ResolveWaterLevel();

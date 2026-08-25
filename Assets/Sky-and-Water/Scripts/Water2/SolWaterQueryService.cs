@@ -8,6 +8,10 @@ namespace Sol.Water
     /// Query front-end. Low-tier/Gerstner results are immediate; FFT-capable GPU readback can replace
     /// ProcessBatch without changing gameplay callers.
     /// </summary>
+    // Runs outside play mode to match SolWaterWorld, which adds this component and hands
+    // it out as QueryService. A play-only service meant every edit-mode caller resolved a
+    // component whose LateUpdate never ran.
+    [ExecuteAlways]
     [DisallowMultipleComponent]
     public sealed class SolWaterQueryService : MonoBehaviour, ISolWaterQueryService
     {

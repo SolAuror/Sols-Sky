@@ -24,6 +24,27 @@ namespace Sol.Water
     {
         const float Gravity = 9.81f;
 
+        /// <summary>
+        /// Wind speed, in metres per second, that counts as a full gale for wave
+        /// response. SolEnvironmentWorld publishes wind in m/s as the authored 0..3
+        /// WeatherProfile multiplier times windStrengthToMetresPerSecond (default 8),
+        /// so the authored maximum lands at 24.
+        /// </summary>
+        public const float WindResponseReferenceSpeed = 24f;
+
+        /// <summary>
+        /// Normalised wind response, 0 at dead calm and 1 at gale.
+        ///
+        /// Three separate normalisations used to exist -- two dividing by 3 and one by 8 --
+        /// all written against the old authored 0..3 range but fed metres per second after
+        /// the conversion landed. Everything above 3 m/s therefore saturated, so Clear
+        /// (2.8 m/s) and Storm (21.2 m/s) drove wave amplitude within about 6% of each
+        /// other. Mirrored by SolWaterWindResponse01 in SolWaterWaves2.hlsl; the reference
+        /// speed has to stay in step between the two.
+        /// </summary>
+        public static float WindResponse01(float windSpeedMetresPerSecond)
+            => Mathf.Clamp01(windSpeedMetresPerSecond / WindResponseReferenceSpeed);
+
         public static SolWaterWaveSample Evaluate(
             SolWaterProfile profile,
             Vector2 localXZ,
@@ -72,7 +93,7 @@ namespace Sol.Water
             wind.Normalize();
 
             float weatherAmplitude = Mathf.Lerp(1f, 1.8f, Mathf.Clamp01(turbulence))
-                * Mathf.Lerp(0.65f, 1.35f, Mathf.Clamp01(windStrength / 3f));
+                * Mathf.Lerp(0.65f, 1.35f, WindResponse01(windStrength));
 
             // Medium and High render the spectrum instead of Gerstner, and the shader
             // zeroes the Gerstner amplitude outright when a cascade count is set
@@ -258,7 +279,7 @@ namespace Sol.Water
             float sine = Mathf.Sin(phase);
             float cosine = Mathf.Cos(phase);
             float amplitude = profile.shorelineBreakerStrength * envelope
-                * Mathf.Lerp(0.65f, 1.15f, Mathf.Clamp01(windStrength / 8f));
+                * Mathf.Lerp(0.65f, 1.15f, WindResponse01(windStrength));
             float choppiness = Mathf.Max(0f, profile.shorelineBreakerChoppiness);
 
             displacement = new Vector3(

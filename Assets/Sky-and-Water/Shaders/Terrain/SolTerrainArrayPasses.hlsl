@@ -420,6 +420,8 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
     half occlusion = 0.0h;
     half3 normalTS = 0.0h;
     half postBlendDebugWeight = 0.0h;
+    float weatherSnowSusceptibility = 0.0f;
+    float permanentSnowSusceptibility = 0.0f;
 
 #ifdef _SOL_LANDSCAPE_TOPK_REFERENCE
     // Ticket 2C reference path: all six layers, unsorted, retained for validation diffs.
@@ -435,6 +437,10 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
     [unroll]
     for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++layerIndex)
     {
+        weatherSnowSusceptibility += allLayers[layerIndex].weight
+            * _Sol_LandscapeWeatherSnowSusceptibilities[allLayers[layerIndex].layerIndex];
+        permanentSnowSusceptibility += allLayers[layerIndex].weight
+            * _Sol_LandscapePermanentSnowSusceptibilities[allLayers[layerIndex].layerIndex];
         SolAccumulateLandscapeLayer(
             terrainUV,
             allLayers[layerIndex],
@@ -472,6 +478,10 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
     [unroll]
     for (int selectedIndex = 0; selectedIndex < SOL_LANDSCAPE_TOP_K; ++selectedIndex)
     {
+        weatherSnowSusceptibility += selectedSamples[selectedIndex].weight
+            * _Sol_LandscapeWeatherSnowSusceptibilities[selectedSamples[selectedIndex].layerIndex];
+        permanentSnowSusceptibility += selectedSamples[selectedIndex].weight
+            * _Sol_LandscapePermanentSnowSusceptibilities[selectedSamples[selectedIndex].layerIndex];
         SolAccumulateLandscapeLayer(
             terrainUV,
             selectedSamples[selectedIndex],
@@ -508,7 +518,13 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
     float snowCoverage;
     // Overlay ordering is deliberate: material resolve/top-K/height blend are complete,
     // then snow modifies the assembled surface, and the shared 4D wetness function runs later.
-    SolApplyLandscapeSnow(result.surfaceData, positionWS, geometricNormalWS, snowCoverage);
+    SolApplyLandscapeSnow(
+        result.surfaceData,
+        positionWS,
+        geometricNormalWS,
+        weatherSnowSusceptibility,
+        permanentSnowSusceptibility,
+        snowCoverage);
     result.snowCoverage = (half)snowCoverage;
     return result;
 }

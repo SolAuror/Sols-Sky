@@ -39,18 +39,31 @@ TEXTURE2D(_MainTex);
 SAMPLER(sampler_MainTex);
 TEXTURE2D(_MetallicTex);
 SAMPLER(sampler_MetallicTex);
+TEXTURE2D(_Sol_LandscapeSnowColor);
+SAMPLER(sampler_Sol_LandscapeSnowColor);
+TEXTURE2D(_Sol_LandscapeSnowNormal);
+SAMPLER(sampler_Sol_LandscapeSnowNormal);
+TEXTURE2D(_Sol_LandscapeSnowPacked);
+SAMPLER(sampler_Sol_LandscapeSnowPacked);
 
 float4 _Sol_LandscapeControlTexelSize;
 float4 _Sol_LandscapeLayerST[SOL_LANDSCAPE_MAX_LAYERS];
 float _Sol_LandscapeNormalScale[SOL_LANDSCAPE_MAX_LAYERS];
 float _Sol_LandscapeLayerModes[SOL_LANDSCAPE_MAX_LAYERS];
 float _Sol_LandscapeAutoWeights[SOL_LANDSCAPE_MAX_LAYERS];
+float _Sol_LandscapeWeatherSnowSusceptibilities[SOL_LANDSCAPE_MAX_LAYERS];
+float _Sol_LandscapePermanentSnowSusceptibilities[SOL_LANDSCAPE_MAX_LAYERS];
 float4 _Sol_LandscapeAutoSlopeParams[SOL_LANDSCAPE_MAX_LAYERS];
+float _Sol_LandscapeAutoAltitudeReferences[SOL_LANDSCAPE_MAX_LAYERS];
 float4 _Sol_LandscapeAutoHeightParams[SOL_LANDSCAPE_MAX_LAYERS];
 float4 _Sol_LandscapeAutoCavityParams[SOL_LANDSCAPE_MAX_LAYERS];
 int _Sol_LandscapeLayerCount;
 float4 _Sol_LandscapeTerrainOriginSize;
 float _Sol_LandscapeHeightTransition;
+// x/y: permanent Snow absolute world-Y range; z: inverse tile size; w: normal scale.
+float4 _Sol_LandscapeSnowParams;
+// x/y: accumulated permanent Snow retention-to-shedding slope range in degrees.
+float2 _Sol_LandscapePermanentSnowSlopeSheddingRange;
 // Published in 4A for the 4C snow overlay; intentionally unconsumed until then.
 float _Sol_SurfaceSnowCover;
 float _Sol_SurfaceTemperature;

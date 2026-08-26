@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Sol.Landscape
 {
@@ -8,6 +9,12 @@ namespace Sol.Landscape
     {
         Manual,
         Auto,
+    }
+
+    public enum SolLandscapeAltitudeReference : byte
+    {
+        AbsoluteWorldY,
+        RelativeToWaterLevel,
     }
 
     [Serializable]
@@ -23,6 +30,13 @@ namespace Sol.Landscape
         [Tooltip("Base multiplier for the evaluated Phase 4B procedural claim.")]
         [Range(0f, 1f)] public float autoWeight = 1f;
 
+        [Tooltip("How readily fresh weather Snow adheres to this layer. This never changes terrain weights or top-K selection.")]
+        [FormerlySerializedAs("snowSusceptibility")]
+        [Range(0f, 1f)] public float weatherSnowSusceptibility = 1f;
+
+        [Tooltip("How readily accumulated permanent Snow pack covers this layer. This is separate from fresh-weather adhesion.")]
+        [Range(0f, 1f)] public float permanentSnowSusceptibility = 1f;
+
         [Header("Phase 4B rule authoring")]
         [Tooltip("Slope response midpoint in degrees, evaluated from the geometric terrain normal.")]
         [Range(0f, 90f)] public float slopeCenter = 35f;
@@ -33,7 +47,9 @@ namespace Sol.Landscape
         [Tooltip("Positive favours steep ground, negative favours flat ground, and zero leaves the base claim unchanged.")]
         [Range(-1f, 1f)] public float slopeInfluence = 1f;
 
-        [Tooltip("World-Y values mapping the altitude response from zero to one.")]
+        [Tooltip("Selects whether Height Range is evaluated in absolute world Y or relative to the live global water level.")]
+        public SolLandscapeAltitudeReference altitudeReference = SolLandscapeAltitudeReference.AbsoluteWorldY;
+        [Tooltip("Altitude values mapping the height response from zero to one, in the selected reference space.")]
         public Vector2 heightRange = new Vector2(0f, 1000f);
         [Tooltip("Quadratic altitude-response bias, with the same endpoint-preserving shape as slope.")]
         [Range(-1f, 1f)] public float heightBias;
@@ -95,6 +111,19 @@ namespace Sol.Landscape
         [Tooltip("Transition width for height-based layer blending. The 0.56 default preserves the authored legacy-material intent.")]
         [Min(0f)] [SerializeField] private float heightTransition = 0.56f;
 
+        [Header("Snow overlay")]
+        [SerializeField] private Texture2D snowColorTexture;
+        [SerializeField] private Texture2D snowNormalTexture;
+        [SerializeField] private Texture2D snowPackedTexture;
+        [Tooltip("Absolute world-Y range over which permanent mountaintop Snow rises from zero to full coverage.")]
+        [SerializeField] private Vector2 permanentSnowAltitudeRange = new Vector2(60f, 105f);
+        [Tooltip("Slope range in degrees over which accumulated permanent Snow sheds from full retention to zero. Weather Snow keeps its separate, more aggressive shedding range.")]
+        [SerializeField] private Vector2 permanentSnowSlopeSheddingRange = new Vector2(50f, 80f);
+        [Tooltip("World-space Snow texture repeat size in metres.")]
+        [Min(0.01f)] [SerializeField] private float snowTileSize = 4f;
+        [Tooltip("Tangent-space strength of the sampled Snow normal.")]
+        [Min(0f)] [SerializeField] private float snowNormalScale = 1f;
+
         [Header("Last bake")]
         [SerializeField] private string bakedUtc;
         [SerializeField] private int bakedWidth;
@@ -113,6 +142,13 @@ namespace Sol.Landscape
         public Texture2DArray CSArray => csArray;
         public Texture2DArray NOHArray => nohArray;
         public float HeightTransition => heightTransition;
+        public Texture2D SnowColorTexture => snowColorTexture;
+        public Texture2D SnowNormalTexture => snowNormalTexture;
+        public Texture2D SnowPackedTexture => snowPackedTexture;
+        public Vector2 PermanentSnowAltitudeRange => permanentSnowAltitudeRange;
+        public Vector2 PermanentSnowSlopeSheddingRange => permanentSnowSlopeSheddingRange;
+        public float SnowTileSize => snowTileSize;
+        public float SnowNormalScale => snowNormalScale;
         public string BakedUtc => bakedUtc;
         public int BakedWidth => bakedWidth;
         public int BakedHeight => bakedHeight;

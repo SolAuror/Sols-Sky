@@ -48,7 +48,12 @@ float SolEvaluateLandscapeProceduralWeight(
     float slopeRule = SolEvaluateLandscapeDirectedResponse(slopeResponse, slopeParams.w);
 
     float4 heightParams = _Sol_LandscapeAutoHeightParams[layerIndex];
-    float heightInput = (worldY - heightParams.x) / max(heightParams.y - heightParams.x, 0.01f);
+    // SolTerrainWetness.hlsl is included before this file and owns the existing
+    // _Sol_GlobalWaterLevel declaration. Sand/shore rules can follow moving water
+    // without introducing a second publisher or a duplicate shader global.
+    float altitude = worldY
+        - step(0.5f, _Sol_LandscapeAutoAltitudeReferences[layerIndex]) * _Sol_GlobalWaterLevel;
+    float heightInput = (altitude - heightParams.x) / max(heightParams.y - heightParams.x, 0.01f);
     float heightResponse = SolEvaluateLandscapeResponseCurve(heightInput, heightParams.z);
     float heightRule = SolEvaluateLandscapeDirectedResponse(heightResponse, heightParams.w);
 
@@ -137,78 +142,137 @@ void SolResolveLandscapeAutoMaterial(
     }
 }
 
-// Phase 4C snow is a post-material overlay, never a TerrainLayer. These named
-// parameters are deliberately ALU-only defaults: no texture, slice, re-bake, or
-// top-K participation. The terrain has only 21.6 m of authored relief, so altitude
-// is a mild modifier rather than a manufactured low-elevation "snow line".
-static const half3 kSolLandscapeSnowAlbedo = half3(0.82h, 0.87h, 0.92h);
-static const half kSolLandscapeSnowSmoothness = 0.42h;
+// Snow remains a post-material overlay, never a TerrainLayer, array slice, or
+// top-K participant. Weather coverage retains the reviewed 4C rule while the
+// separately authored altitude response supplies a permanent mountaintop floor.
 static const half kSolLandscapeSnowNormalRetention = 0.35h;
 static const float2 kSolLandscapeSnowTemperatureRange = float2(-2.0f, 2.0f);
-static const float2 kSolLandscapeSnowAltitudeRange = float2(0.0f, 100.0f);
-static const float kSolLandscapeSnowAltitudeBaseline = 0.85f;
-static const float2 kSolLandscapeSnowSlopeSheddingRange = float2(15.0f, 35.0f);
+static const float2 kSolLandscapeWeatherSnowAltitudeRange = float2(0.0f, 100.0f);
+static const float kSolLandscapeWeatherSnowAltitudeBaseline = 0.85f;
+static const float2 kSolLandscapeWeatherSnowSlopeSheddingRange = float2(15.0f, 35.0f);
 
 float SolEvaluateLandscapeSnowCoverage(
     float3 positionWS,
     float3 geometricNormalWS,
+    float weatherSusceptibility,
+    float permanentSusceptibility,
     out float temperatureResponse,
-    out float altitudeResponse,
+    out float weatherAltitudeResponse,
+    out float permanentCoverage,
+    out float weatherCoverage,
     out float slopeShedding)
 {
     float temperatureInput = (_Sol_SurfaceTemperature - kSolLandscapeSnowTemperatureRange.x)
         / (kSolLandscapeSnowTemperatureRange.y - kSolLandscapeSnowTemperatureRange.x);
     temperatureResponse = 1.0f - SolEvaluateLandscapeResponseCurve(temperatureInput, 0.0f);
 
-    float altitudeInput = (positionWS.y - kSolLandscapeSnowAltitudeRange.x)
-        / (kSolLandscapeSnowAltitudeRange.y - kSolLandscapeSnowAltitudeRange.x);
-    float altitudeCurve = SolEvaluateLandscapeResponseCurve(altitudeInput, 0.0f);
-    altitudeResponse = lerp(kSolLandscapeSnowAltitudeBaseline, 1.0f, altitudeCurve);
+    float weatherAltitudeInput = (positionWS.y - kSolLandscapeWeatherSnowAltitudeRange.x)
+        / (kSolLandscapeWeatherSnowAltitudeRange.y - kSolLandscapeWeatherSnowAltitudeRange.x);
+    float weatherAltitudeCurve = SolEvaluateLandscapeResponseCurve(weatherAltitudeInput, 0.0f);
+    weatherAltitudeResponse = lerp(
+        kSolLandscapeWeatherSnowAltitudeBaseline,
+        1.0f,
+        weatherAltitudeCurve);
+
+    float permanentAltitudeInput = (positionWS.y - _Sol_LandscapeSnowParams.x)
+        / max(_Sol_LandscapeSnowParams.y - _Sol_LandscapeSnowParams.x, 0.01f);
+    float permanentAltitudeResponse = SolEvaluateLandscapeResponseCurve(permanentAltitudeInput, 0.0f);
 
     float slopeDegrees = degrees(acos(saturate(geometricNormalWS.y)));
-    float slopeInput = (slopeDegrees - kSolLandscapeSnowSlopeSheddingRange.x)
-        / (kSolLandscapeSnowSlopeSheddingRange.y - kSolLandscapeSnowSlopeSheddingRange.x);
-    slopeShedding = 1.0f - SolEvaluateLandscapeResponseCurve(slopeInput, 0.0f);
+    float weatherSlopeInput = (slopeDegrees - kSolLandscapeWeatherSnowSlopeSheddingRange.x)
+        / (kSolLandscapeWeatherSnowSlopeSheddingRange.y - kSolLandscapeWeatherSnowSlopeSheddingRange.x);
+    slopeShedding = 1.0f - SolEvaluateLandscapeResponseCurve(weatherSlopeInput, 0.0f);
+    float permanentSlopeInput = (slopeDegrees - _Sol_LandscapePermanentSnowSlopeSheddingRange.x)
+        / max(
+            _Sol_LandscapePermanentSnowSlopeSheddingRange.y
+                - _Sol_LandscapePermanentSnowSlopeSheddingRange.x,
+            0.01f);
+    float permanentSlopeShedding = 1.0f
+        - SolEvaluateLandscapeResponseCurve(permanentSlopeInput, 0.0f);
 
     // SnowCover is integrated surface state from SolEnvironmentWorld. Instantaneous
     // precipitation is intentionally absent so coverage accumulates and recedes.
-    return saturate(_Sol_SurfaceSnowCover)
+    // max is deliberate: permanent altitude Snow is a floor, never an additive
+    // second coat. The split susceptibilities distinguish fresh-weather adhesion
+    // from accumulated pack; both are evaluated from already-selected material
+    // contributors and cannot feed back into layer weights or top-K selection.
+    weatherCoverage = saturate(_Sol_SurfaceSnowCover)
         * temperatureResponse
-        * altitudeResponse
+        * weatherAltitudeResponse
         * slopeShedding;
+    permanentCoverage = permanentAltitudeResponse * permanentSlopeShedding;
+    return saturate(max(
+        permanentCoverage * saturate(permanentSusceptibility),
+        weatherCoverage * saturate(weatherSusceptibility)));
 }
 
 void SolApplyLandscapeSnow(
     inout SurfaceData surfaceData,
     float3 positionWS,
     float3 geometricNormalWS,
+    float weatherSusceptibility,
+    float permanentSusceptibility,
     out float snowCoverage)
 {
     float temperatureResponse;
-    float altitudeResponse;
+    float weatherAltitudeResponse;
+    float permanentCoverage;
+    float weatherCoverage;
     float slopeShedding;
     snowCoverage = SolEvaluateLandscapeSnowCoverage(
         positionWS,
         geometricNormalWS,
+        weatherSusceptibility,
+        permanentSusceptibility,
         temperatureResponse,
-        altitudeResponse,
+        weatherAltitudeResponse,
+        permanentCoverage,
+        weatherCoverage,
         slopeShedding);
 
+    // This branch intentionally precedes all three Snow texture samples. A frame
+    // with no coverage pays zero overlay fetches; covered pixels pay three.
     if (snowCoverage <= kSolAutoMaterialWeightEpsilon)
         return;
 
-    surfaceData.albedo = lerp(surfaceData.albedo, kSolLandscapeSnowAlbedo, snowCoverage);
+    float2 snowUV = positionWS.xz * _Sol_LandscapeSnowParams.z;
+    half4 snowColor = SAMPLE_TEXTURE2D(
+        _Sol_LandscapeSnowColor,
+        sampler_Sol_LandscapeSnowColor,
+        snowUV);
+    half3 snowNormalDetail = UnpackNormalScale(
+        SAMPLE_TEXTURE2D(_Sol_LandscapeSnowNormal, sampler_Sol_LandscapeSnowNormal, snowUV),
+        _Sol_LandscapeSnowParams.w);
+    half4 snowPacked = SAMPLE_TEXTURE2D(
+        _Sol_LandscapeSnowPacked,
+        sampler_Sol_LandscapeSnowPacked,
+        snowUV);
+
+    // The preserved packed source carries authored height in B. Use it for subtle
+    // granular albedo, smoothness, and occlusion variation without changing cover.
+    half snowHeight = snowPacked.b;
+    half3 snowAlbedo = snowColor.rgb * lerp(0.92h, 1.04h, snowHeight);
+    half snowSmoothness = lerp(0.28h, 0.52h, snowHeight);
+    half snowOcclusion = lerp(0.94h, 1.0h, snowHeight);
+    surfaceData.albedo = lerp(surfaceData.albedo, snowAlbedo, snowCoverage);
     surfaceData.smoothness = lerp(
         surfaceData.smoothness,
-        kSolLandscapeSnowSmoothness,
+        snowSmoothness,
         snowCoverage);
+    surfaceData.occlusion = lerp(surfaceData.occlusion, snowOcclusion, snowCoverage);
 
-    // Preserve the blended surface normal while damping its XY relief beneath snow.
-    // Z is retained and the result re-normalized, so this is neither a flat decal nor
-    // an extra normal sample.
-    half normalAttenuation = lerp(1.0h, kSolLandscapeSnowNormalRetention, (half)snowCoverage);
-    surfaceData.normalTS.xy *= normalAttenuation;
-    surfaceData.normalTS = normalize(surfaceData.normalTS);
+    // Retain broad underlying relief, then compose the sampled granular normal on
+    // top. The final coverage lerp keeps the zero-to-one transition continuous.
+    half3 retainedBaseNormal = normalize(half3(
+        surfaceData.normalTS.xy * kSolLandscapeSnowNormalRetention,
+        surfaceData.normalTS.z));
+    half3 texturedSnowNormal = normalize(half3(
+        retainedBaseNormal.xy + snowNormalDetail.xy,
+        retainedBaseNormal.z * snowNormalDetail.z));
+    surfaceData.normalTS = normalize(lerp(
+        surfaceData.normalTS,
+        texturedSnowNormal,
+        (half)snowCoverage));
 }
 
 #endif

@@ -33,11 +33,19 @@ namespace Sol.Landscape
         private static readonly int HeightTransitionId = Shader.PropertyToID("_Sol_LandscapeHeightTransition");
         private static readonly int LayerModesId = Shader.PropertyToID("_Sol_LandscapeLayerModes");
         private static readonly int AutoWeightsId = Shader.PropertyToID("_Sol_LandscapeAutoWeights");
+        private static readonly int WeatherSnowSusceptibilitiesId = Shader.PropertyToID("_Sol_LandscapeWeatherSnowSusceptibilities");
+        private static readonly int PermanentSnowSusceptibilitiesId = Shader.PropertyToID("_Sol_LandscapePermanentSnowSusceptibilities");
         private static readonly int AutoSlopeParamsId = Shader.PropertyToID("_Sol_LandscapeAutoSlopeParams");
+        private static readonly int AutoAltitudeReferencesId = Shader.PropertyToID("_Sol_LandscapeAutoAltitudeReferences");
         private static readonly int AutoHeightParamsId = Shader.PropertyToID("_Sol_LandscapeAutoHeightParams");
         private static readonly int AutoCavityParamsId = Shader.PropertyToID("_Sol_LandscapeAutoCavityParams");
         private static readonly int SurfaceSnowCoverId = Shader.PropertyToID("_Sol_SurfaceSnowCover");
         private static readonly int SurfaceTemperatureId = Shader.PropertyToID("_Sol_SurfaceTemperature");
+        private static readonly int SnowColorId = Shader.PropertyToID("_Sol_LandscapeSnowColor");
+        private static readonly int SnowNormalId = Shader.PropertyToID("_Sol_LandscapeSnowNormal");
+        private static readonly int SnowPackedId = Shader.PropertyToID("_Sol_LandscapeSnowPacked");
+        private static readonly int SnowParamsId = Shader.PropertyToID("_Sol_LandscapeSnowParams");
+        private static readonly int PermanentSnowSlopeSheddingRangeId = Shader.PropertyToID("_Sol_LandscapePermanentSnowSlopeSheddingRange");
 
         private Texture _lastControl0;
         private Texture _lastControl1;
@@ -49,19 +57,30 @@ namespace Sol.Landscape
         private float[] _lastNormalScale;
         private float[] _lastLayerModes;
         private float[] _lastAutoWeights;
+        private float[] _lastWeatherSnowSusceptibilities;
+        private float[] _lastPermanentSnowSusceptibilities;
         private Vector4[] _lastAutoSlopeParams;
+        private float[] _lastAutoAltitudeReferences;
         private Vector4[] _lastAutoHeightParams;
         private Vector4[] _lastAutoCavityParams;
         private int _lastLayerCount = int.MinValue;
         private float _lastHeightTransition = float.NaN;
         private float _lastSurfaceSnowCover = float.NaN;
         private float _lastSurfaceTemperature = float.NaN;
+        private Texture _lastSnowColor;
+        private Texture _lastSnowNormal;
+        private Texture _lastSnowPacked;
+        private Vector4 _lastSnowParams = NaNVector;
+        private Vector4 _lastPermanentSnowSlopeSheddingRange = NaNVector;
 
         private Vector4[] _workingLayerST;
         private float[] _workingNormalScale;
         private float[] _workingLayerModes;
         private float[] _workingAutoWeights;
+        private float[] _workingWeatherSnowSusceptibilities;
+        private float[] _workingPermanentSnowSusceptibilities;
         private Vector4[] _workingAutoSlopeParams;
+        private float[] _workingAutoAltitudeReferences;
         private Vector4[] _workingAutoHeightParams;
         private Vector4[] _workingAutoCavityParams;
         private string _lastLoggedRefusalReason;
@@ -92,13 +111,21 @@ namespace Sol.Landscape
             _lastNormalScale = null;
             _lastLayerModes = null;
             _lastAutoWeights = null;
+            _lastWeatherSnowSusceptibilities = null;
+            _lastPermanentSnowSusceptibilities = null;
             _lastAutoSlopeParams = null;
+            _lastAutoAltitudeReferences = null;
             _lastAutoHeightParams = null;
             _lastAutoCavityParams = null;
             _lastLayerCount = int.MinValue;
             _lastHeightTransition = float.NaN;
             _lastSurfaceSnowCover = float.NaN;
             _lastSurfaceTemperature = float.NaN;
+            _lastSnowColor = null;
+            _lastSnowNormal = null;
+            _lastSnowPacked = null;
+            _lastSnowParams = NaNVector;
+            _lastPermanentSnowSlopeSheddingRange = NaNVector;
             _lastLoggedRefusalReason = null;
             LastPublishWriteCount = 0;
             LastPublishRefused = false;
@@ -137,12 +164,32 @@ namespace Sol.Landscape
             PushFloatArray(NormalScaleId, _workingNormalScale, ref _lastNormalScale);
             PushFloatArray(LayerModesId, _workingLayerModes, ref _lastLayerModes);
             PushFloatArray(AutoWeightsId, _workingAutoWeights, ref _lastAutoWeights);
+            PushFloatArray(WeatherSnowSusceptibilitiesId, _workingWeatherSnowSusceptibilities, ref _lastWeatherSnowSusceptibilities);
+            PushFloatArray(PermanentSnowSusceptibilitiesId, _workingPermanentSnowSusceptibilities, ref _lastPermanentSnowSusceptibilities);
             PushVectorArray(AutoSlopeParamsId, _workingAutoSlopeParams, ref _lastAutoSlopeParams);
+            PushFloatArray(AutoAltitudeReferencesId, _workingAutoAltitudeReferences, ref _lastAutoAltitudeReferences);
             PushVectorArray(AutoHeightParamsId, _workingAutoHeightParams, ref _lastAutoHeightParams);
             PushVectorArray(AutoCavityParamsId, _workingAutoCavityParams, ref _lastAutoCavityParams);
             PushInteger(LayerCountId, layerCount, ref _lastLayerCount);
             PushVector(TerrainOriginSizeId, terrainOriginSize, ref _lastTerrainOriginSize);
             PushFloat(HeightTransitionId, config.HeightTransition, ref _lastHeightTransition);
+            PushTexture(SnowColorId, config.SnowColorTexture, ref _lastSnowColor);
+            PushTexture(SnowNormalId, config.SnowNormalTexture, ref _lastSnowNormal);
+            PushTexture(SnowPackedId, config.SnowPackedTexture, ref _lastSnowPacked);
+            Vector2 permanentSnowRange = config.PermanentSnowAltitudeRange;
+            PushVector(
+                SnowParamsId,
+                new Vector4(
+                    permanentSnowRange.x,
+                    permanentSnowRange.y,
+                    1f / Mathf.Max(config.SnowTileSize, 0.01f),
+                    Mathf.Max(config.SnowNormalScale, 0f)),
+                ref _lastSnowParams);
+            Vector2 permanentSnowSlopeRange = config.PermanentSnowSlopeSheddingRange;
+            PushVector(
+                PermanentSnowSlopeSheddingRangeId,
+                new Vector4(permanentSnowSlopeRange.x, permanentSnowSlopeRange.y, 0f, 0f),
+                ref _lastPermanentSnowSlopeSheddingRange);
             bool staticLandscapeContractChanged = LastPublishWriteCount > 0;
 
             // Unlike the static landscape data, these integrated climate values can move
@@ -215,8 +262,13 @@ namespace Sol.Landscape
                 if (entry.mode != SolLandscapeLayerMode.Manual
                     && entry.mode != SolLandscapeLayerMode.Auto)
                     return Refusal($"Layer {index} has an invalid auto-material mode.", out refusalReason);
+                if (entry.altitudeReference != SolLandscapeAltitudeReference.AbsoluteWorldY
+                    && entry.altitudeReference != SolLandscapeAltitudeReference.RelativeToWaterLevel)
+                    return Refusal($"Layer {index} has an invalid altitude reference.", out refusalReason);
                 if (float.IsNaN(entry.autoWeight) || float.IsInfinity(entry.autoWeight))
                     return Refusal($"Layer {index} has a non-finite auto weight.", out refusalReason);
+                if (!IsFinite(entry.weatherSnowSusceptibility) || !IsFinite(entry.permanentSnowSusceptibility))
+                    return Refusal($"Layer {index} has a non-finite weather or permanent Snow susceptibility.", out refusalReason);
                 if (!IsFinite(entry.slopeCenter)
                     || !IsFinite(entry.slopeContrast)
                     || !IsFinite(entry.slopeBias)
@@ -240,6 +292,20 @@ namespace Sol.Landscape
             noh = config.NOHArray;
             if (cs == null || noh == null)
                 return Refusal("The accepted CSNOH arrays are not both assigned.", out refusalReason);
+            if (config.SnowColorTexture == null || config.SnowNormalTexture == null || config.SnowPackedTexture == null)
+                return Refusal("The Snow overlay color, normal, and packed textures are not all assigned.", out refusalReason);
+            Vector2 permanentSnowRange = config.PermanentSnowAltitudeRange;
+            if (!IsFinite(permanentSnowRange.x) || !IsFinite(permanentSnowRange.y)
+                || permanentSnowRange.y <= permanentSnowRange.x)
+                return Refusal("The permanent Snow altitude range is invalid.", out refusalReason);
+            Vector2 permanentSnowSlopeRange = config.PermanentSnowSlopeSheddingRange;
+            if (!IsFinite(permanentSnowSlopeRange.x) || !IsFinite(permanentSnowSlopeRange.y)
+                || permanentSnowSlopeRange.x < 0f || permanentSnowSlopeRange.y > 90f
+                || permanentSnowSlopeRange.y <= permanentSnowSlopeRange.x)
+                return Refusal("The permanent Snow slope-shedding range is invalid.", out refusalReason);
+            if (!IsFinite(config.SnowTileSize) || config.SnowTileSize <= 0f
+                || !IsFinite(config.SnowNormalScale) || config.SnowNormalScale < 0f)
+                return Refusal("The Snow overlay tile size or normal scale is invalid.", out refusalReason);
             if (cs.depth < layerCount || noh.depth < layerCount)
                 return Refusal("A CSNOH array has fewer slices than the live layer count.", out refusalReason);
 
@@ -278,11 +344,15 @@ namespace Sol.Landscape
                 _workingNormalScale[index] = layer.normalScale;
                 _workingLayerModes[index] = entry.mode == SolLandscapeLayerMode.Auto ? 1f : 0f;
                 _workingAutoWeights[index] = Mathf.Clamp01(entry.autoWeight);
+                _workingWeatherSnowSusceptibilities[index] = Mathf.Clamp01(entry.weatherSnowSusceptibility);
+                _workingPermanentSnowSusceptibilities[index] = Mathf.Clamp01(entry.permanentSnowSusceptibility);
                 _workingAutoSlopeParams[index] = new Vector4(
                     Mathf.Clamp(entry.slopeCenter, 0f, 90f),
                     Mathf.Max(entry.slopeContrast, 0.01f),
                     Mathf.Clamp(entry.slopeBias, -1f, 1f),
                     Mathf.Clamp(entry.slopeInfluence, -1f, 1f));
+                _workingAutoAltitudeReferences[index] =
+                    entry.altitudeReference == SolLandscapeAltitudeReference.RelativeToWaterLevel ? 1f : 0f;
                 _workingAutoHeightParams[index] = new Vector4(
                     entry.heightRange.x,
                     entry.heightRange.y,
@@ -333,8 +403,14 @@ namespace Sol.Landscape
                 _workingLayerModes = new float[layerCount];
             if (_workingAutoWeights == null || _workingAutoWeights.Length != layerCount)
                 _workingAutoWeights = new float[layerCount];
+            if (_workingWeatherSnowSusceptibilities == null || _workingWeatherSnowSusceptibilities.Length != layerCount)
+                _workingWeatherSnowSusceptibilities = new float[layerCount];
+            if (_workingPermanentSnowSusceptibilities == null || _workingPermanentSnowSusceptibilities.Length != layerCount)
+                _workingPermanentSnowSusceptibilities = new float[layerCount];
             if (_workingAutoSlopeParams == null || _workingAutoSlopeParams.Length != layerCount)
                 _workingAutoSlopeParams = new Vector4[layerCount];
+            if (_workingAutoAltitudeReferences == null || _workingAutoAltitudeReferences.Length != layerCount)
+                _workingAutoAltitudeReferences = new float[layerCount];
             if (_workingAutoHeightParams == null || _workingAutoHeightParams.Length != layerCount)
                 _workingAutoHeightParams = new Vector4[layerCount];
             if (_workingAutoCavityParams == null || _workingAutoCavityParams.Length != layerCount)

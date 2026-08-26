@@ -16,13 +16,34 @@ namespace Sol.Landscape
         [Tooltip("The array slice index is this entry's position in the list.")]
         public TerrainLayer terrainLayer;
 
+        [Header("Phase 4 auto-material contract")]
+        [Tooltip("Manual preserves painted weight. Auto redistributes only the budget painted into Auto-tagged layers.")]
         public SolLandscapeLayerMode mode = SolLandscapeLayerMode.Manual;
 
-        [Header("Auto rule placeholders (Phase 4)")]
-        [Range(0f, 90f)] public float slopeCenter = 35f;
-        [Min(0.01f)] public float slopeContrast = 8f;
-        public Vector2 heightRange = new Vector2(0f, 1000f);
+        [Tooltip("Base multiplier for the evaluated Phase 4B procedural claim.")]
         [Range(0f, 1f)] public float autoWeight = 1f;
+
+        [Header("Phase 4B rule authoring")]
+        [Tooltip("Slope response midpoint in degrees, evaluated from the geometric terrain normal.")]
+        [Range(0f, 90f)] public float slopeCenter = 35f;
+        [Tooltip("Full width in degrees of the polynomial transition around Slope Center.")]
+        [Min(0.01f)] public float slopeContrast = 8f;
+        [Tooltip("Quadratic response bias. Positive ramps early then plateaus; negative delays the ramp.")]
+        [Range(-1f, 1f)] public float slopeBias;
+        [Tooltip("Positive favours steep ground, negative favours flat ground, and zero leaves the base claim unchanged.")]
+        [Range(-1f, 1f)] public float slopeInfluence = 1f;
+
+        [Tooltip("World-Y values mapping the altitude response from zero to one.")]
+        public Vector2 heightRange = new Vector2(0f, 1000f);
+        [Tooltip("Quadratic altitude-response bias, with the same endpoint-preserving shape as slope.")]
+        [Range(-1f, 1f)] public float heightBias;
+        [Tooltip("Positive favours high ground, negative favours low ground, and zero disables altitude modulation.")]
+        [Range(-1f, 1f)] public float heightInfluence;
+
+        [Tooltip("World-space scale applied to signed ddx/ddy mean curvature before clamping.")]
+        [Min(0f)] public float cavityScale = 12f;
+        [Tooltip("Positive favours concavity, negative favours convexity, and zero disables cavity modulation.")]
+        [Range(-1f, 1f)] public float cavityInfluence;
 
         public SolLandscapeLayerEntry(TerrainLayer terrainLayer)
         {
@@ -70,6 +91,10 @@ namespace Sol.Landscape
         [Tooltip("Linear: RG normal XY, B ambient occlusion, A height.")]
         [SerializeField] private Texture2DArray nohArray;
 
+        [Header("Height blend")]
+        [Tooltip("Transition width for height-based layer blending. The 0.56 default preserves the authored legacy-material intent.")]
+        [Min(0f)] [SerializeField] private float heightTransition = 0.56f;
+
         [Header("Last bake")]
         [SerializeField] private string bakedUtc;
         [SerializeField] private int bakedWidth;
@@ -87,6 +112,7 @@ namespace Sol.Landscape
         public IReadOnlyList<SolLandscapeLayerEntry> Layers => layers;
         public Texture2DArray CSArray => csArray;
         public Texture2DArray NOHArray => nohArray;
+        public float HeightTransition => heightTransition;
         public string BakedUtc => bakedUtc;
         public int BakedWidth => bakedWidth;
         public int BakedHeight => bakedHeight;

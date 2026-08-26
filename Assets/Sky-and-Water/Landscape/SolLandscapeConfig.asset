@@ -15,43 +15,80 @@ MonoBehaviour:
   terrainData: {fileID: 15600000, guid: f84f6a7ab8a3ff74e812806a2c749d38, type: 2}
   layers:
   - terrainLayer: {fileID: 8574412962073106934, guid: 8033c16da03aa20499177be34180b3f5, type: 2}
-    mode: 0
-    slopeCenter: 35
-    slopeContrast: 8
-    heightRange: {x: 0, y: 1000}
+    mode: 1
+    slopeCenter: 22
+    slopeContrast: 12
+    slopeBias: 0
+    slopeInfluence: -0.85
+    heightRange: {x: -15, y: 5}
+    heightBias: 0
+    heightInfluence: -0.15
+    cavityScale: 12
+    cavityInfluence: 0.25
     autoWeight: 1
   - terrainLayer: {fileID: 8574412962073106934, guid: febad0385aafec84b8e67fb2bea5f899, type: 2}
     mode: 0
     slopeCenter: 35
     slopeContrast: 8
+    slopeBias: 0
+    slopeInfluence: 1
     heightRange: {x: 0, y: 1000}
+    heightBias: 0
+    heightInfluence: 0
+    cavityScale: 12
+    cavityInfluence: 0
     autoWeight: 1
   - terrainLayer: {fileID: 8574412962073106934, guid: e2af33b475befff4bbe27d8aaa28bc06, type: 2}
-    mode: 0
-    slopeCenter: 35
-    slopeContrast: 8
-    heightRange: {x: 0, y: 1000}
-    autoWeight: 1
+    mode: 1
+    slopeCenter: 18
+    slopeContrast: 10
+    slopeBias: 0.25
+    slopeInfluence: 1
+    heightRange: {x: -12, y: 2}
+    heightBias: 0.1
+    heightInfluence: 0.3
+    cavityScale: 12
+    cavityInfluence: -0.15
+    autoWeight: 0.9
   - terrainLayer: {fileID: 8574412962073106934, guid: 85d660bb8810e6a4fb18fe58151896a6, type: 2}
-    mode: 0
-    slopeCenter: 35
-    slopeContrast: 8
-    heightRange: {x: 0, y: 1000}
-    autoWeight: 1
+    mode: 1
+    slopeCenter: 28
+    slopeContrast: 12
+    slopeBias: 0.15
+    slopeInfluence: 1
+    heightRange: {x: -8, y: 4}
+    heightBias: 0.1
+    heightInfluence: 0.35
+    cavityScale: 18
+    cavityInfluence: -0.25
+    autoWeight: 0.75
   - terrainLayer: {fileID: 8574412962073106934, guid: ed3e382dd3266e44280159dfab3b4cc3, type: 2}
     mode: 0
     slopeCenter: 35
     slopeContrast: 8
+    slopeBias: 0
+    slopeInfluence: 1
     heightRange: {x: 0, y: 1000}
+    heightBias: 0
+    heightInfluence: 0
+    cavityScale: 12
+    cavityInfluence: 0
     autoWeight: 1
   - terrainLayer: {fileID: 8574412962073106934, guid: dae36a1c7e280804d8a4651d620db995, type: 2}
     mode: 0
     slopeCenter: 35
     slopeContrast: 8
+    slopeBias: 0
+    slopeInfluence: 1
     heightRange: {x: 0, y: 1000}
+    heightBias: 0
+    heightInfluence: 0
+    cavityScale: 12
+    cavityInfluence: 0
     autoWeight: 1
   csArray: {fileID: 18700000, guid: 9414637b99ca12e45b3342ceddb5cf7e, type: 2}
   nohArray: {fileID: 18700000, guid: 447cc9843d81a2345beae8cd2496a2cb, type: 2}
+  heightTransition: 0.56
   bakedUtc: 2026-08-25T00:06:53.5578917Z
   bakedWidth: 2048
   bakedHeight: 2048

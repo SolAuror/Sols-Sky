@@ -18,6 +18,11 @@ float _Sol_TerrainWetSmoothness;
 TEXTURE2D(_Sol_TerrainSandMask);
 SAMPLER(sampler_Sol_TerrainSandMask);
 
+// Keep this local to the shared terrain include: the packed _Sol_TerrainWetness
+// contract has no free component. It can be promoted to an authored global later
+// without changing the wetness calculation or the Water2 publisher contract.
+static const half kWetAlbedoDarkening = 0.7h;
+
 float SolTerrainWetness(float3 positionWS)
 {
     float shorelineRange = max(_Sol_TerrainWetness.z, 0.001);
@@ -57,6 +62,7 @@ void SolApplyTerrainWetness(
     // without a dedicated specular anti-aliasing pass.
     smoothness = saturate(smoothness);
     half wetSand = wetness * SolTerrainSandWeight(positionWS);
+    albedo *= lerp(1.0h, kWetAlbedoDarkening, wetness);
     albedo *= 1.0h - wetSand * (half)saturate(_Sol_TerrainWetness.w);
     half wetSmoothness = (half)saturate(_Sol_TerrainWetSmoothness);
     smoothness = lerp(smoothness, max(smoothness, wetSmoothness), wetness);

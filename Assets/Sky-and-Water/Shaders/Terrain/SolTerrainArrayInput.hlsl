@@ -9,6 +9,7 @@
 
 CBUFFER_START(UnityPerMaterial)
     float _Sol_LandscapeWeightDebugLayer;
+    float _Sol_LandscapeDebugMode;
     float4 _MainTex_ST;
     half4 _BaseColor;
 CBUFFER_END
@@ -42,8 +43,17 @@ SAMPLER(sampler_MetallicTex);
 float4 _Sol_LandscapeControlTexelSize;
 float4 _Sol_LandscapeLayerST[SOL_LANDSCAPE_MAX_LAYERS];
 float _Sol_LandscapeNormalScale[SOL_LANDSCAPE_MAX_LAYERS];
+float _Sol_LandscapeLayerModes[SOL_LANDSCAPE_MAX_LAYERS];
+float _Sol_LandscapeAutoWeights[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeAutoSlopeParams[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeAutoHeightParams[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeAutoCavityParams[SOL_LANDSCAPE_MAX_LAYERS];
 int _Sol_LandscapeLayerCount;
 float4 _Sol_LandscapeTerrainOriginSize;
+float _Sol_LandscapeHeightTransition;
+// Published in 4A for the 4C snow overlay; intentionally unconsumed until then.
+float _Sol_SurfaceSnowCover;
+float _Sol_SurfaceTemperature;
 #if defined(UNITY_INSTANCING_ENABLED)
     // The custom terrain path always uses Unity's per-pixel geometric normal when instanced.
     #define ENABLE_TERRAIN_PERPIXEL_NORMAL 1

@@ -4,6 +4,9 @@ Shader "Sol/Terrain/Array Lit"
     {
         [HideInInspector] _TerrainHolesTexture("Holes Map", 2D) = "white" {}
         [HideInInspector] _Sol_LandscapeWeightDebugLayer("Weight Debug Layer", Float) = -1
+        [Toggle(_SOL_LANDSCAPE_DEBUG)] _Sol_LandscapeDebug("Landscape Debug", Float) = 0
+        [Enum(Off,0,LayerWeight,1,ManualAutoSplit,2)] _Sol_LandscapeDebugMode("Debug Mode", Float) = 0
+        [Toggle(_SOL_LANDSCAPE_BLEND_HEIGHT)] _Sol_LandscapeBlendHeight("Height Blend", Float) = 1
     }
 
     HLSLINCLUDE
@@ -61,6 +64,9 @@ Shader "Sol/Terrain/Array Lit"
 
             // Ticket 2C's unsorted K=6 path remains available for validation; K=4 is the default.
             #pragma multi_compile _ _SOL_LANDSCAPE_TOPK_REFERENCE
+            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_BLEND_HEIGHT
+            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_DEBUG
+            #pragma multi_compile_fragment _ _SOL_LANDSCAPE_HEIGHT_ALL_LAYERS_REFERENCE
 
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
@@ -127,6 +133,8 @@ Shader "Sol/Terrain/Array Lit"
 
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
             #pragma multi_compile _ _SOL_LANDSCAPE_TOPK_REFERENCE
+            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_BLEND_HEIGHT
+            #pragma multi_compile_fragment _ _SOL_LANDSCAPE_HEIGHT_ALL_LAYERS_REFERENCE
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 

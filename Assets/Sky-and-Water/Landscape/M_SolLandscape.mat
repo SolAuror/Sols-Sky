@@ -11,7 +11,8 @@ Material:
   m_Shader: {fileID: 4800000, guid: a7977056f578fcd4db4a2cfb80045e52, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _SOL_LANDSCAPE_BLEND_HEIGHT
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -29,6 +30,9 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _Sol_LandscapeBlendHeight: 1
+    - _Sol_LandscapeDebug: 0
+    - _Sol_LandscapeDebugMode: 0
     - _Sol_LandscapeWeightDebugLayer: -1
     m_Colors: []
   m_BuildTextureStacks: []

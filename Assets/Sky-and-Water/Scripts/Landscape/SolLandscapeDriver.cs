@@ -1,4 +1,5 @@
 using System;
+using Sol.Environment;
 using UnityEngine;
 
 namespace Sol.Landscape
@@ -29,6 +30,14 @@ namespace Sol.Landscape
         private static readonly int NormalScaleId = Shader.PropertyToID("_Sol_LandscapeNormalScale");
         private static readonly int LayerCountId = Shader.PropertyToID("_Sol_LandscapeLayerCount");
         private static readonly int TerrainOriginSizeId = Shader.PropertyToID("_Sol_LandscapeTerrainOriginSize");
+        private static readonly int HeightTransitionId = Shader.PropertyToID("_Sol_LandscapeHeightTransition");
+        private static readonly int LayerModesId = Shader.PropertyToID("_Sol_LandscapeLayerModes");
+        private static readonly int AutoWeightsId = Shader.PropertyToID("_Sol_LandscapeAutoWeights");
+        private static readonly int AutoSlopeParamsId = Shader.PropertyToID("_Sol_LandscapeAutoSlopeParams");
+        private static readonly int AutoHeightParamsId = Shader.PropertyToID("_Sol_LandscapeAutoHeightParams");
+        private static readonly int AutoCavityParamsId = Shader.PropertyToID("_Sol_LandscapeAutoCavityParams");
+        private static readonly int SurfaceSnowCoverId = Shader.PropertyToID("_Sol_SurfaceSnowCover");
+        private static readonly int SurfaceTemperatureId = Shader.PropertyToID("_Sol_SurfaceTemperature");
 
         private Texture _lastControl0;
         private Texture _lastControl1;
@@ -38,10 +47,23 @@ namespace Sol.Landscape
         private Vector4 _lastTerrainOriginSize = NaNVector;
         private Vector4[] _lastLayerST;
         private float[] _lastNormalScale;
+        private float[] _lastLayerModes;
+        private float[] _lastAutoWeights;
+        private Vector4[] _lastAutoSlopeParams;
+        private Vector4[] _lastAutoHeightParams;
+        private Vector4[] _lastAutoCavityParams;
         private int _lastLayerCount = int.MinValue;
+        private float _lastHeightTransition = float.NaN;
+        private float _lastSurfaceSnowCover = float.NaN;
+        private float _lastSurfaceTemperature = float.NaN;
 
         private Vector4[] _workingLayerST;
         private float[] _workingNormalScale;
+        private float[] _workingLayerModes;
+        private float[] _workingAutoWeights;
+        private Vector4[] _workingAutoSlopeParams;
+        private Vector4[] _workingAutoHeightParams;
+        private Vector4[] _workingAutoCavityParams;
         private string _lastLoggedRefusalReason;
 
         private static Vector4 NaNVector => new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
@@ -68,7 +90,15 @@ namespace Sol.Landscape
             _lastTerrainOriginSize = NaNVector;
             _lastLayerST = null;
             _lastNormalScale = null;
+            _lastLayerModes = null;
+            _lastAutoWeights = null;
+            _lastAutoSlopeParams = null;
+            _lastAutoHeightParams = null;
+            _lastAutoCavityParams = null;
             _lastLayerCount = int.MinValue;
+            _lastHeightTransition = float.NaN;
+            _lastSurfaceSnowCover = float.NaN;
+            _lastSurfaceTemperature = float.NaN;
             _lastLoggedRefusalReason = null;
             LastPublishWriteCount = 0;
             LastPublishRefused = false;
@@ -105,12 +135,26 @@ namespace Sol.Landscape
             PushTexture(NOHId, noh, ref _lastNOH);
             PushVectorArray(LayerSTId, _workingLayerST, ref _lastLayerST);
             PushFloatArray(NormalScaleId, _workingNormalScale, ref _lastNormalScale);
+            PushFloatArray(LayerModesId, _workingLayerModes, ref _lastLayerModes);
+            PushFloatArray(AutoWeightsId, _workingAutoWeights, ref _lastAutoWeights);
+            PushVectorArray(AutoSlopeParamsId, _workingAutoSlopeParams, ref _lastAutoSlopeParams);
+            PushVectorArray(AutoHeightParamsId, _workingAutoHeightParams, ref _lastAutoHeightParams);
+            PushVectorArray(AutoCavityParamsId, _workingAutoCavityParams, ref _lastAutoCavityParams);
             PushInteger(LayerCountId, layerCount, ref _lastLayerCount);
             PushVector(TerrainOriginSizeId, terrainOriginSize, ref _lastTerrainOriginSize);
+            PushFloat(HeightTransitionId, config.HeightTransition, ref _lastHeightTransition);
+            bool staticLandscapeContractChanged = LastPublishWriteCount > 0;
+
+            // Unlike the static landscape data, these integrated climate values can move
+            // every simulation frame. Dirty checks still let paused/static scenes settle.
+            SolSurfaceConditionState surface = SolEnvironmentWorld.ResolveState().Surface;
+            PushFloat(SurfaceSnowCoverId, surface.SnowCover, ref _lastSurfaceSnowCover);
+            PushFloat(SurfaceTemperatureId, surface.TemperatureCelsius, ref _lastSurfaceTemperature);
 
             // Basemap generation runs after the globals above have become valid. Marking it dirty
-            // before publication can bake an all-zero control/array contract in edit mode.
-            if (LastPublishWriteCount > 0)
+            // before publication can bake an all-zero control/array contract in edit mode. Dynamic
+            // climate writes do not dirty it: otherwise an active simulation would rebuild it every frame.
+            if (staticLandscapeContractChanged)
                 target.terrainData.SetBaseMapDirty();
         }
 
@@ -168,6 +212,28 @@ namespace Sol.Landscape
                 SolLandscapeLayerEntry entry = config.Layers[index];
                 if (entry == null || entry.terrainLayer != terrainLayers[index])
                     return Refusal($"Config layer order differs at slice {index}.", out refusalReason);
+                if (entry.mode != SolLandscapeLayerMode.Manual
+                    && entry.mode != SolLandscapeLayerMode.Auto)
+                    return Refusal($"Layer {index} has an invalid auto-material mode.", out refusalReason);
+                if (float.IsNaN(entry.autoWeight) || float.IsInfinity(entry.autoWeight))
+                    return Refusal($"Layer {index} has a non-finite auto weight.", out refusalReason);
+                if (!IsFinite(entry.slopeCenter)
+                    || !IsFinite(entry.slopeContrast)
+                    || !IsFinite(entry.slopeBias)
+                    || !IsFinite(entry.slopeInfluence)
+                    || !IsFinite(entry.heightRange.x)
+                    || !IsFinite(entry.heightRange.y)
+                    || !IsFinite(entry.heightBias)
+                    || !IsFinite(entry.heightInfluence)
+                    || !IsFinite(entry.cavityScale)
+                    || !IsFinite(entry.cavityInfluence))
+                    return Refusal($"Layer {index} has a non-finite auto-rule parameter.", out refusalReason);
+                if (entry.slopeContrast <= 0f)
+                    return Refusal($"Layer {index} has a non-positive slope transition width.", out refusalReason);
+                if (entry.heightRange.y <= entry.heightRange.x)
+                    return Refusal($"Layer {index} has an invalid world-Y response range.", out refusalReason);
+                if (entry.cavityScale < 0f)
+                    return Refusal($"Layer {index} has a negative cavity scale.", out refusalReason);
             }
 
             cs = config.CSArray;
@@ -197,6 +263,7 @@ namespace Sol.Landscape
             Vector3 terrainSize = terrainData.size;
             for (int index = 0; index < layerCount; index++)
             {
+                SolLandscapeLayerEntry entry = config.Layers[index];
                 TerrainLayer layer = terrainLayers[index];
                 Vector2 tileSize = layer.tileSize;
                 if (Mathf.Abs(tileSize.x) < 0.0001f || Mathf.Abs(tileSize.y) < 0.0001f)
@@ -209,6 +276,23 @@ namespace Sol.Landscape
                     tileOffset.x / tileSize.x,
                     tileOffset.y / tileSize.y);
                 _workingNormalScale[index] = layer.normalScale;
+                _workingLayerModes[index] = entry.mode == SolLandscapeLayerMode.Auto ? 1f : 0f;
+                _workingAutoWeights[index] = Mathf.Clamp01(entry.autoWeight);
+                _workingAutoSlopeParams[index] = new Vector4(
+                    Mathf.Clamp(entry.slopeCenter, 0f, 90f),
+                    Mathf.Max(entry.slopeContrast, 0.01f),
+                    Mathf.Clamp(entry.slopeBias, -1f, 1f),
+                    Mathf.Clamp(entry.slopeInfluence, -1f, 1f));
+                _workingAutoHeightParams[index] = new Vector4(
+                    entry.heightRange.x,
+                    entry.heightRange.y,
+                    Mathf.Clamp(entry.heightBias, -1f, 1f),
+                    Mathf.Clamp(entry.heightInfluence, -1f, 1f));
+                _workingAutoCavityParams[index] = new Vector4(
+                    entry.cavityScale,
+                    Mathf.Clamp(entry.cavityInfluence, -1f, 1f),
+                    0f,
+                    0f);
             }
 
             Vector3 origin = target.transform.position;
@@ -225,6 +309,8 @@ namespace Sol.Landscape
             refusalReason = reason;
             return false;
         }
+
+        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 
         private void Refuse(string reason)
         {
@@ -243,6 +329,16 @@ namespace Sol.Landscape
                 _workingLayerST = new Vector4[layerCount];
             if (_workingNormalScale == null || _workingNormalScale.Length != layerCount)
                 _workingNormalScale = new float[layerCount];
+            if (_workingLayerModes == null || _workingLayerModes.Length != layerCount)
+                _workingLayerModes = new float[layerCount];
+            if (_workingAutoWeights == null || _workingAutoWeights.Length != layerCount)
+                _workingAutoWeights = new float[layerCount];
+            if (_workingAutoSlopeParams == null || _workingAutoSlopeParams.Length != layerCount)
+                _workingAutoSlopeParams = new Vector4[layerCount];
+            if (_workingAutoHeightParams == null || _workingAutoHeightParams.Length != layerCount)
+                _workingAutoHeightParams = new Vector4[layerCount];
+            if (_workingAutoCavityParams == null || _workingAutoCavityParams.Length != layerCount)
+                _workingAutoCavityParams = new Vector4[layerCount];
         }
 
         private void PushTexture(int propertyId, Texture value, ref Texture lastValue)
@@ -268,6 +364,15 @@ namespace Sol.Landscape
             if (lastValue == value)
                 return;
             Shader.SetGlobalInteger(propertyId, value);
+            lastValue = value;
+            CountWrite();
+        }
+
+        private void PushFloat(int propertyId, float value, ref float lastValue)
+        {
+            if (Mathf.Approximately(lastValue, value))
+                return;
+            Shader.SetGlobalFloat(propertyId, value);
             lastValue = value;
             CountWrite();
         }

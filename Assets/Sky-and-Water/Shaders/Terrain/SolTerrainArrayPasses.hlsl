@@ -6,6 +6,13 @@
 
 #define SOL_LANDSCAPE_LAYER_COUNT 6
 #define SOL_LANDSCAPE_TOP_K 4
+#define SOL_LANDSCAPE_DEBUG_LAYER_WEIGHT 1
+#define SOL_LANDSCAPE_DEBUG_MANUAL_AUTO_SPLIT 2
+#define SOL_LANDSCAPE_DEBUG_RESOLVED_STONE 3
+#define SOL_LANDSCAPE_DEBUG_RESOLVED_PATH 4
+#define SOL_LANDSCAPE_DEBUG_SNOW_COVERAGE 5
+
+#include "SolTerrainAutoMaterial.hlsl"
 
 struct SolTerrainArrayAttributes
 {
@@ -140,16 +147,28 @@ half3 SolDecodeLandscapeNormalTS(half4 noh, half normalScale)
 struct SolLandscapeSurface
 {
     SurfaceData surfaceData;
+    half postBlendDebugWeight;
+    half2 manualAutoDebugWeights;
+    half resolvedAutoDebugWeight;
+    half resolvedPathDebugWeight;
+    half snowCoverage;
 };
 
 struct SolLandscapeLayerWeight
 {
-    half weight;
+    float weight;
     int layerIndex;
 };
 
+struct SolLandscapeLayerSample
+{
+    float weight;
+    int layerIndex;
+    half4 noh;
+};
+
 void SolSelectLandscapeTopK(
-    SolLandscapeRawWeights rawWeights,
+    float resolvedWeights[SOL_LANDSCAPE_LAYER_COUNT],
     out SolLandscapeLayerWeight selectedLayers[SOL_LANDSCAPE_TOP_K])
 {
     [unroll]
@@ -164,7 +183,7 @@ void SolSelectLandscapeTopK(
     for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++layerIndex)
     {
         SolLandscapeLayerWeight candidate;
-        candidate.weight = SolSelectLandscapeRawWeight(rawWeights, layerIndex);
+        candidate.weight = resolvedWeights[layerIndex];
         candidate.layerIndex = layerIndex;
 
         [unroll]
@@ -179,88 +198,288 @@ void SolSelectLandscapeTopK(
         }
     }
 
-    half keptWeight = 0.0h;
-    [unroll]
-    for (int sumSlot = 0; sumSlot < SOL_LANDSCAPE_TOP_K; ++sumSlot)
-        keptWeight += selectedLayers[sumSlot].weight;
+}
 
-    half inverseKeptWeight = rcp(max(keptWeight, HALF_MIN));
+float2 SolLandscapeLayerUV(float2 terrainUV, int layerIndex)
+{
+    float4 layerST = _Sol_LandscapeLayerST[layerIndex];
+    return terrainUV * layerST.xy + layerST.zw;
+}
+
+half4 SolSampleLandscapeNOH(float2 terrainUV, int layerIndex)
+{
+    return SAMPLE_TEXTURE2D_ARRAY(
+        _Sol_LandscapeNOH,
+        sampler_Sol_LandscapeNOH,
+        SolLandscapeLayerUV(terrainUV, layerIndex),
+        layerIndex);
+}
+
+void SolPopulateLandscapeTopKSamples(
+    float2 terrainUV,
+    SolLandscapeLayerWeight selectedLayers[SOL_LANDSCAPE_TOP_K],
+    out SolLandscapeLayerSample selectedSamples[SOL_LANDSCAPE_TOP_K])
+{
     [unroll]
-    for (int normalizationSlot = 0; normalizationSlot < SOL_LANDSCAPE_TOP_K; ++normalizationSlot)
-        selectedLayers[normalizationSlot].weight *= inverseKeptWeight;
+    for (int populateSampleSlot = 0; populateSampleSlot < SOL_LANDSCAPE_TOP_K; ++populateSampleSlot)
+    {
+        selectedSamples[populateSampleSlot].weight = selectedLayers[populateSampleSlot].weight;
+        selectedSamples[populateSampleSlot].layerIndex = selectedLayers[populateSampleSlot].layerIndex;
+        selectedSamples[populateSampleSlot].noh = SolSampleLandscapeNOH(
+            terrainUV,
+            selectedLayers[populateSampleSlot].layerIndex);
+    }
+}
+
+void SolNormalizeLandscapeTopK(inout SolLandscapeLayerSample samples[SOL_LANDSCAPE_TOP_K])
+{
+    float weightSum = 0.0f;
+    [unroll]
+    for (int normalizationSumSlot = 0; normalizationSumSlot < SOL_LANDSCAPE_TOP_K; ++normalizationSumSlot)
+        weightSum += samples[normalizationSumSlot].weight;
+
+    float inverseWeightSum = rcp(max(weightSum, 1e-6f));
+    [unroll]
+    for (int normalizationApplySlot = 0; normalizationApplySlot < SOL_LANDSCAPE_TOP_K; ++normalizationApplySlot)
+        samples[normalizationApplySlot].weight *= inverseWeightSum;
+}
+
+void SolHeightBlendLandscapeTopK(inout SolLandscapeLayerSample samples[SOL_LANDSCAPE_TOP_K])
+{
+    float maxSplatHeight = -1.0f;
+    [unroll]
+    for (int maximumHeightSlot = 0; maximumHeightSlot < SOL_LANDSCAPE_TOP_K; ++maximumHeightSlot)
+    {
+        float splatHeight = (float)SolLandscapeHeight(samples[maximumHeightSlot].noh)
+            * samples[maximumHeightSlot].weight;
+        maxSplatHeight = max(maxSplatHeight, splatHeight);
+    }
+
+    float transition = max(_Sol_LandscapeHeightTransition, 1e-5f);
+    float weightedSum = 0.0f;
+    [unroll]
+    for (int heightBlendSlot = 0; heightBlendSlot < SOL_LANDSCAPE_TOP_K; ++heightBlendSlot)
+    {
+        float paintedWeight = samples[heightBlendSlot].weight;
+        float splatHeight = (float)SolLandscapeHeight(samples[heightBlendSlot].noh) * paintedWeight;
+        float weightedHeight = max(0.0f, splatHeight + transition - maxSplatHeight);
+        weightedHeight = (weightedHeight + 1e-6f) * paintedWeight;
+        samples[heightBlendSlot].weight = weightedHeight;
+        weightedSum += weightedHeight;
+    }
+
+    float inverseWeightedSum = rcp(max(weightedSum, 1e-6f));
+    [unroll]
+    for (int finalNormalizationSlot = 0; finalNormalizationSlot < SOL_LANDSCAPE_TOP_K; ++finalNormalizationSlot)
+        samples[finalNormalizationSlot].weight *= inverseWeightedSum; // The shipping path's single normalization.
+}
+
+void SolBuildLandscapeAllSamples(
+    float2 terrainUV,
+    float resolvedWeights[SOL_LANDSCAPE_LAYER_COUNT],
+    out SolLandscapeLayerSample samples[SOL_LANDSCAPE_LAYER_COUNT])
+{
+    [unroll]
+    for (int buildLayerIndex = 0; buildLayerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++buildLayerIndex)
+    {
+        samples[buildLayerIndex].weight = resolvedWeights[buildLayerIndex];
+        samples[buildLayerIndex].layerIndex = buildLayerIndex;
+        samples[buildLayerIndex].noh = SolSampleLandscapeNOH(terrainUV, buildLayerIndex);
+    }
+}
+
+void SolNormalizeLandscapeAllLayers(
+    inout SolLandscapeLayerSample samples[SOL_LANDSCAPE_LAYER_COUNT])
+{
+    float weightSum = 0.0f;
+    [unroll]
+    for (int allLayerSumIndex = 0; allLayerSumIndex < SOL_LANDSCAPE_LAYER_COUNT; ++allLayerSumIndex)
+        weightSum += samples[allLayerSumIndex].weight;
+
+    float inverseWeightSum = rcp(max(weightSum, 1e-6f));
+    [unroll]
+    for (int allLayerNormalizeIndex = 0; allLayerNormalizeIndex < SOL_LANDSCAPE_LAYER_COUNT; ++allLayerNormalizeIndex)
+        samples[allLayerNormalizeIndex].weight *= inverseWeightSum;
+}
+
+void SolHeightBlendLandscapeAllLayers(
+    inout SolLandscapeLayerSample samples[SOL_LANDSCAPE_LAYER_COUNT],
+    bool normalizeResult)
+{
+    float maxSplatHeight = -1.0f;
+    [unroll]
+    for (int allLayerMaximumIndex = 0; allLayerMaximumIndex < SOL_LANDSCAPE_LAYER_COUNT; ++allLayerMaximumIndex)
+    {
+        float splatHeight = (float)SolLandscapeHeight(samples[allLayerMaximumIndex].noh)
+            * samples[allLayerMaximumIndex].weight;
+        maxSplatHeight = max(maxSplatHeight, splatHeight);
+    }
+
+    float transition = max(_Sol_LandscapeHeightTransition, 1e-5f);
+    float weightedSum = 0.0f;
+    [unroll]
+    for (int allLayerBlendIndex = 0; allLayerBlendIndex < SOL_LANDSCAPE_LAYER_COUNT; ++allLayerBlendIndex)
+    {
+        float paintedWeight = samples[allLayerBlendIndex].weight;
+        float splatHeight = (float)SolLandscapeHeight(samples[allLayerBlendIndex].noh) * paintedWeight;
+        float weightedHeight = max(0.0f, splatHeight + transition - maxSplatHeight);
+        weightedHeight = (weightedHeight + 1e-6f) * paintedWeight;
+        samples[allLayerBlendIndex].weight = weightedHeight;
+        weightedSum += weightedHeight;
+    }
+
+    if (normalizeResult)
+    {
+        float inverseWeightedSum = rcp(max(weightedSum, 1e-6f));
+        [unroll]
+        for (int allLayerFinalIndex = 0; allLayerFinalIndex < SOL_LANDSCAPE_LAYER_COUNT; ++allLayerFinalIndex)
+            samples[allLayerFinalIndex].weight *= inverseWeightedSum;
+    }
+}
+
+void SolSelectLandscapeTopKFromSamples(
+    SolLandscapeLayerSample candidates[SOL_LANDSCAPE_LAYER_COUNT],
+    out SolLandscapeLayerSample selectedSamples[SOL_LANDSCAPE_TOP_K])
+{
+    [unroll]
+    for (int initializationSlot = 0; initializationSlot < SOL_LANDSCAPE_TOP_K; ++initializationSlot)
+    {
+        selectedSamples[initializationSlot].weight = -1.0f;
+        selectedSamples[initializationSlot].layerIndex = 0;
+        selectedSamples[initializationSlot].noh = 0.0h;
+    }
+
+    [unroll]
+    for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++layerIndex)
+    {
+        SolLandscapeLayerSample candidate = candidates[layerIndex];
+        [unroll]
+        for (int insertionSlot = 0; insertionSlot < SOL_LANDSCAPE_TOP_K; ++insertionSlot)
+        {
+            if (candidate.weight > selectedSamples[insertionSlot].weight)
+            {
+                SolLandscapeLayerSample displaced = selectedSamples[insertionSlot];
+                selectedSamples[insertionSlot] = candidate;
+                candidate = displaced;
+            }
+        }
+    }
 }
 
 void SolAccumulateLandscapeLayer(
     float2 terrainUV,
-    int layerIndex,
-    half weight,
+    SolLandscapeLayerSample sample,
     inout half3 albedo,
     inout half smoothness,
     inout half occlusion,
-    inout half3 normalTS)
+    inout half3 normalTS,
+    inout half postBlendDebugWeight)
 {
-    float4 layerST = _Sol_LandscapeLayerST[layerIndex];
-    float2 layerUV = terrainUV * layerST.xy + layerST.zw;
+    int layerIndex = sample.layerIndex;
+    half weight = (half)sample.weight;
     half4 cs = SAMPLE_TEXTURE2D_ARRAY(
         _Sol_LandscapeCS,
         sampler_Sol_LandscapeCS,
-        layerUV,
+        SolLandscapeLayerUV(terrainUV, layerIndex),
         layerIndex);
-    half4 noh = SAMPLE_TEXTURE2D_ARRAY(
-        _Sol_LandscapeNOH,
-        sampler_Sol_LandscapeNOH,
-        layerUV,
-        layerIndex);
+    half4 noh = sample.noh;
 
     albedo += cs.rgb * weight;
     smoothness += cs.a * weight;
     occlusion += noh.b * weight;
     normalTS += SolDecodeLandscapeNormalTS(noh, _Sol_LandscapeNormalScale[layerIndex]) * weight;
+
+    if (abs(_Sol_LandscapeWeightDebugLayer - (float)layerIndex) < 0.25f)
+        postBlendDebugWeight = weight;
 }
 
-SolLandscapeSurface SolEvaluateLandscapeSurface(float2 terrainUV)
+SolLandscapeSurface SolEvaluateLandscapeSurface(
+    float2 terrainUV,
+    float3 positionWS,
+    half3 geometricNormalWS)
 {
     SolLandscapeRawWeights rawWeights = SolDecodeLandscapeRawWeights(terrainUV);
+    float resolvedWeights[SOL_LANDSCAPE_LAYER_COUNT];
+    [unroll]
+    for (int resolveInputIndex = 0; resolveInputIndex < SOL_LANDSCAPE_LAYER_COUNT; ++resolveInputIndex)
+        resolvedWeights[resolveInputIndex] = SolSelectLandscapeRawWeight(rawWeights, resolveInputIndex);
+
+    // Resolve every authored layer before paint-ranked top-K. This contract is ALU-only;
+    // Phase 4B supplies procedural inputs without adding texture fetches here.
+    float2 manualAutoDebugWeights;
+    SolResolveLandscapeAutoMaterial(
+        resolvedWeights,
+        positionWS,
+        geometricNormalWS,
+        manualAutoDebugWeights);
+    float resolvedAutoDebugWeight = resolvedWeights[2] + resolvedWeights[3];
+    float resolvedPathDebugWeight = resolvedWeights[4];
 
     half3 albedo = 0.0h;
     half smoothness = 0.0h;
     half occlusion = 0.0h;
     half3 normalTS = 0.0h;
+    half postBlendDebugWeight = 0.0h;
 
 #ifdef _SOL_LANDSCAPE_TOPK_REFERENCE
     // Ticket 2C reference path: all six layers, unsorted, retained for validation diffs.
-    half weightSum = dot(rawWeights.control0, 1.0h) + rawWeights.control1.x + rawWeights.control1.y;
-    half inverseWeight = rcp(max(weightSum, HALF_MIN));
+    SolLandscapeLayerSample allLayers[SOL_LANDSCAPE_LAYER_COUNT];
+    SolBuildLandscapeAllSamples(terrainUV, resolvedWeights, allLayers);
+
+    #ifdef _SOL_LANDSCAPE_BLEND_HEIGHT
+        SolHeightBlendLandscapeAllLayers(allLayers, true);
+    #else
+        SolNormalizeLandscapeAllLayers(allLayers);
+    #endif
 
     [unroll]
     for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++layerIndex)
     {
-        half weight = SolSelectLandscapeRawWeight(rawWeights, layerIndex) * inverseWeight;
         SolAccumulateLandscapeLayer(
             terrainUV,
-            layerIndex,
-            weight,
+            allLayers[layerIndex],
             albedo,
             smoothness,
             occlusion,
-            normalTS);
+            normalTS,
+            postBlendDebugWeight);
     }
 #else
-    SolLandscapeLayerWeight selectedLayers[SOL_LANDSCAPE_TOP_K];
-    SolSelectLandscapeTopK(rawWeights, selectedLayers);
+    SolLandscapeLayerSample selectedSamples[SOL_LANDSCAPE_TOP_K];
 
-    // Shipping path: four divergent per-pixel slice indices, already de-risked in Phase 0.
+    #if defined(_SOL_LANDSCAPE_BLEND_HEIGHT) && defined(_SOL_LANDSCAPE_HEIGHT_ALL_LAYERS_REFERENCE)
+        // Option B reference: form the all-layer height-weighted numerators, select by them,
+        // then normalize the kept K once. The omitted all-layer denominator is common to every
+        // candidate and therefore cannot change the ranking.
+        SolLandscapeLayerSample allLayerCandidates[SOL_LANDSCAPE_LAYER_COUNT];
+        SolBuildLandscapeAllSamples(terrainUV, resolvedWeights, allLayerCandidates);
+        SolHeightBlendLandscapeAllLayers(allLayerCandidates, false);
+        SolSelectLandscapeTopKFromSamples(allLayerCandidates, selectedSamples);
+        SolNormalizeLandscapeTopK(selectedSamples);
+    #else
+        // Shipping Option A: select by unnormalized painted weight, then height-blend within K.
+        SolLandscapeLayerWeight selectedLayers[SOL_LANDSCAPE_TOP_K];
+        SolSelectLandscapeTopK(resolvedWeights, selectedLayers);
+        SolPopulateLandscapeTopKSamples(terrainUV, selectedLayers, selectedSamples);
+
+        #ifdef _SOL_LANDSCAPE_BLEND_HEIGHT
+            SolHeightBlendLandscapeTopK(selectedSamples);
+        #else
+            SolNormalizeLandscapeTopK(selectedSamples);
+        #endif
+    #endif
+
     [unroll]
     for (int selectedIndex = 0; selectedIndex < SOL_LANDSCAPE_TOP_K; ++selectedIndex)
     {
         SolAccumulateLandscapeLayer(
             terrainUV,
-            selectedLayers[selectedIndex].layerIndex,
-            selectedLayers[selectedIndex].weight,
+            selectedSamples[selectedIndex],
             albedo,
             smoothness,
             occlusion,
-            normalTS);
+            normalTS,
+            postBlendDebugWeight);
     }
 #endif
 
@@ -282,6 +501,15 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(float2 terrainUV)
     result.surfaceData.alpha = 1.0h;
     result.surfaceData.clearCoatMask = 0.0h;
     result.surfaceData.clearCoatSmoothness = 0.0h;
+    result.postBlendDebugWeight = postBlendDebugWeight;
+    result.manualAutoDebugWeights = (half2)manualAutoDebugWeights;
+    result.resolvedAutoDebugWeight = (half)resolvedAutoDebugWeight;
+    result.resolvedPathDebugWeight = (half)resolvedPathDebugWeight;
+    float snowCoverage;
+    // Overlay ordering is deliberate: material resolve/top-K/height blend are complete,
+    // then snow modifies the assembled surface, and the shared 4D wetness function runs later.
+    SolApplyLandscapeSnow(result.surfaceData, positionWS, geometricNormalWS, snowCoverage);
+    result.snowCoverage = (half)snowCoverage;
     return result;
 }
 
@@ -315,23 +543,14 @@ void SolResolveLandscapeFrame(
 void SolInitializeInputData(
     SolTerrainArrayVaryings input,
     half3 normalTS,
-    out InputData inputData,
-    out half3 geometricNormalWS)
+    half3 geometricNormalWS,
+    half3 tangentWS,
+    half3 bitangentWS,
+    out InputData inputData)
 {
     inputData = (InputData)0;
     inputData.positionWS = input.positionWS;
     inputData.positionCS = input.positionCS;
-
-    half3 tangentWS;
-    half3 bitangentWS;
-    SolResolveLandscapeFrame(
-        input.terrainUV,
-        input.normalWSAndViewX.xyz,
-        input.tangentWSAndViewY.xyz,
-        input.bitangentWSAndViewZ.xyz,
-        geometricNormalWS,
-        tangentWS,
-        bitangentWS);
 
     inputData.tangentToWorld = half3x3(-tangentWS, bitangentWS, geometricNormalWS);
     inputData.normalWS = NormalizeNormalPerPixel(
@@ -413,10 +632,55 @@ void SolTerrainArrayFragment(
     SolClipTerrainHoles(input.terrainUV);
 #endif
 
-    SolLandscapeSurface landscape = SolEvaluateLandscapeSurface(input.terrainUV);
-    InputData inputData;
     half3 geometricNormalWS;
-    SolInitializeInputData(input, landscape.surfaceData.normalTS, inputData, geometricNormalWS);
+    half3 tangentWS;
+    half3 bitangentWS;
+    SolResolveLandscapeFrame(
+        input.terrainUV,
+        input.normalWSAndViewX.xyz,
+        input.tangentWSAndViewY.xyz,
+        input.bitangentWSAndViewZ.xyz,
+        geometricNormalWS,
+        tangentWS,
+        bitangentWS);
+    SolLandscapeSurface landscape = SolEvaluateLandscapeSurface(
+        input.terrainUV,
+        input.positionWS,
+        geometricNormalWS);
+
+#ifdef _SOL_LANDSCAPE_DEBUG
+    // One keyword owns every landscape diagnostic. Modes 1-2 retain the reviewed 4A
+    // layer and Manual/Auto views. Mode 3 exposes pre-top-K resolved Stone weight for
+    // 4B threshold sweeps and motion stability; mode 4 exposes pre-top-K Path weight
+    // at the exact point where the reviewed paint-authority contract applies; mode 5
+    // shows final post-rule snow coverage as grayscale.
+    if (_Sol_LandscapeDebugMode >= 0.5f)
+    {
+        if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_MANUAL_AUTO_SPLIT - 0.5f)
+            outColor = half4(landscape.postBlendDebugWeight.xxx, 1.0h);
+        else if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_RESOLVED_STONE - 0.5f)
+            outColor = half4(landscape.manualAutoDebugWeights, 0.0h, 1.0h);
+        else if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_RESOLVED_PATH - 0.5f)
+            outColor = half4(landscape.resolvedAutoDebugWeight.xxx, 1.0h);
+        else if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_SNOW_COVERAGE - 0.5f)
+            outColor = half4(landscape.resolvedPathDebugWeight.xxx, 1.0h);
+        else
+            outColor = half4(landscape.snowCoverage.xxx, 1.0h);
+#ifdef _WRITE_RENDERING_LAYERS
+        outRenderingLayers = EncodeMeshRenderingLayer();
+#endif
+        return;
+    }
+#endif
+
+    InputData inputData;
+    SolInitializeInputData(
+        input,
+        landscape.surfaceData.normalTS,
+        geometricNormalWS,
+        tangentWS,
+        bitangentWS,
+        inputData);
     SolInitializeBakedGIData(input, inputData);
 
     // geometricNormalWS intentionally remains distinct from inputData.normalWS for Phase 4 slope rules.
@@ -464,7 +728,23 @@ void SolTerrainArrayBaseFragment(
 
     InputData inputData;
     half3 geometricNormalWS;
-    SolInitializeInputData(input, surfaceData.normalTS, inputData, geometricNormalWS);
+    half3 tangentWS;
+    half3 bitangentWS;
+    SolResolveLandscapeFrame(
+        input.terrainUV,
+        input.normalWSAndViewX.xyz,
+        input.tangentWSAndViewY.xyz,
+        input.bitangentWSAndViewZ.xyz,
+        geometricNormalWS,
+        tangentWS,
+        bitangentWS);
+    SolInitializeInputData(
+        input,
+        surfaceData.normalTS,
+        geometricNormalWS,
+        tangentWS,
+        bitangentWS,
+        inputData);
     SolInitializeBakedGIData(input, inputData);
 
     SolApplyTerrainWetness(
@@ -569,6 +849,7 @@ struct SolTerrainArrayDepthNormalsVaryings
     half3 normalWS : TEXCOORD1;
     half3 tangentWS : TEXCOORD2;
     half3 bitangentWS : TEXCOORD3;
+    float3 positionWS : TEXCOORD4;
     float4 positionCS : SV_POSITION;
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -588,6 +869,7 @@ SolTerrainArrayDepthNormalsVaryings SolTerrainArrayDepthNormalsVertex(SolTerrain
     output.normalWS = normalInputs.normalWS;
     output.tangentWS = normalInputs.tangentWS;
     output.bitangentWS = normalInputs.bitangentWS;
+    output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
     output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
     return output;
 }
@@ -604,7 +886,6 @@ void SolTerrainArrayDepthNormalsFragment(
     SolClipTerrainHoles(input.terrainUV);
 #endif
 
-    SolLandscapeSurface landscape = SolEvaluateLandscapeSurface(input.terrainUV);
     half3 geometricNormalWS;
     half3 tangentWS;
     half3 bitangentWS;
@@ -616,6 +897,10 @@ void SolTerrainArrayDepthNormalsFragment(
         geometricNormalWS,
         tangentWS,
         bitangentWS);
+    SolLandscapeSurface landscape = SolEvaluateLandscapeSurface(
+        input.terrainUV,
+        input.positionWS,
+        geometricNormalWS);
 
     half3 detailNormalWS = TransformTangentToWorld(
         landscape.surfaceData.normalTS,

@@ -57,22 +57,56 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
                 _Sol_LandscapeControl1,
                 sampler_Sol_LandscapeControl1,
                 controlUV).rg;
-            half totalWeight = dot(control0, 1.0h) + control1.x + control1.y;
-            half inverseWeight = rcp(max(totalWeight, HALF_MIN));
+
+            // Basemaps deliberately evaluate every layer. A top-K error here would be baked into
+            // all distant terrain, while these six extra NOH reads run only during regeneration.
+            float paintedWeights[SOL_LANDSCAPE_BASEMAP_LAYER_COUNT];
+            float splatHeights[SOL_LANDSCAPE_BASEMAP_LAYER_COUNT];
+            float maxSplatHeight = -1.0f;
+            [unroll]
+            for (int heightLayerIndex = 0; heightLayerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++heightLayerIndex)
+            {
+                float paintedWeight = (float)SolBasemapRawWeight(control0, control1, heightLayerIndex);
+                float4 layerST = _Sol_LandscapeLayerST[heightLayerIndex];
+                float2 layerUV = terrainUV * layerST.xy + layerST.zw;
+                half4 noh = SAMPLE_TEXTURE2D_ARRAY(
+                    _Sol_LandscapeNOH,
+                    sampler_Sol_LandscapeNOH,
+                    layerUV,
+                    heightLayerIndex);
+                float splatHeight = (float)noh.a * paintedWeight;
+                paintedWeights[heightLayerIndex] = paintedWeight;
+                splatHeights[heightLayerIndex] = splatHeight;
+                maxSplatHeight = max(maxSplatHeight, splatHeight);
+            }
+
+            float transition = max(_Sol_LandscapeHeightTransition, 1e-5f);
+            float blendedWeights[SOL_LANDSCAPE_BASEMAP_LAYER_COUNT];
+            float blendedWeightSum = 0.0f;
+            [unroll]
+            for (int blendLayerIndex = 0; blendLayerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++blendLayerIndex)
+            {
+                float weightedHeight = max(0.0f, splatHeights[blendLayerIndex] + transition - maxSplatHeight);
+                weightedHeight = (weightedHeight + 1e-6f) * paintedWeights[blendLayerIndex];
+                blendedWeights[blendLayerIndex] = weightedHeight;
+                blendedWeightSum += weightedHeight;
+            }
+
+            float inverseBlendedWeight = rcp(max(blendedWeightSum, 1e-6f));
 
             half3 albedo = 0.0h;
             half smoothness = 0.0h;
             [unroll]
-            for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++layerIndex)
+            for (int sampleLayerIndex = 0; sampleLayerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++sampleLayerIndex)
             {
-                half weight = SolBasemapRawWeight(control0, control1, layerIndex) * inverseWeight;
-                float4 layerST = _Sol_LandscapeLayerST[layerIndex];
+                half weight = (half)(blendedWeights[sampleLayerIndex] * inverseBlendedWeight);
+                float4 layerST = _Sol_LandscapeLayerST[sampleLayerIndex];
                 float2 layerUV = terrainUV * layerST.xy + layerST.zw;
                 half4 cs = SAMPLE_TEXTURE2D_ARRAY(
                     _Sol_LandscapeCS,
                     sampler_Sol_LandscapeCS,
                     layerUV,
-                    layerIndex);
+                    sampleLayerIndex);
                 albedo += cs.rgb * weight;
                 smoothness += cs.a * weight;
             }

@@ -50,6 +50,7 @@ public class TimeOfDay : MonoBehaviour
     Light sunLight;
     Light moonLight;
     Light dominantAtmosphereLight;
+    Light editPreviewSunLight;
 
     // -- CURRENT TIME OF DAY --------------------------
     [Header("-- Current Time of Day ------------")]
@@ -557,30 +558,32 @@ public class TimeOfDay : MonoBehaviour
     {
         ResolveCalendar();
 
-        if (Application.isPlaying)
-        {
-            if (Instance != null && Instance != this)
-            {
-                Debug.LogWarning($"[{nameof(TimeOfDay)}] Duplicate instance disabled. World time must have one active authority.", this);
-                enabled = false;
-                return;
-            }
-
-            // Awake is not called again when a scene authority is re-enabled.
-            // Reclaim the service slot here so late-resolving consumers do not
-            // retain a disabled instance.
-            Instance = this;
-        }
-
-        // Edit-mode preview must never replace the scene's serialized
-        // skybox with a HideAndDontSave runtime clone. Saving a scene while
-        // such a clone is assigned serializes the skybox reference as null.
         if (!Application.isPlaying)
         {
+            // Edit-mode preview must never replace the scene's serialized
+            // skybox with a HideAndDontSave runtime clone. Saving a scene while
+            // such a clone is assigned serializes the skybox reference as null.
             environmentCoordinator = null;
             controlledSkyboxMaterial = null;
+            EnsureEditPreviewSun();
             return;
         }
+
+        // Entering Play must never leave the edit-only light alongside the
+        // real Sun spawned by Start.
+        DestroyEditPreviewSun();
+
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogWarning($"[{nameof(TimeOfDay)}] Duplicate instance disabled. World time must have one active authority.", this);
+            enabled = false;
+            return;
+        }
+
+        // Awake is not called again when a scene authority is re-enabled.
+        // Reclaim the service slot here so late-resolving consumers do not
+        // retain a disabled instance.
+        Instance = this;
 
         environmentCoordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
         environmentCoordinator?.Register(this);
@@ -591,6 +594,8 @@ public class TimeOfDay : MonoBehaviour
 
     void OnDisable()
     {
+        DestroyEditPreviewSun();
+
         worldDeltaSeconds = 0f;
         worldDeltaHours = 0d;
         presentationDeltaSeconds = 0f;
@@ -661,6 +666,8 @@ public class TimeOfDay : MonoBehaviour
 
     void OnDestroy()
     {
+        DestroyEditPreviewSun();
+
         if (Instance == this)
             Instance = null;
 
@@ -677,6 +684,34 @@ public class TimeOfDay : MonoBehaviour
     #endregion
 
     #region Celestial Body Setup
+    void EnsureEditPreviewSun()
+    {
+        if (Application.isPlaying || sunLight != null)
+            return;
+
+        var previewObject = new GameObject("Sol Edit Preview Sun")
+        {
+            hideFlags = HideFlags.HideAndDontSave
+        };
+        editPreviewSunLight = previewObject.AddComponent<Light>();
+        editPreviewSunLight.hideFlags = HideFlags.HideAndDontSave;
+        editPreviewSunLight.type = LightType.Directional;
+        editPreviewSunLight.shadows = LightShadows.Soft;
+        sunLight = editPreviewSunLight;
+    }
+
+    void DestroyEditPreviewSun()
+    {
+        if (editPreviewSunLight == null)
+            return;
+
+        Light preview = editPreviewSunLight;
+        editPreviewSunLight = null;
+        if (sunLight == preview)
+            sunLight = null;
+        DestroyImmediate(preview.gameObject);
+    }
+
     void SpawnCelestialBodies()
     {
         if (sunPrefab != null)
@@ -954,6 +989,17 @@ public class TimeOfDay : MonoBehaviour
 
     void UpdateMoon(float daysFraction)
     {
+        // Start is play-mode only, so the cached period is still zero when the
+        // ExecuteAlways edit preview reaches this method. Resolve it at the
+        // producer before dividing so invalid lunar data never reaches Daybox.
+        if (!float.IsFinite(lunarPeriodDays) || lunarPeriodDays <= 0f)
+        {
+            float calendarPeriodDays = Calendar != null ? Calendar.AverageMonthLength : 28f;
+            lunarPeriodDays = float.IsFinite(calendarPeriodDays) && calendarPeriodDays > 0f
+                ? calendarPeriodDays
+                : 28f;
+        }
+
         currentLunarPhase = Mathf.Repeat(daysFraction / lunarPeriodDays + initialLunarPhase, 1f);
 
         // Moon illumination varies with phase.

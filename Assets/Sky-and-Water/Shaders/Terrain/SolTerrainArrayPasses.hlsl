@@ -11,6 +11,7 @@
 #define SOL_LANDSCAPE_DEBUG_RESOLVED_STONE 3
 #define SOL_LANDSCAPE_DEBUG_RESOLVED_PATH 4
 #define SOL_LANDSCAPE_DEBUG_SNOW_COVERAGE 5
+#define SOL_LANDSCAPE_DEBUG_DISCARDED_TOPK 6
 
 #include "SolTerrainAutoMaterial.hlsl"
 
@@ -152,6 +153,7 @@ struct SolLandscapeSurface
     half resolvedAutoDebugWeight;
     half resolvedPathDebugWeight;
     half snowCoverage;
+    half discardedTopKDebugWeight;
 };
 
 struct SolLandscapeLayerWeight
@@ -200,78 +202,155 @@ void SolSelectLandscapeTopK(
 
 }
 
+float SolMeasureLandscapeDiscardedTopK(float resolvedWeights[SOL_LANDSCAPE_LAYER_COUNT])
+{
+    SolLandscapeLayerWeight selectedLayers[SOL_LANDSCAPE_TOP_K];
+    SolSelectLandscapeTopK(resolvedWeights, selectedLayers);
+    float totalWeight = 0.0f;
+    float retainedWeight = 0.0f;
+    [unroll]
+    for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++layerIndex)
+        totalWeight += resolvedWeights[layerIndex];
+    [unroll]
+    for (int selectedIndex = 0; selectedIndex < SOL_LANDSCAPE_TOP_K; ++selectedIndex)
+        retainedWeight += selectedLayers[selectedIndex].weight;
+    return max(0.0f, totalWeight - retainedWeight);
+}
+
 float2 SolLandscapeLayerUV(float2 terrainUV, int layerIndex)
 {
     float4 layerST = _Sol_LandscapeLayerST[layerIndex];
     return terrainUV * layerST.xy + layerST.zw;
 }
 
+#ifdef _SOL_LANDSCAPE_STOCHASTIC
+// Ticket 5F.2: triangle-grid stochastic tiling, three taps per layer per array. Each of the three
+// nearest lattice cells samples the SAME texture through its own per-cell rotation/flip/offset, and
+// the three taps are blended by barycentric weight. The per-cell transform including a rotation or
+// flip (not just an offset) is what disrupts a strongly directional texture like the sand normal map;
+// offset alone only re-phases a repeat, it does not change which way its stripes point.
+// Reference: Heitz & Neyret's histogram-preserving-blend triangle-grid technique (cited by the Master
+// Plan as prior art only) -- this is an independent implementation, not a port of any specific source.
+
+float SolLandscapeStochasticHash(float2 cell, float salt)
+{
+    float3 p = float3(cell, salt);
+    return frac(sin(dot(p, float3(12.9898f, 78.233f, 37.719f))) * 43758.5453123f);
+}
+
+float2 SolLandscapeStochasticHash2(float2 cell, float salt)
+{
+    return float2(
+        SolLandscapeStochasticHash(cell, salt),
+        SolLandscapeStochasticHash(cell, salt + 91.7f));
+}
+
+// One of the 8 symmetries of a square (4 rotations, each optionally mirrored first). Built from
+// integer sign/swap logic rather than sin/cos so the four rotated variants are exact.
+float2x2 SolLandscapeDihedralMatrix(uint index)
+{
+    uint rotation = index & 3u;
+    float2x2 result = float2x2(1.0f, 0.0f, 0.0f, 1.0f);
+    if (rotation == 1u)      result = float2x2(0.0f, -1.0f, 1.0f, 0.0f);
+    else if (rotation == 2u) result = float2x2(-1.0f, 0.0f, 0.0f, -1.0f);
+    else if (rotation == 3u) result = float2x2(0.0f, 1.0f, -1.0f, 0.0f);
+    if ((index & 4u) != 0u)
+        result = mul(result, float2x2(-1.0f, 0.0f, 0.0f, 1.0f));
+    return result;
+}
+
+struct SolLandscapeStochasticCell
+{
+    float2 id;
+    float weight;
+};
+
+// Splits the UV plane into unit cells, each cut along one diagonal into two triangles, and returns
+// the three cell corners surrounding the sample point with their barycentric weights (sum to 1).
+void SolLandscapeTriangleGridCells(float2 grid, out SolLandscapeStochasticCell cells[3])
+{
+    float2 origin = floor(grid);
+    float2 fractional = grid - origin;
+    if (fractional.x + fractional.y < 1.0f)
+    {
+        cells[0].id = origin;                      cells[0].weight = 1.0f - fractional.x - fractional.y;
+        cells[1].id = origin + float2(1.0f, 0.0f);  cells[1].weight = fractional.x;
+        cells[2].id = origin + float2(0.0f, 1.0f);  cells[2].weight = fractional.y;
+    }
+    else
+    {
+        cells[0].id = origin + float2(1.0f, 1.0f);  cells[0].weight = fractional.x + fractional.y - 1.0f;
+        cells[1].id = origin + float2(1.0f, 0.0f);  cells[1].weight = 1.0f - fractional.y;
+        cells[2].id = origin + float2(0.0f, 1.0f);  cells[2].weight = 1.0f - fractional.x;
+    }
+}
+
+struct SolLandscapeStochasticTap
+{
+    float2 uv;
+    float2 ddxUV;
+    float2 ddyUV;
+    float weight;
+};
+
+// Builds the three (UV, explicit gradient, weight) taps for one layer at one pixel. Gradients are
+// carried explicitly (not left to the hardware's implicit ddx/ddy) because the per-cell rotation is a
+// discontinuous function of screen position: an implicit derivative at a cell boundary would blend two
+// unrelated cells' derivatives and pick the wrong mip. Rotating the source UV's own derivative by the
+// same per-cell matrix keeps the mip selection correct on both sides of every cell boundary.
+void SolLandscapeBuildStochasticTaps(float2 terrainUV, int layerIndex, out SolLandscapeStochasticTap taps[3])
+{
+    float4 layerST = _Sol_LandscapeLayerST[layerIndex];
+    float2 layerUV = terrainUV * layerST.xy + layerST.zw;
+    float2 ddxLayerUV = ddx(terrainUV) * layerST.xy;
+    float2 ddyLayerUV = ddy(terrainUV) * layerST.xy;
+
+    SolLandscapeStochasticCell cells[3];
+    SolLandscapeTriangleGridCells(layerUV, cells);
+
+    [unroll]
+    for (int i = 0; i < 3; ++i)
+    {
+        float layerSalt = (float)layerIndex * 4.0f;
+        float rotationHash = SolLandscapeStochasticHash(cells[i].id, layerSalt);
+        float2 offsetHash = SolLandscapeStochasticHash2(cells[i].id, layerSalt + 1.0f);
+        uint dihedralIndex = min((uint)(rotationHash * 8.0f), 7u);
+        float2x2 transform = SolLandscapeDihedralMatrix(dihedralIndex);
+
+        float2 pivot = cells[i].id + 0.5f;
+        float2 centered = layerUV - pivot;
+        float2 transformedUV = mul(transform, centered) + pivot + (offsetHash - 0.5f);
+
+        taps[i].uv = transformedUV;
+        taps[i].ddxUV = mul(transform, ddxLayerUV);
+        taps[i].ddyUV = mul(transform, ddyLayerUV);
+        taps[i].weight = cells[i].weight;
+    }
+}
+#endif
+
 half4 SolSampleLandscapeNOH(float2 terrainUV, int layerIndex)
 {
+#ifdef _SOL_LANDSCAPE_STOCHASTIC
+    SolLandscapeStochasticTap taps[3];
+    SolLandscapeBuildStochasticTaps(terrainUV, layerIndex, taps);
+    half4 result = 0.0h;
+    [unroll]
+    for (int i = 0; i < 3; ++i)
+    {
+        half4 tap = SAMPLE_TEXTURE2D_ARRAY_GRAD(
+            _Sol_LandscapeNOH, sampler_Sol_LandscapeNOH,
+            taps[i].uv, layerIndex, taps[i].ddxUV, taps[i].ddyUV);
+        result += tap * (half)taps[i].weight;
+    }
+    return result;
+#else
     return SAMPLE_TEXTURE2D_ARRAY(
         _Sol_LandscapeNOH,
         sampler_Sol_LandscapeNOH,
         SolLandscapeLayerUV(terrainUV, layerIndex),
         layerIndex);
-}
-
-void SolPopulateLandscapeTopKSamples(
-    float2 terrainUV,
-    SolLandscapeLayerWeight selectedLayers[SOL_LANDSCAPE_TOP_K],
-    out SolLandscapeLayerSample selectedSamples[SOL_LANDSCAPE_TOP_K])
-{
-    [unroll]
-    for (int populateSampleSlot = 0; populateSampleSlot < SOL_LANDSCAPE_TOP_K; ++populateSampleSlot)
-    {
-        selectedSamples[populateSampleSlot].weight = selectedLayers[populateSampleSlot].weight;
-        selectedSamples[populateSampleSlot].layerIndex = selectedLayers[populateSampleSlot].layerIndex;
-        selectedSamples[populateSampleSlot].noh = SolSampleLandscapeNOH(
-            terrainUV,
-            selectedLayers[populateSampleSlot].layerIndex);
-    }
-}
-
-void SolNormalizeLandscapeTopK(inout SolLandscapeLayerSample samples[SOL_LANDSCAPE_TOP_K])
-{
-    float weightSum = 0.0f;
-    [unroll]
-    for (int normalizationSumSlot = 0; normalizationSumSlot < SOL_LANDSCAPE_TOP_K; ++normalizationSumSlot)
-        weightSum += samples[normalizationSumSlot].weight;
-
-    float inverseWeightSum = rcp(max(weightSum, 1e-6f));
-    [unroll]
-    for (int normalizationApplySlot = 0; normalizationApplySlot < SOL_LANDSCAPE_TOP_K; ++normalizationApplySlot)
-        samples[normalizationApplySlot].weight *= inverseWeightSum;
-}
-
-void SolHeightBlendLandscapeTopK(inout SolLandscapeLayerSample samples[SOL_LANDSCAPE_TOP_K])
-{
-    float maxSplatHeight = -1.0f;
-    [unroll]
-    for (int maximumHeightSlot = 0; maximumHeightSlot < SOL_LANDSCAPE_TOP_K; ++maximumHeightSlot)
-    {
-        float splatHeight = (float)SolLandscapeHeight(samples[maximumHeightSlot].noh)
-            * samples[maximumHeightSlot].weight;
-        maxSplatHeight = max(maxSplatHeight, splatHeight);
-    }
-
-    float transition = max(_Sol_LandscapeHeightTransition, 1e-5f);
-    float weightedSum = 0.0f;
-    [unroll]
-    for (int heightBlendSlot = 0; heightBlendSlot < SOL_LANDSCAPE_TOP_K; ++heightBlendSlot)
-    {
-        float paintedWeight = samples[heightBlendSlot].weight;
-        float splatHeight = (float)SolLandscapeHeight(samples[heightBlendSlot].noh) * paintedWeight;
-        float weightedHeight = max(0.0f, splatHeight + transition - maxSplatHeight);
-        weightedHeight = (weightedHeight + 1e-6f) * paintedWeight;
-        samples[heightBlendSlot].weight = weightedHeight;
-        weightedSum += weightedHeight;
-    }
-
-    float inverseWeightedSum = rcp(max(weightedSum, 1e-6f));
-    [unroll]
-    for (int finalNormalizationSlot = 0; finalNormalizationSlot < SOL_LANDSCAPE_TOP_K; ++finalNormalizationSlot)
-        samples[finalNormalizationSlot].weight *= inverseWeightedSum; // The shipping path's single normalization.
+#endif
 }
 
 void SolBuildLandscapeAllSamples(
@@ -337,35 +416,6 @@ void SolHeightBlendLandscapeAllLayers(
     }
 }
 
-void SolSelectLandscapeTopKFromSamples(
-    SolLandscapeLayerSample candidates[SOL_LANDSCAPE_LAYER_COUNT],
-    out SolLandscapeLayerSample selectedSamples[SOL_LANDSCAPE_TOP_K])
-{
-    [unroll]
-    for (int initializationSlot = 0; initializationSlot < SOL_LANDSCAPE_TOP_K; ++initializationSlot)
-    {
-        selectedSamples[initializationSlot].weight = -1.0f;
-        selectedSamples[initializationSlot].layerIndex = 0;
-        selectedSamples[initializationSlot].noh = 0.0h;
-    }
-
-    [unroll]
-    for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++layerIndex)
-    {
-        SolLandscapeLayerSample candidate = candidates[layerIndex];
-        [unroll]
-        for (int insertionSlot = 0; insertionSlot < SOL_LANDSCAPE_TOP_K; ++insertionSlot)
-        {
-            if (candidate.weight > selectedSamples[insertionSlot].weight)
-            {
-                SolLandscapeLayerSample displaced = selectedSamples[insertionSlot];
-                selectedSamples[insertionSlot] = candidate;
-                candidate = displaced;
-            }
-        }
-    }
-}
-
 void SolAccumulateLandscapeLayer(
     float2 terrainUV,
     SolLandscapeLayerSample sample,
@@ -377,11 +427,25 @@ void SolAccumulateLandscapeLayer(
 {
     int layerIndex = sample.layerIndex;
     half weight = (half)sample.weight;
+#ifdef _SOL_LANDSCAPE_STOCHASTIC
+    SolLandscapeStochasticTap csTaps[3];
+    SolLandscapeBuildStochasticTaps(terrainUV, layerIndex, csTaps);
+    half4 cs = 0.0h;
+    [unroll]
+    for (int csTapIndex = 0; csTapIndex < 3; ++csTapIndex)
+    {
+        half4 csTap = SAMPLE_TEXTURE2D_ARRAY_GRAD(
+            _Sol_LandscapeCS, sampler_Sol_LandscapeCS,
+            csTaps[csTapIndex].uv, layerIndex, csTaps[csTapIndex].ddxUV, csTaps[csTapIndex].ddyUV);
+        cs += csTap * (half)csTaps[csTapIndex].weight;
+    }
+#else
     half4 cs = SAMPLE_TEXTURE2D_ARRAY(
         _Sol_LandscapeCS,
         sampler_Sol_LandscapeCS,
         SolLandscapeLayerUV(terrainUV, layerIndex),
         layerIndex);
+#endif
     half4 noh = sample.noh;
 
     albedo += cs.rgb * weight;
@@ -423,8 +487,11 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
     float weatherSnowSusceptibility = 0.0f;
     float permanentSnowSusceptibility = 0.0f;
 
-#ifdef _SOL_LANDSCAPE_TOPK_REFERENCE
-    // Ticket 2C reference path: all six layers, unsorted, retained for validation diffs.
+    // Ticket 5C: evaluate every authored layer, unsorted. At N=6 with one texture sample per
+    // layer this measured faster than selecting four (5B/5C) and preserves the complete blend.
+    // Ticket 5G deleted the retained K=4 path once 5F.2 established stochastic (three samples
+    // per layer) is not shipping -- the reversal that would justify selection is recorded in
+    // the Master Plan, not preserved here as dead code.
     SolLandscapeLayerSample allLayers[SOL_LANDSCAPE_LAYER_COUNT];
     SolBuildLandscapeAllSamples(terrainUV, resolvedWeights, allLayers);
 
@@ -450,48 +517,6 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
             normalTS,
             postBlendDebugWeight);
     }
-#else
-    SolLandscapeLayerSample selectedSamples[SOL_LANDSCAPE_TOP_K];
-
-    #if defined(_SOL_LANDSCAPE_BLEND_HEIGHT) && defined(_SOL_LANDSCAPE_HEIGHT_ALL_LAYERS_REFERENCE)
-        // Option B reference: form the all-layer height-weighted numerators, select by them,
-        // then normalize the kept K once. The omitted all-layer denominator is common to every
-        // candidate and therefore cannot change the ranking.
-        SolLandscapeLayerSample allLayerCandidates[SOL_LANDSCAPE_LAYER_COUNT];
-        SolBuildLandscapeAllSamples(terrainUV, resolvedWeights, allLayerCandidates);
-        SolHeightBlendLandscapeAllLayers(allLayerCandidates, false);
-        SolSelectLandscapeTopKFromSamples(allLayerCandidates, selectedSamples);
-        SolNormalizeLandscapeTopK(selectedSamples);
-    #else
-        // Shipping Option A: select by unnormalized painted weight, then height-blend within K.
-        SolLandscapeLayerWeight selectedLayers[SOL_LANDSCAPE_TOP_K];
-        SolSelectLandscapeTopK(resolvedWeights, selectedLayers);
-        SolPopulateLandscapeTopKSamples(terrainUV, selectedLayers, selectedSamples);
-
-        #ifdef _SOL_LANDSCAPE_BLEND_HEIGHT
-            SolHeightBlendLandscapeTopK(selectedSamples);
-        #else
-            SolNormalizeLandscapeTopK(selectedSamples);
-        #endif
-    #endif
-
-    [unroll]
-    for (int selectedIndex = 0; selectedIndex < SOL_LANDSCAPE_TOP_K; ++selectedIndex)
-    {
-        weatherSnowSusceptibility += selectedSamples[selectedIndex].weight
-            * _Sol_LandscapeWeatherSnowSusceptibilities[selectedSamples[selectedIndex].layerIndex];
-        permanentSnowSusceptibility += selectedSamples[selectedIndex].weight
-            * _Sol_LandscapePermanentSnowSusceptibilities[selectedSamples[selectedIndex].layerIndex];
-        SolAccumulateLandscapeLayer(
-            terrainUV,
-            selectedSamples[selectedIndex],
-            albedo,
-            smoothness,
-            occlusion,
-            normalTS,
-            postBlendDebugWeight);
-    }
-#endif
 
     // Match stock TerrainLit protection against a zero-length blended tangent-space normal.
 #if !HALF_IS_FLOAT
@@ -515,6 +540,11 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
     result.manualAutoDebugWeights = (half2)manualAutoDebugWeights;
     result.resolvedAutoDebugWeight = (half)resolvedAutoDebugWeight;
     result.resolvedPathDebugWeight = (half)resolvedPathDebugWeight;
+    result.discardedTopKDebugWeight = 0.0h;
+#ifdef _SOL_LANDSCAPE_DEBUG
+    if (_Sol_LandscapeDebugMode >= (float)SOL_LANDSCAPE_DEBUG_DISCARDED_TOPK - 0.5f)
+        result.discardedTopKDebugWeight = (half)SolMeasureLandscapeDiscardedTopK(resolvedWeights);
+#endif
     float snowCoverage;
     // Overlay ordering is deliberate: material resolve/top-K/height blend are complete,
     // then snow modifies the assembled surface, and the shared 4D wetness function runs later.
@@ -669,7 +699,8 @@ void SolTerrainArrayFragment(
     // layer and Manual/Auto views. Mode 3 exposes pre-top-K resolved Stone weight for
     // 4B threshold sweeps and motion stability; mode 4 exposes pre-top-K Path weight
     // at the exact point where the reviewed paint-authority contract applies; mode 5
-    // shows final post-rule snow coverage as grayscale.
+    // shows final post-rule snow coverage as grayscale. Mode 6 measures the weight a
+    // top-K=4 selection would discard, independent of which render path is active.
     if (_Sol_LandscapeDebugMode >= 0.5f)
     {
         if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_MANUAL_AUTO_SPLIT - 0.5f)
@@ -680,8 +711,10 @@ void SolTerrainArrayFragment(
             outColor = half4(landscape.resolvedAutoDebugWeight.xxx, 1.0h);
         else if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_SNOW_COVERAGE - 0.5f)
             outColor = half4(landscape.resolvedPathDebugWeight.xxx, 1.0h);
-        else
+        else if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_DISCARDED_TOPK - 0.5f)
             outColor = half4(landscape.snowCoverage.xxx, 1.0h);
+        else
+            outColor = half4(landscape.discardedTopKDebugWeight.xxx, 1.0h);
 #ifdef _WRITE_RENDERING_LAYERS
         outRenderingLayers = EncodeMeshRenderingLayer();
 #endif

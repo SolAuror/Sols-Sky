@@ -62,11 +62,13 @@ Shader "Sol/Terrain/Array Lit"
             #pragma multi_compile _ DYNAMICLIGHTMAP_ON
             #pragma multi_compile_fragment _ DEBUG_DISPLAY
 
-            // Ticket 2C's unsorted K=6 path remains available for validation; K=4 is the default.
-            #pragma multi_compile _ _SOL_LANDSCAPE_TOPK_REFERENCE
+            // Ticket 5C production is unsorted all-six; the former K=4 path was measured one
+            // final time under stochastic (5F.2) and deleted (5G) once neither was shipping.
             #pragma shader_feature_local_fragment _SOL_LANDSCAPE_BLEND_HEIGHT
             #pragma shader_feature_local_fragment _SOL_LANDSCAPE_DEBUG
-            #pragma multi_compile_fragment _ _SOL_LANDSCAPE_HEIGHT_ALL_LAYERS_REFERENCE
+            // Ticket 5F.2: triangle-grid stochastic tiling, default off. Stripped from shipping
+            // builds by keeping its measurement material out of any Resources/ folder (5G, N12).
+            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_STOCHASTIC
 
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
@@ -132,9 +134,8 @@ Shader "Sol/Terrain/Array Lit"
             #pragma fragment SolTerrainArrayDepthNormalsFragment
 
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-            #pragma multi_compile _ _SOL_LANDSCAPE_TOPK_REFERENCE
             #pragma shader_feature_local_fragment _SOL_LANDSCAPE_BLEND_HEIGHT
-            #pragma multi_compile_fragment _ _SOL_LANDSCAPE_HEIGHT_ALL_LAYERS_REFERENCE
+            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_STOCHASTIC
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 

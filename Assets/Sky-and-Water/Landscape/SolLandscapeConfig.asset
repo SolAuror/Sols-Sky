@@ -15,67 +15,72 @@ MonoBehaviour:
   terrainData: {fileID: 15600000, guid: f84f6a7ab8a3ff74e812806a2c749d38, type: 2}
   layers:
   - terrainLayer: {fileID: 8574412962073106934, guid: 8033c16da03aa20499177be34180b3f5, type: 2}
-    mode: 1
+    mode: 0
+    preservePaintedWeightDuringGeneration: 0
     autoWeight: 0.65
     weatherSnowSusceptibility: 1
     permanentSnowSusceptibility: 1
-    slopeCenter: 22
-    slopeContrast: 12
+    slopeCenter: 36
+    slopeContrast: 8
     slopeBias: 0
-    slopeInfluence: -0.85
-    altitudeReference: 0
-    heightRange: {x: -4.397546, y: 4.978027}
+    slopeInfluence: -1
+    altitudeReference: 1
+    heightRange: {x: -4, y: 4}
     heightBias: 0
-    heightInfluence: -1
+    heightInfluence: 1
     cavityScale: 12
-    cavityInfluence: 0.25
+    cavityInfluence: 0
   - terrainLayer: {fileID: 8574412962073106934, guid: febad0385aafec84b8e67fb2bea5f899, type: 2}
-    mode: 1
+    mode: 0
+    preservePaintedWeightDuringGeneration: 0
     autoWeight: 1
     weatherSnowSusceptibility: 1
     permanentSnowSusceptibility: 1
-    slopeCenter: 18
+    slopeCenter: 34
     slopeContrast: 12
     slopeBias: 0
-    slopeInfluence: -0.9
-    altitudeReference: 0
-    heightRange: {x: -4.397546, y: 4.978027}
+    slopeInfluence: -1
+    altitudeReference: 1
+    heightRange: {x: -4, y: 4}
     heightBias: 0
-    heightInfluence: -1
+    heightInfluence: 1
     cavityScale: 12
     cavityInfluence: 0
   - terrainLayer: {fileID: 8574412962073106934, guid: e2af33b475befff4bbe27d8aaa28bc06, type: 2}
-    mode: 1
-    autoWeight: 0.75
+    mode: 0
+    preservePaintedWeightDuringGeneration: 0
+    autoWeight: 1
     weatherSnowSusceptibility: 0.05
     permanentSnowSusceptibility: 1
-    slopeCenter: 28
+    slopeCenter: 34
     slopeContrast: 12
-    slopeBias: 0.15
-    slopeInfluence: 0.55
-    altitudeReference: 0
-    heightRange: {x: 4.978027, y: 40.02655}
+    slopeBias: 0
+    slopeInfluence: 1
+    altitudeReference: 1
+    heightRange: {x: -4, y: 4}
     heightBias: 0
-    heightInfluence: 1
+    heightInfluence: 0.2
     cavityScale: 12
     cavityInfluence: 0
   - terrainLayer: {fileID: 8574412962073106934, guid: 85d660bb8810e6a4fb18fe58151896a6, type: 2}
-    mode: 1
+    mode: 0
+    preservePaintedWeightDuringGeneration: 0
     autoWeight: 1
     weatherSnowSusceptibility: 0.35
     permanentSnowSusceptibility: 1
-    slopeCenter: 18
-    slopeContrast: 10
-    slopeBias: 0.25
-    slopeInfluence: 0.25
+    slopeCenter: 52
+    slopeContrast: 24
+    slopeBias: 0
+    slopeInfluence: 1
     altitudeReference: 0
-    heightRange: {x: 40.02655, y: 60}
+    heightRange: {x: -4, y: 4}
     heightBias: 0
-    heightInfluence: 1
+    heightInfluence: 0
     cavityScale: 18
     cavityInfluence: 0
   - terrainLayer: {fileID: 8574412962073106934, guid: ed3e382dd3266e44280159dfab3b4cc3, type: 2}
     mode: 0
+    preservePaintedWeightDuringGeneration: 1
     autoWeight: 1
     weatherSnowSusceptibility: 0.25
     permanentSnowSusceptibility: 1
@@ -90,17 +95,18 @@ MonoBehaviour:
     cavityScale: 12
     cavityInfluence: 0
   - terrainLayer: {fileID: 8574412962073106934, guid: dae36a1c7e280804d8a4651d620db995, type: 2}
-    mode: 1
+    mode: 0
+    preservePaintedWeightDuringGeneration: 0
     autoWeight: 1
     weatherSnowSusceptibility: 0.15
     permanentSnowSusceptibility: 1
-    slopeCenter: 25
-    slopeContrast: 20
+    slopeCenter: 34
+    slopeContrast: 12
     slopeBias: 0
-    slopeInfluence: -0.5
+    slopeInfluence: -0.9
     altitudeReference: 1
-    heightRange: {x: -2, y: 2}
-    heightBias: -1
+    heightRange: {x: -4, y: 4}
+    heightBias: 0
     heightInfluence: -1
     cavityScale: 12
     cavityInfluence: 0

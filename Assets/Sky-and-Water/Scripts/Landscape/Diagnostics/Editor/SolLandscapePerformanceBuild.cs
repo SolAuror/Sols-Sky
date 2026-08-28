@@ -32,7 +32,7 @@ namespace Sol.Landscape.Diagnostics.Editor
     /// </summary>
     public static class SolLandscapePerformanceBuild
     {
-        private const string ScenePath = "Assets/Scenes/SolsWeather_Demo.unity";
+        private const string ScenePath = "Assets/Scenes/Sols_Water2_Demo.unity";
         private const string HarnessAssetsFolder = "Assets/Sky-and-Water/Scripts/Landscape/Diagnostics/HarnessAssets";
         private const string ResourcesFolder = "Assets/Sky-and-Water/Scripts/Landscape/Diagnostics/Resources";
         private const string ResourceAssetPersistedPath = HarnessAssetsFolder + "/SolLandscapePerformanceAssets.asset";

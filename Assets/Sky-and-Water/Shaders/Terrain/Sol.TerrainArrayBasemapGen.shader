@@ -3,12 +3,14 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
     Properties
     {
         [HideInInspector] _DstBlend("DstBlend", Float) = 0.0
+        [Toggle(_SOL_LANDSCAPE_BLEND_HEIGHT)] _Sol_LandscapeBlendHeight("Height Blend", Float) = 1
     }
 
     SubShader
     {
         HLSLINCLUDE
         #pragma target 4.5
+        #pragma shader_feature_local_fragment _SOL_LANDSCAPE_BLEND_HEIGHT
 
         #include "SolTerrainArrayInput.hlsl"
 
@@ -59,8 +61,12 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
                 controlUV).rg;
 
             // Basemaps deliberately evaluate every layer. A top-K error here would be baked into
-            // all distant terrain, while these six extra NOH reads run only during regeneration.
+            // all distant terrain. The production material's height-blend keyword is mirrored so
+            // the distant basemap cannot silently disagree with the near terrain.
             float paintedWeights[SOL_LANDSCAPE_BASEMAP_LAYER_COUNT];
+            float blendedWeights[SOL_LANDSCAPE_BASEMAP_LAYER_COUNT];
+            float blendedWeightSum = 0.0f;
+#ifdef _SOL_LANDSCAPE_BLEND_HEIGHT
             float splatHeights[SOL_LANDSCAPE_BASEMAP_LAYER_COUNT];
             float maxSplatHeight = -1.0f;
             [unroll]
@@ -81,8 +87,6 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
             }
 
             float transition = max(_Sol_LandscapeHeightTransition, 1e-5f);
-            float blendedWeights[SOL_LANDSCAPE_BASEMAP_LAYER_COUNT];
-            float blendedWeightSum = 0.0f;
             [unroll]
             for (int blendLayerIndex = 0; blendLayerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++blendLayerIndex)
             {
@@ -91,6 +95,16 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
                 blendedWeights[blendLayerIndex] = weightedHeight;
                 blendedWeightSum += weightedHeight;
             }
+#else
+            [unroll]
+            for (int normalizeLayerIndex = 0; normalizeLayerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++normalizeLayerIndex)
+            {
+                float paintedWeight = (float)SolBasemapRawWeight(control0, control1, normalizeLayerIndex);
+                paintedWeights[normalizeLayerIndex] = paintedWeight;
+                blendedWeights[normalizeLayerIndex] = paintedWeight;
+                blendedWeightSum += paintedWeight;
+            }
+#endif
 
             float inverseBlendedWeight = rcp(max(blendedWeightSum, 1e-6f));
 

@@ -3,10 +3,10 @@ Shader "Sol/Terrain/Array Lit"
     Properties
     {
         [HideInInspector] _TerrainHolesTexture("Holes Map", 2D) = "white" {}
-        [HideInInspector] _Sol_LandscapeWeightDebugLayer("Weight Debug Layer", Float) = -1
-        [Toggle(_SOL_LANDSCAPE_DEBUG)] _Sol_LandscapeDebug("Landscape Debug", Float) = 0
-        [Enum(Off,0,LayerWeight,1,ManualAutoSplit,2)] _Sol_LandscapeDebugMode("Debug Mode", Float) = 0
-        [Toggle(_SOL_LANDSCAPE_BLEND_HEIGHT)] _Sol_LandscapeBlendHeight("Height Blend", Float) = 1
+        [Enum(Dirt,0,Grass,1,Stone2,2,Stone1,3,Path,4,Sand,5)] _Sol_LandscapeWeightDebugLayer("Diagnostic Layer", Float) = 0
+        [Toggle(_SOL_LANDSCAPE_DEBUG)] _Sol_LandscapeDebug("Enable Diagnostics", Float) = 0
+        [Enum(Off,0,LayerWeight,1,ManualAutoSplit,2,ResolvedStone,3,ResolvedPath,4,SnowCoverage,5,DiscardedTopK,6)] _Sol_LandscapeDebugMode("Diagnostic View", Float) = 0
+        [Toggle(_SOL_LANDSCAPE_BLEND_HEIGHT)] _Sol_LandscapeBlendHeight("Height Blend (Production)", Float) = 1
     }
 
     HLSLINCLUDE

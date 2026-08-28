@@ -23,7 +23,7 @@ namespace Sol.Landscape.Diagnostics.Editor
     /// </summary>
     public static class SolLandscape5F1VisualCapture
     {
-        private const string ScenePath = "Assets/Scenes/SolsWeather_Demo.unity";
+        private const string ScenePath = "Assets/Scenes/Sols_Water2_Demo.unity";
         private const string ArrayMaterialPath = "Assets/Sky-and-Water/Landscape/M_SolLandscape.mat";
         private const string DebugKeyword = "_SOL_LANDSCAPE_DEBUG";
         private const int Width = 1280;

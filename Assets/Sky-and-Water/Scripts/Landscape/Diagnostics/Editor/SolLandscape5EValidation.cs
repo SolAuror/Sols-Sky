@@ -21,7 +21,7 @@ namespace Sol.Landscape.Diagnostics.Editor
     /// </summary>
     public static class SolLandscape5EValidation
     {
-        private const string ScenePath = "Assets/Scenes/SolsWeather_Demo.unity";
+        private const string ScenePath = "Assets/Scenes/Sols_Water2_Demo.unity";
         private const string ArrayMaterialPath = "Assets/Sky-and-Water/Landscape/M_SolLandscape.mat";
         private const string FlatShaderPath = "Assets/Sky-and-Water/Scripts/Landscape/Diagnostics/Editor/SolLandscape5EFlatSlice.shader";
         private const int Width = 1024;

@@ -19,7 +19,7 @@ namespace Sol.Landscape.Diagnostics.Editor
     /// </summary>
     public static class SolLandscape5GMemory
     {
-        private const string ScenePath = "Assets/Scenes/SolsWeather_Demo.unity";
+        private const string ScenePath = "Assets/Scenes/Sols_Water2_Demo.unity";
 
         public static void MeasureFromCommandLine()
         {

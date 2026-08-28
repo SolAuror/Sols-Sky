@@ -33,7 +33,7 @@ Material:
     - _Sol_LandscapeBlendHeight: 1
     - _Sol_LandscapeDebug: 0
     - _Sol_LandscapeDebugMode: 0
-    - _Sol_LandscapeWeightDebugLayer: -1
+    - _Sol_LandscapeWeightDebugLayer: 0
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

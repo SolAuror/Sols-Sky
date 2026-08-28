@@ -19,7 +19,7 @@ namespace Sol.Landscape.Diagnostics.Editor
     /// </summary>
     public static class SolLandscape5BVisualCapture
     {
-        private const string ScenePath = "Assets/Scenes/SolsWeather_Demo.unity";
+        private const string ScenePath = "Assets/Scenes/Sols_Water2_Demo.unity";
         private const string ArrayMaterialPath = "Assets/Sky-and-Water/Landscape/M_SolLandscape.mat";
         private const int CaptureSize = 768;
         private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;

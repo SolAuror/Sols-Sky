@@ -14,7 +14,7 @@ namespace Sol.Landscape.Editor
 {
     internal static class SolLandscapePhase0SpikeSetup
     {
-        private const string TargetScenePath = "Assets/Scenes/SolsWeather_Demo.unity";
+        private const string TargetScenePath = "Assets/Scenes/Sols_Water2_Demo.unity";
         private const string TargetTerrainPath = "Assets/Scenes/SolsWeather_Demo/DemoTerrain.asset";
         private const string OriginalMaterialPath = "Assets/Sky-and-Water/Shaders/Terrain/M_TerrainWetness.mat";
         private const string ShaderPath = "Assets/Sky-and-Water/Shaders/Terrain/Phase0/Sol.LandscapePhase0Spike.shader";

@@ -27,6 +27,9 @@ namespace Sol.Landscape
         [Tooltip("Manual preserves painted weight. Auto redistributes only the budget painted into Auto-tagged layers.")]
         public SolLandscapeLayerMode mode = SolLandscapeLayerMode.Manual;
 
+        [Tooltip("Preserve this painted channel bit-for-bit when the editor alphamap generator rebuilds the other layers. Intended for hand-authored layers such as Path.")]
+        public bool preservePaintedWeightDuringGeneration;
+
         [Tooltip("Base multiplier for the evaluated Phase 4B procedural claim.")]
         [Range(0f, 1f)] public float autoWeight = 1f;
 

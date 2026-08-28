@@ -21,7 +21,7 @@ namespace Sol.Landscape.Diagnostics.Editor
     /// </summary>
     public static class SolLandscape5CValidation
     {
-        private const string ScenePath = "Assets/Scenes/SolsWeather_Demo.unity";
+        private const string ScenePath = "Assets/Scenes/Sols_Water2_Demo.unity";
         private const string ArrayMaterialPath = "Assets/Sky-and-Water/Landscape/M_SolLandscape.mat";
         private const string RetainedTopKKeyword = "_SOL_LANDSCAPE_TOPK_RETAINED";
         private const string DebugKeyword = "_SOL_LANDSCAPE_DEBUG";

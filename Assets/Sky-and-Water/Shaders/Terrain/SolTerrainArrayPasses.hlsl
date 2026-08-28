@@ -453,8 +453,10 @@ void SolAccumulateLandscapeLayer(
     occlusion += noh.b * weight;
     normalTS += SolDecodeLandscapeNormalTS(noh, _Sol_LandscapeNormalScale[layerIndex]) * weight;
 
+#ifdef _SOL_LANDSCAPE_DEBUG
     if (abs(_Sol_LandscapeWeightDebugLayer - (float)layerIndex) < 0.25f)
         postBlendDebugWeight = weight;
+#endif
 }
 
 SolLandscapeSurface SolEvaluateLandscapeSurface(
@@ -476,8 +478,12 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
         positionWS,
         geometricNormalWS,
         manualAutoDebugWeights);
-    float resolvedAutoDebugWeight = resolvedWeights[2] + resolvedWeights[3];
-    float resolvedPathDebugWeight = resolvedWeights[4];
+    float resolvedAutoDebugWeight = 0.0f;
+    float resolvedPathDebugWeight = 0.0f;
+#ifdef _SOL_LANDSCAPE_DEBUG
+    resolvedAutoDebugWeight = resolvedWeights[2] + resolvedWeights[3];
+    resolvedPathDebugWeight = resolvedWeights[4];
+#endif
 
     half3 albedo = 0.0h;
     half smoothness = 0.0h;

@@ -132,6 +132,25 @@ namespace Sol.Landscape
             LastRefusalReason = null;
         }
 
+        /// <summary>
+        /// Validates the currently assigned terrain/config contract without publishing shader globals,
+        /// invalidating cached state, or dirtying the TerrainData basemap.
+        /// </summary>
+        public bool TryValidateContract(out string refusalReason)
+        {
+            Terrain target = landscapeTerrain != null ? landscapeTerrain : Terrain.activeTerrain;
+            return TryBuildContract(
+                target,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _,
+                out _,
+                out refusalReason);
+        }
+
         private void Publish()
         {
             LastPublishWriteCount = 0;

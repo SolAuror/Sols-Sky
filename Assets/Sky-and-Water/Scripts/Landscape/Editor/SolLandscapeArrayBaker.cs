@@ -1753,6 +1753,9 @@ namespace Sol.Landscape.Editor
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
+            EditorGUILayout.HelpBox(
+                "Production uses baked Manual alphamaps. Sculpting refreshes unpainted procedural texels in the editor; texture-painted texels and Path are protected.",
+                MessageType.Info);
             DrawDefaultInspector();
             serializedObject.ApplyModifiedProperties();
 
@@ -1771,6 +1774,43 @@ namespace Sol.Landscape.Editor
                     SolLandscapeArrayBaker.BakeTarget(config);
                 }
             }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Landscape authoring", EditorStyles.boldLabel);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                Sol.Water.SolWaterBody ocean = FindOcean();
+                EditorGUILayout.LabelField("Production scene", "Sols_Water2_Demo");
+                EditorGUILayout.LabelField("Resolved Water2 level", ocean != null ? ocean.SurfaceLevel.ToString("0.###") + " m" : "No active ocean");
+                bool liveUpdates = SolLandscapeLiveAlphamapUpdater.LiveUpdatesAreEnabled;
+                bool requestedLiveUpdates = EditorGUILayout.Toggle("Live sculpt texture refresh", liveUpdates);
+                if (requestedLiveUpdates != liveUpdates)
+                    SolLandscapeLiveAlphamapUpdater.LiveUpdatesAreEnabled = requestedLiveUpdates;
+
+                using (new EditorGUI.DisabledScope(EditorApplication.isCompiling || EditorApplication.isUpdating))
+                {
+                    if (GUILayout.Button("Regenerate Procedural Areas (Keep Painted Textures)"))
+                        EditorApplication.ExecuteMenuItem("Tools/Sol Landscape/Regenerate Procedural Areas (Keep Painted Textures)");
+                    if (GUILayout.Button("Protect / Re-detect Current Texture Work"))
+                        EditorApplication.ExecuteMenuItem("Tools/Sol Landscape/Protect Current Texture Work");
+                    if (GUILayout.Button("Validate Water2 Production Wiring"))
+                        EditorApplication.ExecuteMenuItem("Tools/Sol Landscape/Validate Water2 Production Wiring");
+                }
+            }
+
+            EditorGUILayout.HelpBox(
+                "Destructive full regeneration is intentionally available only under Tools/Sol Landscape/Advanced. Height-sensitive sediment ranges are relative to the resolved Water2 level.",
+                MessageType.Warning);
+        }
+
+        private static Sol.Water.SolWaterBody FindOcean()
+        {
+            foreach (Sol.Water.SolWaterBody body in UnityEngine.Object.FindObjectsByType<Sol.Water.SolWaterBody>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (body != null && body.isActiveAndEnabled && body.IsInfinite)
+                    return body;
+            }
+            return null;
         }
     }
 }

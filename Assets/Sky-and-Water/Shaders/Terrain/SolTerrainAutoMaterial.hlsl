@@ -75,35 +75,42 @@ void SolResolveLandscapeAutoMaterial(
 {
     float manualWeight = 0.0f;
     float paintedAutoWeight = 0.0f;
-    float proceduralWeight = 0.0f;
     float anyAutoLayer = 0.0f;
-    float proceduralWeights[SOL_LANDSCAPE_LAYER_COUNT];
-    float slopeDegrees = degrees(acos(saturate(geometricNormalWS.y)));
-    float signedCavity = SolEvaluateLandscapeCavity(positionWS, geometricNormalWS);
 
     [unroll]
     for (int sumIndex = 0; sumIndex < SOL_LANDSCAPE_LAYER_COUNT; ++sumIndex)
     {
         float autoLayer = step(0.5f, _Sol_LandscapeLayerModes[sumIndex]);
         float paintedWeight = weights[sumIndex];
-        float authoredProceduralWeight = SolEvaluateLandscapeProceduralWeight(
-            sumIndex,
-            slopeDegrees,
-            positionWS.y,
-            signedCavity);
-        proceduralWeights[sumIndex] = authoredProceduralWeight;
         manualWeight += paintedWeight * (1.0f - autoLayer);
         paintedAutoWeight += paintedWeight * autoLayer;
-        proceduralWeight += authoredProceduralWeight * autoLayer;
         anyAutoLayer = max(anyAutoLayer, autoLayer);
     }
 
-    // The all-Manual shipping configuration is an exact no-op. Keeping this as
-    // an explicit early return also prevents harmless normalization drift.
+    // The all-Manual shipping configuration is an exact no-op. This return must
+    // precede cavity derivatives and procedural evaluation: the baked alphamap is
+    // authoritative, while the retained Auto path remains a config-only switch.
     if (anyAutoLayer < 0.5f)
     {
         manualAutoWeights = float2(saturate(manualWeight), 0.0f);
         return;
+    }
+
+    float proceduralWeight = 0.0f;
+    float proceduralWeights[SOL_LANDSCAPE_LAYER_COUNT];
+    float slopeDegrees = degrees(acos(saturate(geometricNormalWS.y)));
+    float signedCavity = SolEvaluateLandscapeCavity(positionWS, geometricNormalWS);
+    [unroll]
+    for (int evaluateIndex = 0; evaluateIndex < SOL_LANDSCAPE_LAYER_COUNT; ++evaluateIndex)
+    {
+        float authoredProceduralWeight = SolEvaluateLandscapeProceduralWeight(
+            evaluateIndex,
+            slopeDegrees,
+            positionWS.y,
+            signedCavity);
+        proceduralWeights[evaluateIndex] = authoredProceduralWeight;
+        float autoLayer = step(0.5f, _Sol_LandscapeLayerModes[evaluateIndex]);
+        proceduralWeight += authoredProceduralWeight * autoLayer;
     }
 
     // Terrain control weights are normalized, so this budget is exactly the sum

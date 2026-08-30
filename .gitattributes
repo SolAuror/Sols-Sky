@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Generated landscape payloads. These are YAML but their content is one enormous
+# hex pixel blob (67 MB each), so text handling means pointless line-ending
+# normalisation and line-by-line diffs git can never render usefully.
+Assets/Sky-and-Water/Landscape/SolLandscapeCSArray.asset   -text -diff
+Assets/Sky-and-Water/Landscape/SolLandscapeNOHArray.asset  -text -diff

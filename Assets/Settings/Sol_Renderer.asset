@@ -37,7 +37,7 @@ MonoBehaviour:
   volumetricShader: {fileID: 4800000, guid: 028498c9a40a4fce8465cc48ba6799a9, type: 3}
   renderInSceneView: 1
   debugMode: 0
-  debugLog: 1
+  debugLog: 0
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,0 +1,210 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4fbc443c2a96dc40bb589d6a62122b1, type: 3}
+  m_Name: SolLandscapeConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeConfig
+  terrainData: {fileID: 15600000, guid: f84f6a7ab8a3ff74e812806a2c749d38, type: 2}
+  layers:
+  - terrainLayer: {fileID: 8574412962073106934, guid: 8033c16da03aa20499177be34180b3f5, type: 2}
+    stochasticTiling: 1
+    triplanarProjection: 1
+    mode: 1
+    autoWeight: 0.9
+    weatherSnowSusceptibility: 1
+    permanentSnowSusceptibility: 1
+    slopeCenter: 26
+    slopeContrast: 16
+    slopeCeiling: 42
+    slopeCeilingFeather: 14
+    slopeBias: 0
+    slopeInfluence: 1
+    altitudeReference: 1
+    heightRange: {x: -4, y: 4}
+    heightBias: 0
+    heightInfluence: 1
+    cavityScale: 12
+    cavityInfluence: 0.4
+  - terrainLayer: {fileID: 8574412962073106934, guid: febad0385aafec84b8e67fb2bea5f899, type: 2}
+    stochasticTiling: 0
+    triplanarProjection: 1
+    mode: 1
+    autoWeight: 1
+    weatherSnowSusceptibility: 1
+    permanentSnowSusceptibility: 1
+    slopeCenter: 34
+    slopeContrast: 12
+    slopeCeiling: 90
+    slopeCeilingFeather: 10
+    slopeBias: 0
+    slopeInfluence: -1
+    altitudeReference: 1
+    heightRange: {x: -4, y: 4}
+    heightBias: 0
+    heightInfluence: 1
+    cavityScale: 12
+    cavityInfluence: 0
+  - terrainLayer: {fileID: 8574412962073106934, guid: e2af33b475befff4bbe27d8aaa28bc06, type: 2}
+    stochasticTiling: 1
+    triplanarProjection: 1
+    mode: 1
+    autoWeight: 1
+    weatherSnowSusceptibility: 0.05
+    permanentSnowSusceptibility: 1
+    slopeCenter: 34
+    slopeContrast: 12
+    slopeCeiling: 90
+    slopeCeilingFeather: 10
+    slopeBias: 0
+    slopeInfluence: 1
+    altitudeReference: 1
+    heightRange: {x: -4, y: 4}
+    heightBias: 0
+    heightInfluence: 0.2
+    cavityScale: 12
+    cavityInfluence: 0
+  - terrainLayer: {fileID: 8574412962073106934, guid: 85d660bb8810e6a4fb18fe58151896a6, type: 2}
+    stochasticTiling: 1
+    triplanarProjection: 1
+    mode: 1
+    autoWeight: 1
+    weatherSnowSusceptibility: 0.35
+    permanentSnowSusceptibility: 1
+    slopeCenter: 52
+    slopeContrast: 24
+    slopeCeiling: 90
+    slopeCeilingFeather: 10
+    slopeBias: 0
+    slopeInfluence: 1
+    altitudeReference: 0
+    heightRange: {x: -4, y: 4}
+    heightBias: 0
+    heightInfluence: 0
+    cavityScale: 18
+    cavityInfluence: -0.35
+  - terrainLayer: {fileID: 8574412962073106934, guid: ed3e382dd3266e44280159dfab3b4cc3, type: 2}
+    stochasticTiling: 0
+    triplanarProjection: 0
+    mode: 0
+    autoWeight: 1
+    weatherSnowSusceptibility: 0.25
+    permanentSnowSusceptibility: 1
+    slopeCenter: 35
+    slopeContrast: 8
+    slopeCeiling: 90
+    slopeCeilingFeather: 10
+    slopeBias: 0
+    slopeInfluence: 1
+    altitudeReference: 0
+    heightRange: {x: 0, y: 1000}
+    heightBias: 0
+    heightInfluence: 0
+    cavityScale: 12
+    cavityInfluence: 0
+  - terrainLayer: {fileID: 8574412962073106934, guid: dae36a1c7e280804d8a4651d620db995, type: 2}
+    stochasticTiling: 0
+    triplanarProjection: 0
+    mode: 1
+    autoWeight: 1
+    weatherSnowSusceptibility: 0.15
+    permanentSnowSusceptibility: 1
+    slopeCenter: 34
+    slopeContrast: 12
+    slopeCeiling: 90
+    slopeCeilingFeather: 10
+    slopeBias: 0
+    slopeInfluence: -0.9
+    altitudeReference: 1
+    heightRange: {x: -4, y: 4}
+    heightBias: 0
+    heightInfluence: -1
+    cavityScale: 12
+    cavityInfluence: 0
+  csArray: {fileID: 18700000, guid: 9414637b99ca12e45b3342ceddb5cf7e, type: 2}
+  nohArray: {fileID: 18700000, guid: 447cc9843d81a2345beae8cd2496a2cb, type: 2}
+  triplanarSharpness: 6
+  heightTransition: 0.56
+  snowColorTexture: {fileID: 2800000, guid: b175bf4646771e442936fb1a5e41ba88, type: 3}
+  snowNormalTexture: {fileID: 2800000, guid: 92c47a825f225e34a89b65679d7ae364, type: 3}
+  snowPackedTexture: {fileID: 2800000, guid: b6917b5545c1c9845a0ae1c8dbe41aeb, type: 3}
+  permanentSnowAltitudeRange: {x: 60, y: 105}
+  permanentSnowSlopeSheddingRange: {x: 50, y: 60}
+  snowTileSize: 4
+  snowNormalScale: 1
+  bakedUtc: 2026-08-26T02:08:16.4942995Z
+  bakedWidth: 2048
+  bakedHeight: 2048
+  bakedMipCount: 12
+  csStorageBytes: 33554592
+  nohStorageBytes: 33554592
+  lastBakeSummary: '2048x2048, 6 slices, 12 explicit mips, BC7.
+
+    CS is sRGB (RGB
+    colour + A roughness-derived remapped smoothness); NOH is linear (RG importer-oriented
+    normal + B AO + A height).
+
+    Mip-1 BC7 error: CS mean 1.3873, p99 8, max 64;
+    NOH mean 4.6635, p99 25, max 97.
+
+    Storage: 67109184 bytes measured; 67109184
+    bytes exact BC7 estimate.
+
+    Slice 0: TerrainLayer_Dirt
+
+    Slice 1: TerrainLayer_Grass
+
+    Slice
+    2: TerrainLayer_Stone2
+
+    Slice 3: TerrainLayer_Stone1
+
+    Slice 4: TerrainLayer_Path
+
+    Slice
+    5: TerrainLayer_Sand'
+  terrainDataGuid: f84f6a7ab8a3ff74e812806a2c749d38
+  bakeFingerprints:
+  - formatVersion: 2
+    terrainLayerGuid: 8033c16da03aa20499177be34180b3f5
+    diffuseTextureGuid: 99d8fd3a3e5b5a343a1baffcf9a15553
+    normalTextureGuid: 21f70b020d1f9b84b90e3bd4bac6f687
+    maskTextureGuid: 97b4a5092b7298f409401470c4ff49c5
+    dependencyHash: 9412b7db8320be064c82820585d3f920;fba23ffb56b2123da03a55cc1542f60b;d74a3ba1871e43771d6071c27648398b;bcb29763c210b967a8e55a5c43f140c1;
+  - formatVersion: 2
+    terrainLayerGuid: febad0385aafec84b8e67fb2bea5f899
+    diffuseTextureGuid: b686e6ffdfe08f145ac128db17c736cd
+    normalTextureGuid: 52c1982796b60d94c8ad87d5ad0996f9
+    maskTextureGuid: 352e816c1d9db12439d3da5efdf01661
+    dependencyHash: e961a8489e283264cab347c5fd41b09d;a2e0fff81a981c3cfd1c724a36999e8e;7a18c2605139cb2a8741c077fb818e4a;221c1d34051049444794cf77c56b87fe;
+  - formatVersion: 2
+    terrainLayerGuid: e2af33b475befff4bbe27d8aaa28bc06
+    diffuseTextureGuid: 26538b861747e164c971ddd493f388fa
+    normalTextureGuid: bf879aef3d7f5a34b8bef736dd793279
+    maskTextureGuid: 894b58b83fabb2c44b328aab47193cff
+    dependencyHash: 1b591aa662c88e91d3339e01a3bf31c2;9b96cc7dedacfcb98dd1ec052975afdd;9375b6473ae9d2c78d15a1d368258a34;06390f64551984f03a26ea757f164d2a;
+  - formatVersion: 2
+    terrainLayerGuid: 85d660bb8810e6a4fb18fe58151896a6
+    diffuseTextureGuid: f2257262335fb9d4a8d0033a8752fa95
+    normalTextureGuid: f44f108cab5a40c49be80976e195c12a
+    maskTextureGuid: ca4891785ba14a0479d6924d640396d5
+    dependencyHash: f58b83a0874c986d11424b7b7b80833e;4f5f0244f80da9732c7a07d2b9067546;b454a458a2f48308758740fd89bf91da;bf42fb0a145973116334c5d13b54327f;
+  - formatVersion: 2
+    terrainLayerGuid: ed3e382dd3266e44280159dfab3b4cc3
+    diffuseTextureGuid: 10cde3e41ca396344aeb75f5f9923a53
+    normalTextureGuid: 1f7139fc82c5f3c449ac169baa8c49fc
+    maskTextureGuid: dd7c4fdd522a9c24f927839fa4c873e6
+    dependencyHash: c3528bd9c7ceb54c23f1f26f5472a407;36bafe6829176a22be916823ec8c42a2;582483acfb40bb1b49200758a331d920;e27ece88d0fabe966f91466bf07c967d;
+  - formatVersion: 2
+    terrainLayerGuid: dae36a1c7e280804d8a4651d620db995
+    diffuseTextureGuid: 3721383f9a1cc554bb5b74a93034f311
+    normalTextureGuid: b2e60aff63abba042a9649ca84d25303
+    maskTextureGuid: 2876a04217e02d044b3a0b65126dd94b
+    dependencyHash: 296b319111cd154e3661ab8ec3ff99bb;4854ab89eccc7894f93ed7b8abe541b4;7871e856ec7b598d296e1a905efe6315;0da402d943cfff620dece9b69c5786bc;

@@ -17,7 +17,7 @@ RenderSettings:
   m_Fog: 1
   m_FogColor: {r: 0.68403894, g: 0.8601881, b: 0.92926, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.0012315772
+  m_FogDensity: 0.001252679
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.5532698, g: 0.7855212, b: 1.1475681, a: 1.2}
@@ -93,7 +93,7 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 112000000, guid: 833e0027fe60af44d9b0f1429fb26639, type: 2}
+  m_LightingDataAsset: {fileID: 0}
   m_LightingSettings: {fileID: 4890085278179872738, guid: 6bcccadb9f8a34f418d489997e24a9f5, type: 2}
 --- !u!196 &4
 NavMeshSettings:
@@ -1326,13 +1326,13 @@ MonoBehaviour:
     value: ef4db1f7edf24c0cbdcf6b31eb9bf58d
   bodyType: 0
   profile: {fileID: 11400000, guid: 0d96b69ce2c2f2e4ead18e20f6d2aefc, type: 2}
-  horizontalBounds: {fileID: 0}
   authoredSurface: {fileID: 0}
-  interactionZone: {fileID: 0}
+  horizontalBounds: {fileID: 0}
   priority: 0
+  useTransformYAsLevel: 1
   levelOffset: 0
   authoredFlow: {x: 0, y: 0, z: 0}
-  useTransformYAsLevel: 1
+  interactionZone: {fileID: 0}
   enablePlanarReflection: 0
 --- !u!1 &1209748158
 GameObject:
@@ -3561,8 +3561,8 @@ MonoBehaviour:
   solarEclipseLightColor: {r: 0.4, g: 0.2, b: 0.15, a: 1}
   eclipseAmbientColor: {r: 0.08, g: 0.06, b: 0.12, a: 1}
   eclipseFogColor: {r: 0.12, g: 0.1, b: 0.15, a: 1}
-  debugLunarPhase: 0.12665904
-  debugMoonIllumination: 0.1501512
+  debugLunarPhase: 0.56325
+  debugMoonIllumination: 0.9610329
   debugEclipseStrength: 0
   debugIsSolarEclipse: 0
   debugIsLunarEclipse: 0
@@ -3715,10 +3715,10 @@ MonoBehaviour:
   rainWetness: 1
   waterWetness: 1
   waterWetnessRange: 0.75
-  wetnessTerrain: {fileID: 1209748160}
-  sandLayer: {fileID: 8574412962073106934, guid: dae36a1c7e280804d8a4651d620db995, type: 2}
   sandWetDarkening: 0.106
   wetSmoothness: 0.419
+  wetnessTerrain: {fileID: 1209748160}
+  sandLayer: {fileID: 8574412962073106934, guid: dae36a1c7e280804d8a4651d620db995, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

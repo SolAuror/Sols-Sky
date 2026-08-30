@@ -1,0 +1,94 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70b9f93bfa40a074a84e86d9678cae8c, type: 3}
+  m_Name: Ocean Profile
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolWaterProfile
+  shallowScattering: {r: 0.03, g: 0.26, b: 0.32, a: 1}
+  deepScattering: {r: 0.004, g: 0.05, b: 0.09, a: 1}
+  absorption: {x: 0.18, y: 0.0216, z: 0.0036}
+  clarityDistance: 20
+  indexOfRefraction: 1.333
+  refractionStrength: 0.38
+  refractionMaximumDistance: 10
+  refractionDispersion: 0.12
+  refractionMaximumScreenOffset: 0.018
+  scatteringStrength: 0.65
+  smoothness: 0.94
+  sunSpecularStrength: 0.08
+  sunSpecularRoughness: 0.04
+  sunSpecularMaximum: 3
+  rainRoughness: 0.18
+  rainNormalStrength: 0.15
+  cloudShadowStrength: 0.35
+  lightningReflectionStrength: 0.75
+  waveSpeed: 1
+  windResponse: 1
+  spectralStrength: 0.65
+  spectralChoppiness: 0.78
+  spectralFoamThreshold: 0.55
+  spectralFoamGain: 1.35
+  shorelineMask: {fileID: 0}
+  shorelineMaskMapping: {x: 0, y: 0, z: 100, w: 100}
+  shorelineMaskStrength: 1
+  shorelineFoamWidth: 2.75
+  shorelineWetness: 0.2
+  shorelineData: {fileID: 2800000, guid: 7c47da0960c7c6e44b37659d822b3eda, type: 2}
+  shorelineDataMapping: {x: 0, y: 0, z: 1000, w: 1000}
+  shorelineDepthRange: 60
+  shorelineDistanceRange: 30
+  shallowWaveAttenuationDepth: 5
+  shorelineContactFade: 0.75
+  shorelineNormalFlattening: 0.75
+  shorelineBreakerStrength: 0.22
+  shorelineBreakerWidth: 14
+  shorelineBreakerWavelength: 6.5
+  shorelineBreakerSpeed: 1.2
+  shorelineBreakerChoppiness: 0.35
+  shorelineBreakerFoam: 0.667
+  gerstnerWaves:
+  - wavelength: 18
+    amplitude: 0.35
+    steepness: 0.55
+    direction: {x: 0.9079594, y: 0.41905817}
+    phaseOffset: 0
+  - wavelength: 9
+    amplitude: 0.16
+    steepness: 0.55
+    direction: {x: -0.36099413, y: 0.93256813}
+    phaseOffset: 0
+  - wavelength: 4.5
+    amplitude: 0.07
+    steepness: 0.55
+    direction: {x: 0.6222442, y: -0.78282326}
+    phaseOffset: 0
+  - wavelength: 2.2
+    amplitude: 0.025
+    steepness: 0.55
+    direction: {x: -0.82110924, y: -0.5707711}
+    phaseOffset: 0
+  crestFoamStrength: 0.61
+  shorelineFoamStrength: 1.12
+  foamColor: {r: 1, g: 1, b: 1, a: 1}
+  foamTexture: {fileID: 2800000, guid: 5fe3a78d148506f478a2025e49620771, type: 3}
+  foamTextureScale: 0.75
+  foamTextureContrast: 2.6
+  foamBrightness: 1
+  causticStrength: 2.06
+  causticScale: 1
+  causticTexture: {fileID: 2800000, guid: 2b690e464f59f21479cf6ecdd237a191, type: 3}
+  skyReflectionStrength: 1
+  reflectionIntensity: 1
+  horizonReflectionStrength: 1
+  anisotropicReflectionScale: 0.5
+  underwaterHaze: {r: 0.02, g: 0.19, b: 0.24, a: 1}
+  underwaterDensity: 0.1
+  underwaterDistortion: 0.05

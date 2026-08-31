@@ -248,16 +248,31 @@ float SolAtmosphereAmount(float3 cameraWS, float3 positionWS, float3 viewDirecti
 // Pass the cast-shadow term only. Cloud attenuation is already folded in by
 // SolAtmosphereLighting through _SolAtmosphereLightingParams, so passing a cloud
 // factor here as well would count it twice.
-float3 SolApplyAtmosphereShadowed(float3 color, float3 cameraWS, float3 positionWS,
+float4 SolResolveAtmosphereShadowed(float3 cameraWS, float3 positionWS,
     float3 viewDirection, float isSky, float shadowAttenuation)
 {
     if (_SolAtmosphereActive < 0.5)
-        return color;
+        return float4(0.0, 0.0, 0.0, 1.0);
 
     float amount = SolAtmosphereAmount(cameraWS, positionWS, viewDirection, isSky);
     float transmittance = 1.0 - amount;
     float3 inScattering = SolAtmosphereLighting(viewDirection, shadowAttenuation) * amount;
-    return color * transmittance + inScattering;
+    return float4(inScattering, transmittance);
+}
+
+float4 SolResolveAtmosphere(float3 cameraWS, float3 positionWS,
+    float3 viewDirection, float isSky)
+{
+    return SolResolveAtmosphereShadowed(
+        cameraWS, positionWS, viewDirection, isSky, 1.0);
+}
+
+float3 SolApplyAtmosphereShadowed(float3 color, float3 cameraWS, float3 positionWS,
+    float3 viewDirection, float isSky, float shadowAttenuation)
+{
+    float4 atmosphere = SolResolveAtmosphereShadowed(
+        cameraWS, positionWS, viewDirection, isSky, shadowAttenuation);
+    return color * atmosphere.a + atmosphere.rgb;
 }
 
 float3 SolApplyAtmosphere(float3 color, float3 cameraWS, float3 positionWS, float3 viewDirection, float isSky)

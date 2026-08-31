@@ -77,16 +77,19 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
         Material _material;
         bool _debug;
 
+        sealed class AnalyticPassData
+        {
+            internal Material material;
+        }
+
         sealed class RaymarchPassData
         {
-            internal TextureHandle source;
             internal TextureHandle depth;
             internal Material material;
         }
 
         sealed class CompositePassData
         {
-            internal TextureHandle source;
             internal TextureHandle depth;
             internal TextureHandle volumetric;
             internal Material material;
@@ -144,24 +147,26 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             if (quality != SolAtmosphereQuality.Low)
                 RecordVolumetric(renderGraph, activeColor, depth, cameraData, cameraContext, quality);
             else
-                RecordAnalytic(renderGraph, activeColor);
+                RecordAnalytic(renderGraph, activeColor, depth);
 
             SolEnvironmentCameraRegistry.EndCamera(cameraContext);
         }
 
-        void RecordAnalytic(RenderGraph renderGraph, TextureHandle activeColor)
+        void RecordAnalytic(
+            RenderGraph renderGraph,
+            TextureHandle activeColor,
+            TextureHandle depth)
         {
-            TextureDesc copyDesc = renderGraph.GetTextureDesc(activeColor);
-            copyDesc.name = "_SolAtmosphereColorCopy";
-            copyDesc.clearBuffer = false;
-            TextureHandle copiedColor = renderGraph.CreateTexture(copyDesc);
-
-            SolEnvironmentBudget.AddFullResColorCopy();
-            renderGraph.AddBlitPass(activeColor, copiedColor, Vector2.one, Vector2.zero,
-                passName: "Sol Atmosphere Copy Color");
-            RenderGraphUtils.BlitMaterialParameters parameters = new(
-                copiedColor, activeColor, _material, AnalyticPassIndex);
-            renderGraph.AddBlitPass(parameters, passName: "Sol Atmosphere Analytic");
+            using IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<AnalyticPassData>(
+                "Sol Atmosphere Analytic", out AnalyticPassData passData);
+            passData.material = _material;
+            builder.UseTexture(depth, AccessFlags.Read);
+            builder.SetRenderAttachment(activeColor, 0, AccessFlags.ReadWrite);
+            builder.SetRenderFunc(static (AnalyticPassData data, RasterGraphContext context) =>
+            {
+                Blitter.BlitTexture(context.cmd, new Vector4(1f, 1f, 0f, 0f),
+                    data.material, AnalyticPassIndex);
+            });
         }
 
         void RecordVolumetric(
@@ -179,16 +184,14 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<RaymarchPassData>(
                 "Sol Atmosphere Directional Raymarch", out RaymarchPassData passData))
             {
-                passData.source = activeColor;
                 passData.depth = depth;
                 passData.material = _material;
-                builder.UseTexture(activeColor, AccessFlags.Read);
                 builder.UseTexture(depth, AccessFlags.Read);
                 builder.UseAllGlobalTextures(true);
                 builder.SetRenderAttachment(volumetric, 0, AccessFlags.Write);
                 builder.SetRenderFunc(static (RaymarchPassData data, RasterGraphContext context) =>
                 {
-                    Blitter.BlitTexture(context.cmd, data.source, Vector2.one,
+                    Blitter.BlitTexture(context.cmd, new Vector4(1f, 1f, 0f, 0f),
                         data.material, RaymarchPassIndex);
                 });
             }
@@ -258,29 +261,19 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
                 }
             }
 
-            TextureDesc copyDesc = sourceDesc;
-            copyDesc.name = "_SolAtmosphereVolumetricColorCopy";
-            copyDesc.clearBuffer = false;
-            TextureHandle copiedColor = renderGraph.CreateTexture(copyDesc);
-            SolEnvironmentBudget.AddFullResColorCopy();
-            renderGraph.AddBlitPass(activeColor, copiedColor, Vector2.one, Vector2.zero,
-                passName: "Sol Atmosphere Copy Color");
-
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<CompositePassData>(
                 "Sol Atmosphere Bilateral Composite", out CompositePassData passData))
             {
-                passData.source = copiedColor;
                 passData.depth = depth;
                 passData.volumetric = filteredVolumetric;
                 passData.material = _material;
-                builder.UseTexture(copiedColor, AccessFlags.Read);
                 builder.UseTexture(depth, AccessFlags.Read);
                 builder.UseTexture(filteredVolumetric, AccessFlags.Read);
-                builder.SetRenderAttachment(activeColor, 0, AccessFlags.Write);
+                builder.SetRenderAttachment(activeColor, 0, AccessFlags.ReadWrite);
                 builder.SetRenderFunc(static (CompositePassData data, RasterGraphContext context) =>
                 {
                     data.material.SetTexture(VolumetricTextureID, data.volumetric);
-                    Blitter.BlitTexture(context.cmd, data.source, Vector2.one,
+                    Blitter.BlitTexture(context.cmd, new Vector4(1f, 1f, 0f, 0f),
                         data.material, CompositePassIndex);
                 });
             }

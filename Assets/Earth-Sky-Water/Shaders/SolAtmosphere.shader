@@ -51,7 +51,11 @@ Shader "Hidden/Sol/Atmosphere"
             ZWrite Off
             ZTest Always
             Cull Off
-            Blend Off
+            // Source alpha carries transmittance. Camera colour is the destination, so
+            // this evaluates scattering + scene * transmittance without sampling scene
+            // colour through _BlitTexture. Do not change this to a DstAlpha blend factor:
+            // the shipping B10G11R11 camera target has no destination alpha channel.
+            Blend One SrcAlpha
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -60,19 +64,16 @@ Shader "Hidden/Sol/Atmosphere"
             half4 FragAnalytic(Varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
-                half4 source = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
                 float3 viewDirection;
                 float distanceToPoint;
                 float isSky;
                 SolReconstructRay(uv, viewDirection, distanceToPoint, isSky);
                 float3 positionWS = _WorldSpaceCameraPos + viewDirection * distanceToPoint;
-                source.rgb = SolApplyAtmosphere(
-                    source.rgb,
+                return SolResolveAtmosphere(
                     _WorldSpaceCameraPos,
                     positionWS,
                     viewDirection,
                     isSky);
-                return source;
             }
             ENDHLSL
         }
@@ -190,7 +191,10 @@ Shader "Hidden/Sol/Atmosphere"
             ZWrite Off
             ZTest Always
             Cull Off
-            Blend Off
+            // The upsampled value is (scattering, transmittance), matching the analytic
+            // pass above. Blend directly into camera colour to avoid a full-resolution
+            // source copy and the resolve that sampling that copy can force under MSAA.
+            Blend One SrcAlpha
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -222,7 +226,6 @@ Shader "Hidden/Sol/Atmosphere"
             half4 FragComposite(Varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
-                half4 source = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
                 float2 lowSize = max(ceil(_ScaledScreenParams.xy * 0.5), 1.0);
                 float2 lowPixel = uv * lowSize - 0.5;
                 float2 fraction = frac(lowPixel);
@@ -247,8 +250,7 @@ Shader "Hidden/Sol/Atmosphere"
                     volumetric = SAMPLE_TEXTURE2D_X(
                         _SolAtmosphereVolumetricTexture, sampler_PointClamp, uv);
 
-                source.rgb = source.rgb * volumetric.a + volumetric.rgb;
-                return source;
+                return volumetric;
             }
             ENDHLSL
         }

@@ -25,6 +25,41 @@ namespace Sol.Tests.Editor
     public sealed class SolEnvironmentRegressionTests
     {
         const string RendererPath = "Assets/Settings/Sol_Renderer.asset";
+        const string AtmosphereShaderPath = "Assets/Earth-Sky-Water/Shaders/SolAtmosphere.shader";
+
+        /// <summary>
+        /// The renderer feature addresses atmosphere passes by fixed numeric index. Keep
+        /// those private constants pinned to the ShaderLab order so a pass insertion or
+        /// reorder cannot silently run the wrong fullscreen program.
+        /// </summary>
+        [Test]
+        public void AtmosphereShader_PassOrderMatchesRendererConstants()
+        {
+            Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(AtmosphereShaderPath);
+            Assert.IsNotNull(shader, $"Atmosphere shader was not found at {AtmosphereShaderPath}.");
+
+            Material material = new(shader);
+            try
+            {
+                Assert.AreEqual(5, material.passCount,
+                    "Atmosphere shader pass count changed; update the renderer indices deliberately.");
+
+                System.Type passType = typeof(SolAtmosphereRendererFeature)
+                    .GetNestedType("AtmospherePass", BindingFlags.NonPublic);
+                Assert.IsNotNull(passType, "SolAtmosphereRendererFeature.AtmospherePass was not found.");
+
+                AssertPassIndex(material, passType, "Sol Atmosphere Analytic", "AnalyticPassIndex");
+                AssertPassIndex(material, passType, "Sol Atmosphere Directional Raymarch", "RaymarchPassIndex");
+                AssertPassIndex(material, passType, "Sol Atmosphere Bilateral Composite", "CompositePassIndex");
+                AssertPassIndex(material, passType, "Sol Atmosphere Half Resolution Spatial Filter",
+                    "SpatialFilterPassIndex");
+                AssertPassIndex(material, passType, "Sol Atmosphere Temporal Reprojection", "TemporalPassIndex");
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+            }
+        }
 
         /// <summary>
         /// The water feature's per-body underwater logging is a development aid. Shipped
@@ -318,6 +353,19 @@ namespace Sol.Tests.Editor
                 .GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(onValidate, "SolWaterQualityProfile.OnValidate was not found.");
             onValidate.Invoke(profile, null);
+        }
+
+        static void AssertPassIndex(
+            Material material,
+            System.Type passType,
+            string passName,
+            string constantName)
+        {
+            FieldInfo constant = passType.GetField(constantName,
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.IsNotNull(constant, $"{passType.Name}.{constantName} was not found.");
+            Assert.AreEqual(material.FindPass(passName), (int)constant.GetRawConstantValue(),
+                $"Shader pass '{passName}' no longer matches {constantName}.");
         }
 
         /// <summary>

@@ -187,6 +187,15 @@ namespace Sol.Water.Rendering
                 return default;
 
             int slices = Mathf.Min(CausticCascadeCount, cascadeCount);
+            // Deliberately transient, and deliberately still recorded per camera.
+            //
+            // The spectrum that feeds this is hoisted to once per world frame, and hoisting
+            // the caustic array with it looks like the obvious next step. It is not worth
+            // it. Binding an imported texture array as a render attachment one slice at a
+            // time fails native pass validation ("Attachments in renderpass do not match"),
+            // which takes down the whole camera's graph -- and the work being saved is two
+            // grid draws against the spectrum's twenty compute dispatches. The expensive
+            // half is hoisted; this half stays on the path that is known to work.
             TextureDesc desc = new(resolution, resolution)
             {
                 colorFormat = GraphicsFormat.R16_SFloat,

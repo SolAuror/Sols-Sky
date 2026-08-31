@@ -156,6 +156,7 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             copyDesc.clearBuffer = false;
             TextureHandle copiedColor = renderGraph.CreateTexture(copyDesc);
 
+            SolEnvironmentBudget.AddFullResColorCopy();
             renderGraph.AddBlitPass(activeColor, copiedColor, Vector2.one, Vector2.zero,
                 passName: "Sol Atmosphere Copy Color");
             RenderGraphUtils.BlitMaterialParameters parameters = new(
@@ -261,6 +262,7 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             copyDesc.name = "_SolAtmosphereVolumetricColorCopy";
             copyDesc.clearBuffer = false;
             TextureHandle copiedColor = renderGraph.CreateTexture(copyDesc);
+            SolEnvironmentBudget.AddFullResColorCopy();
             renderGraph.AddBlitPass(activeColor, copiedColor, Vector2.one, Vector2.zero,
                 passName: "Sol Atmosphere Copy Color");
 

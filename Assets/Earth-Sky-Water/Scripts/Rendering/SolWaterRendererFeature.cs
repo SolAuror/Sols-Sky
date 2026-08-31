@@ -388,6 +388,7 @@ namespace Sol.Water.Rendering
             _volumetricMaterial = null;
             _fallbackQuality = null;
             SolWaterCausticRenderGraph.Release();
+            SolWaterSpectralTargets.Release();
             SolWaterFftReadback.Release();
             CameraWaterSample.Clear();
             _fallbackProfile = null;
@@ -427,6 +428,20 @@ namespace Sol.Water.Rendering
 
         sealed class OceanPass : ScriptableRenderPass
         {
+            /// <summary>
+            /// What this frame's spectrum produced, settled by the first camera to record
+            /// and read back by every camera after it.
+            ///
+            /// Static rather than per pass instance because the fact it describes is a
+            /// property of the world and the frame, not of a renderer feature. There is one
+            /// OceanPass shared across cameras today, but relying on that would make the
+            /// once-per-frame guarantee an accident of instancing.
+            /// </summary>
+            static SolWorldFrameGate _spectrumGate;
+            static double _spectrumWaveTime = double.NaN;
+            static bool _spectrumValid;
+            static bool _causticValid;
+
             const int PrepassIndex = 0;
             const int ForwardPassIndex = 1;
             const int DepthWritePassIndex = 2;
@@ -578,20 +593,29 @@ namespace Sol.Water.Rendering
                     cameraSubmerged = true;
                     waterSurfaceHeight = cameraSample.Position.y;
                 }
-                // Submersion itself carries no ocean gate: a camera inside a lake is as
-                // underwater as one in the sea, and requiring an ocean here is what left
-                // finite-body volumetrics switching on and off with whether the lake
-                // surface happened to be in frustum. The ocean gate belongs only on the
-                // spectral chain, where it means something -- a Gerstner-only body
-                // consumes no FFT, so running one for it would be wasted work.
-                bool submergedNeedsSpectrum = cameraSubmerged && hasOcean;
+                // The spectrum is a world-level simulation, so it is recorded before any of
+                // this camera's draw decisions are consulted, and exactly once per frame.
+                //
+                // It used to hang off `drawOcean || (cameraSubmerged && hasOcean)`, which
+                // read as a saving but was really two bugs. Per camera, it ran the whole
+                // chain once for the Game view and again for the Scene view. And because
+                // the condition was per camera, turning away from the ocean stopped the
+                // readback that feeds buoyancy -- so floating bodies drifted on an ageing
+                // CPU mirror whenever they were off screen, which is precisely when nobody
+                // would notice until they came back.
+                bool worldWantsSpectrum = hasOcean
+                    && quality.FftResolution > 0 && quality.FftCascadeCount > 0;
+                RecordWorldSpectrum(renderGraph, worldWantsSpectrum, quality, profile, world);
+                RecordCaustics(renderGraph, quality, profile);
+
                 if (!drawOcean && !drawFinite && !cameraSubmerged)
                 {
-                    // Both of these are shader globals, so leaving them untouched here
-                    // would strand last frame's value and let a later pass sample a
-                    // caustic array or volumetric buffer this frame never rendered.
-                    Shader.SetGlobalVector(SolWaterCausticRenderGraph.ArrayParamsId,
-                        SolWaterCausticRenderGraph.ArrayParams(0, false));
+                    // A shader global, so leaving it untouched would strand last frame's
+                    // value and let a later pass sample a volumetric buffer this frame
+                    // never rendered. The caustic params are no longer zeroed here: the
+                    // array is a world-level resource now, and this camera drawing nothing
+                    // says nothing about whether it was rendered.
+                    PublishSpectrumState(quality, profile);
                     Shader.SetGlobalVector(VolumetricParamsId, Vector4.zero);
                     SolEnvironmentCameraRegistry.EndCamera(cameraContext);
                     return;
@@ -607,42 +631,10 @@ namespace Sol.Water.Rendering
                 // The resolve material reads its own _SolWaterSSRResolveParams for the
                 // debug mode, so it takes the defaults.
                 ApplyMaterialState(_resolveMaterial, profile, world);
-                // Finite bodies are Gerstner-only and consume SpectralParams = zero, so
-                // running the whole inverse-FFT chain for a frame that draws no ocean is
-                // roughly eighteen wasted compute dispatches. A submerged camera is the
-                // exception: the underwater composition projects the same live caustics
-                // the surface does, so the chain has to run even with no patch on screen.
-                SolWaterFftRenderGraph.SpectralResources spectral = drawOcean || submergedNeedsSpectrum
-                    ? SolWaterFftRenderGraph.Record(
-                        renderGraph, _fftShader, quality, profile, world, cameraContext)
-                    : default;
-                _oceanMaterial.SetVector(SolWaterShaderIds.SpectralParams,
-                    spectral.IsValid
-                        ? new Vector4(quality.FftCascadeCount, profile.spectralStrength,
-                            quality.FftResolution, 0f)
-                        : Vector4.zero);
-
-                // Caustics rendered from the live FFT displacement. When the tier has no
-                // spectrum, or the profile disables them, the surface falls back to the
-                // authored caustic texture through the same shader path.
-                bool wantsCaustics = quality.caustics && spectral.IsValid
-                    && profile.causticStrength > 0.0001f;
-                TextureHandle causticArray = wantsCaustics
-                    ? SolWaterCausticRenderGraph.Record(renderGraph, _causticMaterial,
-                        spectral.Displacement, quality.FftResolution,
-                        quality.FftCascadeCount, profile.spectralChoppiness)
-                    : default;
-                Vector4 causticArrayParams = SolWaterCausticRenderGraph.ArrayParams(
-                    quality.FftCascadeCount, causticArray.IsValid());
-                // Global rather than per material, so every consumer sees what this frame
-                // actually rendered. The underwater pass used to restate these from the
-                // quality and profile settings alone, which asserted the array was valid
-                // whenever caustics were merely *enabled* — so on a frame where no array
-                // was produced it still took the live-array branch and sampled a target
-                // nothing had drawn into. That reads back as a uniform -1.15 and dimmed
-                // the sea bed flat instead of lighting it.
-                Shader.SetGlobalVector(
-                    SolWaterCausticRenderGraph.ArrayParamsId, causticArrayParams);
+                // Restated after ApplyMaterialState, which rewrites the ocean material's
+                // per-frame block. The values themselves are world-level and were settled
+                // by RecordWorldSpectrum above.
+                PublishSpectrumState(quality, profile);
 
                 // With no surface on screen there is nothing to reflect or refract, but
                 // the volumetric march below still has a water volume to walk when the
@@ -1180,6 +1172,113 @@ namespace Sol.Water.Rendering
                         data.Mesh, 0, data.Material, data.PassIndex,
                         data.Matrices, data.Count, data.Properties);
                 });
+            }
+
+            /// <summary>
+            /// Records the spectrum and the caustic array for this frame, if no camera has
+            /// already done so. Both are world-level and camera-independent; see
+            /// SolWaterFftRenderGraph.Record and SolWaterSpectralTargets.
+            /// </summary>
+            void RecordWorldSpectrum(
+                RenderGraph renderGraph,
+                bool worldWantsSpectrum,
+                SolWaterQualityProfile quality,
+                SolWaterProfile profile,
+                SolWaterWorld world)
+            {
+                // Two conditions, either of which opens the gate.
+                //
+                // The frame counter is the ordinary one. The wave clock is the safety net:
+                // Time.frameCount is a player-loop quantity, and betting the Scene view's
+                // ocean on it advancing outside play mode is a bet whose failure mode is a
+                // permanently frozen sea that only shows up in the editor. The clock check
+                // removes that bet -- and it is the more honest test anyway, because the
+                // spectrum is a pure function of wave time, wind, weather and tuning. If
+                // the clock has not moved, re-recording would reproduce the existing
+                // targets exactly, so skipping is correct rather than merely cheap.
+                double waveTime = world.WaveTime;
+                bool newFrame = _spectrumGate.TryBeginFrame(Time.frameCount);
+                bool clockAdvanced = _spectrumWaveTime != waveTime;
+                if (!newFrame && !clockAdvanced)
+                    return;
+                _spectrumWaveTime = waveTime;
+
+                SolWaterFftRenderGraph.SpectralResources spectral = worldWantsSpectrum
+                    ? SolWaterFftRenderGraph.Record(renderGraph, _fftShader, quality, profile, world)
+                    : default;
+                _spectrumValid = spectral.IsValid;
+
+                if (!_spectrumValid)
+                {
+                    // Nothing produced a spectrum this frame, so CPU queries must fall back
+                    // to Gerstner with the renderer rather than answer from a stale mirror.
+                    // This is the one place that can say so honestly: it sees the world's
+                    // decision, not one camera's view of it.
+                    SolWaterFftReadback.Invalidate();
+                }
+            }
+
+            /// <summary>
+            /// Records the caustic array for this camera, from the world's spectrum.
+            ///
+            /// Still per camera, unlike the spectrum that feeds it. See the comment in
+            /// SolWaterCausticRenderGraph.Record: the destination is a texture array bound
+            /// one slice at a time, and an imported array cannot be bound that way without
+            /// failing native pass validation. Two grid draws per extra camera is a fair
+            /// price for staying on a path that works; the twenty compute dispatches this
+            /// reads from are the part that needed hoisting.
+            /// </summary>
+            void RecordCaustics(
+                RenderGraph renderGraph, SolWaterQualityProfile quality, SolWaterProfile profile)
+            {
+                _causticValid = false;
+                if (!_spectrumValid || !quality.caustics || profile.causticStrength <= 0.0001f)
+                    return;
+
+                RTHandle displacementTarget = SolWaterSpectralTargets.Displacement;
+                if (displacementTarget == null)
+                    return;
+
+                TextureHandle displacement = renderGraph.ImportTexture(
+                    displacementTarget, SolWaterSpectralTargets.Describe(displacementTarget));
+                _causticValid = SolWaterCausticRenderGraph.Record(renderGraph, _causticMaterial,
+                    displacement, quality.FftResolution,
+                    quality.FftCascadeCount, profile.spectralChoppiness).IsValid();
+            }
+
+            /// <summary>
+            /// Restates this frame's world-level spectrum state onto the shared ocean
+            /// material and the caustic global.
+            ///
+            /// Every camera calls this. The values are identical for all of them, which is
+            /// the point: the ocean material is shared across cameras, so when these writes
+            /// depended on per-camera conditions the last camera in the frame silently
+            /// decided what every camera had rendered with.
+            /// </summary>
+            void PublishSpectrumState(SolWaterQualityProfile quality, SolWaterProfile profile)
+            {
+                // Rebind per camera. The spectral arrays are recorded by one camera but
+                // sampled by all of them, and a graph-scoped global does not survive into
+                // the next camera's graph.
+                if (_spectrumValid)
+                    SolWaterFftRenderGraph.PublishGlobalTextures();
+
+                _oceanMaterial.SetVector(SolWaterShaderIds.SpectralParams,
+                    _spectrumValid
+                        ? new Vector4(quality.FftCascadeCount, profile.spectralStrength,
+                            quality.FftResolution, 0f)
+                        : Vector4.zero);
+
+                // Global rather than per material, so every consumer sees what this frame
+                // actually rendered. The underwater pass used to restate these from the
+                // quality and profile settings alone, which asserted the array was valid
+                // whenever caustics were merely *enabled* — so on a frame where no array
+                // was produced it still took the live-array branch and sampled a target
+                // nothing had drawn into. That reads back as a uniform -1.15 and dimmed
+                // the sea bed flat instead of lighting it.
+                Shader.SetGlobalVector(
+                    SolWaterCausticRenderGraph.ArrayParamsId,
+                    SolWaterCausticRenderGraph.ArrayParams(quality.FftCascadeCount, _causticValid));
             }
         }
 

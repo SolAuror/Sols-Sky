@@ -66,25 +66,62 @@ namespace Sol.Water.Rendering
             internal bool Finalize;
         }
 
+        /// <summary>
+        /// Binds the spectral arrays as shader globals for the camera about to render.
+        ///
+        /// Must be called by *every* camera, not just the one that records the chain.
+        /// SetGlobalTextureAfterPass only establishes a global for the remainder of the
+        /// graph that declares it, so once the spectrum is recorded once per frame the
+        /// cameras that skipped it have nothing bound and sample whatever was left over --
+        /// which draws as a flat, wave-less sea in whichever view lost the race, alternating
+        /// with a correct one in the view that won it.
+        ///
+        /// Safe to bind before the compute has executed: these are persistent targets, so
+        /// the binding refers to the same texture the chain is about to write, and the
+        /// ocean draw that samples it is ordered after that write inside the recording
+        /// camera's own graph.
+        /// </summary>
+        internal static void PublishGlobalTextures()
+        {
+            RTHandle displacement = SolWaterSpectralTargets.Displacement;
+            RTHandle normalFoam = SolWaterSpectralTargets.NormalFoam;
+            if (displacement == null || normalFoam == null)
+                return;
+            Shader.SetGlobalTexture(SpectralDisplacementId, displacement);
+            Shader.SetGlobalTexture(SpectralNormalFoamId, normalFoam);
+        }
+
+        /// <summary>
+        /// Records one world frame's spectrum.
+        ///
+        /// Deliberately takes no camera: every input here is a world-level fact (wind,
+        /// weather, spectrum tuning, the wave clock) and the outputs are published as shader
+        /// globals that every camera samples. It used to accept a camera context purely to
+        /// reach a temporal history that is itself FFT-domain rather than screen-space, and
+        /// keeping that parameter is what made "once per camera" look deliberate. The caller
+        /// is responsible for invoking this exactly once per frame.
+        ///
+        /// Note that SolWaterFftReadback.Invalidate is no longer called from the early-out
+        /// here. When this ran per camera, a single camera taking the early-out wiped the
+        /// world-global CPU mirror that buoyancy reads, even if another camera in the same
+        /// frame had just run the full chain. That decision now belongs to SolWaterWorld,
+        /// which can see the whole frame.
+        /// </summary>
         internal static SpectralResources Record(
             RenderGraph renderGraph,
             ComputeShader shader,
             SolWaterQualityProfile quality,
             SolWaterProfile profile,
-            SolWaterWorld world,
-            SolEnvironmentCameraRegistry.Context cameraContext = null)
+            SolWaterWorld world)
         {
             if (shader == null || quality == null || profile == null || world == null
                 || quality.FftResolution <= 0 || quality.FftCascadeCount <= 0)
-            {
-                // No spectrum this frame, so CPU queries must fall back to Gerstner along
-                // with the renderer instead of answering from a stale mirror.
-                SolWaterFftReadback.Invalidate();
                 return default;
-            }
 
             int resolution = quality.FftResolution;
             int cascades = quality.FftCascadeCount;
+            if (!SolWaterSpectralTargets.Ensure(resolution, cascades))
+                return default;
             int stages = Mathf.RoundToInt(Mathf.Log(resolution, 2f));
             TextureDesc complexDesc = new(resolution, resolution)
             {
@@ -146,34 +183,26 @@ namespace Sol.Water.Rendering
                 (sourceB, destinationB) = (destinationB, sourceB);
             }
 
-            TextureDesc outputDesc = new(resolution, resolution)
-            {
-                colorFormat = GraphicsFormat.R16G16B16A16_SFloat,
-                slices = cascades,
-                dimension = TextureDimension.Tex2DArray,
-                enableRandomWrite = true,
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Repeat,
-                clearBuffer = false,
-            };
-            outputDesc.name = "_SolWaterSpectralDisplacement";
-            TextureHandle displacement = renderGraph.CreateTexture(outputDesc);
-            outputDesc.name = "_SolWaterSpectralNormalFoam";
-            TextureHandle normalFoam = renderGraph.CreateTexture(outputDesc);
-            TextureHandle previousHistory = default;
-            float historyBlend = 0f;
-            if (cameraContext != null && SolEnvironmentCameraRegistry.EnsureWaterNormalFoamHistory(
-                cameraContext, resolution, cascades))
-            {
-                previousHistory = renderGraph.ImportTexture(cameraContext.WaterNormalFoamHistory);
-                historyBlend = cameraContext.CameraCut ? 0f : 0.85f;
-            }
+            // Imported rather than created: these outlive this graph and are sampled by
+            // every other camera in the frame. See SolWaterSpectralTargets for why a
+            // transient texture cannot serve that role, and why each import carries an
+            // explicit RenderTargetInfo rather than letting RenderGraph infer one.
+            // Flip before importing: NormalFoam becomes this frame's write target and
+            // NormalFoamHistory becomes last frame's result.
+            SolWaterSpectralTargets.Swap();
+            RTHandle displacementTarget = SolWaterSpectralTargets.Displacement;
+            RTHandle normalFoamTarget = SolWaterSpectralTargets.NormalFoam;
+            RTHandle historyTarget = SolWaterSpectralTargets.NormalFoamHistory;
+            TextureHandle displacement = renderGraph.ImportTexture(
+                displacementTarget, SolWaterSpectralTargets.Describe(displacementTarget));
+            TextureHandle normalFoam = renderGraph.ImportTexture(
+                normalFoamTarget, SolWaterSpectralTargets.Describe(normalFoamTarget));
+            TextureHandle previousHistory = renderGraph.ImportTexture(
+                historyTarget, SolWaterSpectralTargets.Describe(historyTarget));
+            float historyBlend = SolWaterSpectralTargets.ConsumeCut() ? 0f : 0.85f;
             RecordPass(renderGraph, "Sol Water FFT Surface Reconstruction", shader, "Finalize",
                 sourceA, sourceB, displacement, normalFoam, previousHistory,
                 resolution, cascades, 0, 0, 0f, wind, weather, spectrum, historyBlend, true);
-            if (previousHistory.IsValid())
-                renderGraph.AddBlitPass(normalFoam, previousHistory, Vector2.one, Vector2.zero,
-                    passName: "Sol Water Store Normal Foam History");
             RecordReadbackDownsample(renderGraph, shader, displacement, resolution, cascades,
                 world.WaveTime);
             return new SpectralResources(displacement, normalFoam);
@@ -209,6 +238,10 @@ namespace Sol.Water.Rendering
                 return;
             SolWaterFftReadback.RequestReadback();
 
+            // Counted here as well as in RecordPass: this pass dispatches too, and leaving
+            // it out made the spectrum look one dispatch cheaper than it is.
+            SolEnvironmentBudget.AddFftDispatches(1);
+
             using IComputeRenderGraphBuilder builder = renderGraph.AddComputePass<ReadbackPassData>(
                 "Sol Water FFT Readback Downsample", out ReadbackPassData passData);
             passData.Shader = shader;
@@ -219,6 +252,9 @@ namespace Sol.Water.Rendering
             passData.Cascades = cascades;
             builder.UseTexture(passData.Source, AccessFlags.Read);
             builder.UseTexture(passData.Destination, AccessFlags.Write);
+            // The CPU mirror feeds buoyancy, which has no camera and must keep updating on
+            // frames where nothing on screen consumes the readback target.
+            builder.AllowPassCulling(false);
             builder.SetRenderFunc(static (ReadbackPassData data, ComputeGraphContext context) =>
             {
                 ComputeCommandBuffer command = context.cmd;
@@ -245,6 +281,10 @@ namespace Sol.Water.Rendering
             float waveTime, Vector4 wind, Vector4 weather, Vector4 spectrum,
             float historyBlend, bool finalize)
         {
+            // One RecordPass is exactly one DispatchCompute (see the render func below), so
+            // this is the honest unit for the spectrum's cost.
+            SolEnvironmentBudget.AddFftDispatches(1);
+
             using IComputeRenderGraphBuilder builder = renderGraph.AddComputePass<PassData>(
                 passName, out PassData passData);
             passData.Shader = shader;
@@ -276,6 +316,12 @@ namespace Sol.Water.Rendering
             {
                 builder.SetGlobalTextureAfterPass(destinationA, SpectralDisplacementId);
                 builder.SetGlobalTextureAfterPass(destinationB, SpectralNormalFoamId);
+                // The camera that owns the frame's spectrum is not necessarily one that
+                // draws ocean -- a submerged camera looking straight down selects no
+                // clipmap leaves. Without this, RenderGraph is free to cull the chain on
+                // exactly that camera and leave every other camera in the frame sampling a
+                // spectrum nothing produced.
+                builder.AllowPassCulling(false);
             }
             builder.SetRenderFunc(static (PassData data, ComputeGraphContext context) =>
             {

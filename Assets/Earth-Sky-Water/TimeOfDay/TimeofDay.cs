@@ -1230,6 +1230,7 @@ public class TimeOfDay : MonoBehaviour
 
     void UpdateEnvironment()
     {
+        Sol.Environment.SolEnvironmentBudget.AddEnvironmentUpdate();
         float eclipseEnv = solarEclipseFactor;
         float weatherDim = Mathf.Clamp01(WeatherDim);
         float cloudiness = Mathf.Clamp01(WeatherCloudiness);

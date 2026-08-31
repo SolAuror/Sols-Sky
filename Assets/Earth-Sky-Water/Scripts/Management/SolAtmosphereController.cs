@@ -184,6 +184,7 @@ public sealed class SolAtmosphereController : MonoBehaviour
 
     void PushGlobals()
     {
+        Sol.Environment.SolEnvironmentBudget.AddAtmosphereGlobalPush();
         SolWeatherState weather = weatherManager != null ? weatherManager.CurrentState : default;
         CurrentFogColor = RenderSettings.fogColor;
         CurrentDensity = Mathf.Max(0f, RenderSettings.fogDensity)

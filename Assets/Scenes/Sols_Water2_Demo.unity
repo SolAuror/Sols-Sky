@@ -3274,6 +3274,7 @@ GameObject:
   - component: {fileID: 8723318279177309096}
   - component: {fileID: 8723318279177309095}
   - component: {fileID: 8723318279177309097}
+  - component: {fileID: 8723318279177309098}
   m_Layer: 0
   m_Name: Sols System Manager 2
   m_TagString: Untagged
@@ -3312,7 +3313,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SolRainVfxController
   weatherManager: {fileID: 5836892427009264645}
   timeOfDay: {fileID: 7289805970471111700}
-  underwaterController: {fileID: 6629655432892147619}
   trackedCamera: {fileID: 100002}
   rainMaterial: {fileID: 0}
   radius: 18
@@ -3351,6 +3351,7 @@ MonoBehaviour:
   queryService: {fileID: 8723318279177309096}
   planarReflectionRenderer: {fileID: 8723318279177309095}
   wetness: {fileID: 8723318279177309097}
+  terrainShoreline: {fileID: 8723318279177309098}
 --- !u!114 &5665088069232259141
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3715,10 +3716,29 @@ MonoBehaviour:
   rainWetness: 1
   waterWetness: 1
   waterWetnessRange: 0.75
+  waterWetnessInlandRange: 6
   sandWetDarkening: 0.106
   wetSmoothness: 0.419
   wetnessTerrain: {fileID: 1209748160}
   sandLayer: {fileID: 8574412962073106934, guid: dae36a1c7e280804d8a4651d620db995, type: 2}
+--- !u!114 &8723318279177309098
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4069933975666731442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52306a121e286744791c4bdcbde1a2ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolTerrainShoreline
+  terrains: []
+  trackTerrainEdits: 1
+  metresPerTexel: 1
+  maximumResolution: 2048
+  waterLevelTolerance: 0.05
+  minimumRebuildInterval: 0.25
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

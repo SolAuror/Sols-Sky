@@ -30,7 +30,6 @@ namespace Sol.Environment
             public RTHandle WaterVolumetricHistory { get; set; }
             public RTHandle WaterReflectionHistory { get; set; }
             public RTHandle WaterReflectionValidationHistory { get; set; }
-            public RTHandle WaterNormalFoamHistory { get; set; }
             public int WaterReflectionSignature { get; internal set; }
 
             internal bool Initialized;
@@ -41,12 +40,10 @@ namespace Sol.Environment
                 WaterVolumetricHistory?.Release();
                 WaterReflectionHistory?.Release();
                 WaterReflectionValidationHistory?.Release();
-                WaterNormalFoamHistory?.Release();
                 AtmosphereHistory = null;
                 WaterVolumetricHistory = null;
                 WaterReflectionHistory = null;
                 WaterReflectionValidationHistory = null;
-                WaterNormalFoamHistory = null;
                 Camera = null;
             }
         }
@@ -188,30 +185,12 @@ namespace Sol.Environment
             return context.WaterVolumetricHistory != null;
         }
 
-        public static bool EnsureWaterNormalFoamHistory(Context context, int resolution, int cascades)
-        {
-            if (context == null || resolution <= 0 || cascades <= 0)
-                return false;
-            RenderTextureDescriptor descriptor = new(resolution, resolution,
-                GraphicsFormat.R16G16B16A16_SFloat, 0)
-            {
-                dimension = TextureDimension.Tex2DArray,
-                volumeDepth = cascades,
-                msaaSamples = 1,
-                useMipMap = false,
-                autoGenerateMips = false,
-                enableRandomWrite = true,
-                bindMS = false,
-            };
-            RTHandle history = context.WaterNormalFoamHistory;
-            bool allocated = RenderingUtils.ReAllocateHandleIfNeeded(
-                ref history, descriptor, FilterMode.Bilinear, TextureWrapMode.Repeat,
-                name: $"_SolWaterNormalFoamHistory_{context.CameraId}");
-            context.WaterNormalFoamHistory = history;
-            if (allocated)
-                context.CameraCut = true;
-            return context.WaterNormalFoamHistory != null;
-        }
+        // EnsureWaterNormalFoamHistory used to live here, allocating one
+        // resolution x resolution x cascades array per camera. It was the only Ensure* in
+        // this file that ignored the camera descriptor entirely, which was the tell: the
+        // FFT normal/foam history is an FFT-domain field, not a screen-space one, so every
+        // camera was keeping its own byte-identical copy of it. It now lives on
+        // SolWaterSpectralTargets as a single world-level resource.
 
         public static bool EnsureWaterReflectionHistory(
             Context context,
@@ -271,6 +250,40 @@ namespace Sol.Environment
 
             for (int i = 0; i < StaleIds.Count; i++)
                 Remove(StaleIds[i]);
+
+            ReportBudget();
+        }
+
+        /// <summary>
+        /// Publishes the two registry gauges. Whole method is [Conditional] rather than just
+        /// the two setter calls, so the dictionary walk and the size arithmetic disappear in
+        /// a release player instead of running to feed calls that were compiled away.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        static void ReportBudget()
+        {
+            long ssrBytes = 0;
+            foreach (KeyValuePair<int, Context> pair in Contexts)
+            {
+                ssrBytes += DescribeBytes(pair.Value.WaterReflectionHistory);
+                ssrBytes += DescribeBytes(pair.Value.WaterReflectionValidationHistory);
+            }
+
+            SolEnvironmentBudget.SetCameraContexts(Contexts.Count);
+            SolEnvironmentBudget.SetSsrHistoryBytes(ssrBytes);
+        }
+
+        /// <summary>Approximate footprint of one handle. Uses the descriptor rather than a
+        /// profiler query so it stays cheap enough to run every frame.</summary>
+        static long DescribeBytes(RTHandle handle)
+        {
+            if (handle == null || handle.rt == null)
+                return 0;
+
+            RenderTexture texture = handle.rt;
+            long bytesPerPixel = GraphicsFormatUtility.GetBlockSize(texture.graphicsFormat);
+            return (long)texture.width * texture.height * Mathf.Max(1, texture.volumeDepth) * bytesPerPixel;
         }
 
         public static void Clear()

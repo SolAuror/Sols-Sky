@@ -1,5 +1,6 @@
 using System.Reflection;
 using NUnit.Framework;
+using Sol.Environment;
 using Sol.Water;
 using Sol.Water.Rendering;
 using UnityEditor;
@@ -55,6 +56,29 @@ namespace Sol.Tests.Editor
             Assert.IsNotNull(debugLog, "SolWaterRendererFeature no longer has a debugLog field.");
             Assert.IsFalse((bool)debugLog.GetValue(water),
                 "Water debug logging is enabled in the shipped renderer asset.");
+        }
+
+        /// <summary>
+        /// The legacy Water 1 underwater feature must stay disabled. Water 2 publishes its
+        /// own submersion contract and composites underwater from
+        /// SolWaterRendererFeature; with both live the screen is composited twice, which
+        /// reads as a murky over-dark tint rather than an obvious failure. Nothing in the
+        /// renderer asset guards this, and it is one inspector checkbox away.
+        /// </summary>
+        [Test]
+        public void RendererAsset_KeepsTheLegacyUnderwaterFeatureDisabled()
+        {
+            ScriptableRendererData rendererData =
+                AssetDatabase.LoadAssetAtPath<ScriptableRendererData>(RendererPath);
+            Assert.IsNotNull(rendererData, $"Sol renderer data was not found at {RendererPath}.");
+
+            foreach (ScriptableRendererFeature feature in rendererData.rendererFeatures)
+            {
+                if (feature is UnderwaterRendererFeature legacy)
+                    Assert.IsFalse(legacy.isActive,
+                        "The legacy UnderwaterRendererFeature is enabled; it double-composites "
+                        + "underwater alongside Water 2.");
+            }
         }
 
         /// <summary>
@@ -144,6 +168,87 @@ namespace Sol.Tests.Editor
             {
                 Object.DestroyImmediate(profile);
             }
+        }
+
+        /// <summary>
+        /// The world frame gate admits exactly one caller per frame. This is the mechanism
+        /// that will keep the ocean spectrum from being recorded once per camera, so its
+        /// truth table is worth pinning before anything depends on it.
+        /// </summary>
+        [Test]
+        public void WorldFrameGate_AdmitsOneCallerPerFrame()
+        {
+            SolWorldFrameGate gate = default;
+
+            Assert.IsTrue(gate.TryBeginFrame(10), "First caller in a frame must be admitted.");
+            Assert.IsFalse(gate.TryBeginFrame(10), "Second caller in the same frame must be refused.");
+            Assert.IsTrue(gate.TryBeginFrame(11), "A new frame must be admitted.");
+
+            // Frame regression: a domain reload or a play-mode exit restarts Unity's frame
+            // counter. A greater-than test would latch here and refuse everything after.
+            Assert.IsTrue(gate.TryBeginFrame(9), "A backwards frame stamp must still be admitted.");
+
+            gate.Invalidate();
+            Assert.IsTrue(gate.TryBeginFrame(9), "Invalidate must re-admit the current frame.");
+        }
+
+        /// <summary>
+        /// A default-constructed gate must admit frame zero, which is the frame a fresh
+        /// domain reload starts on. A struct whose stamp defaults to 0 with no validity flag
+        /// would refuse it, and the symptom -- work silently skipped on exactly one frame
+        /// after every reload -- is close to undiagnosable.
+        /// </summary>
+        [Test]
+        public void WorldFrameGate_DefaultInstanceAdmitsFrameZero()
+        {
+            SolWorldFrameGate gate = default;
+            Assert.IsTrue(gate.TryBeginFrame(0));
+            Assert.IsFalse(gate.TryBeginFrame(0));
+        }
+
+        /// <summary>
+        /// The ocean spectrum is recorded once per world frame, not once per camera. The
+        /// mechanism that enforces that is the absence of a camera parameter on Record --
+        /// with one available, adding a per-camera dependency is a one-word change and
+        /// nothing downstream would complain. The cost of regressing this is the full FFT
+        /// chain a second time whenever the Scene view is open beside the Game view.
+        /// </summary>
+        [Test]
+        public void WaterSpectrum_IsRecordedWithoutACameraContext()
+        {
+            // Reached by name: the type is internal to the runtime assembly, which the test
+            // assembly cannot see directly.
+            System.Type fft = typeof(SolWaterRendererFeature).Assembly
+                .GetType("Sol.Water.Rendering.SolWaterFftRenderGraph");
+            Assert.IsNotNull(fft, "SolWaterFftRenderGraph was not found in the runtime assembly.");
+
+            MethodInfo record = fft.GetMethod("Record",
+                BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            Assert.IsNotNull(record, "SolWaterFftRenderGraph.Record was not found.");
+
+            foreach (ParameterInfo parameter in record.GetParameters())
+            {
+                Assert.AreNotEqual(typeof(SolEnvironmentCameraRegistry.Context), parameter.ParameterType,
+                    $"Record takes a camera context via '{parameter.Name}', which reintroduces "
+                    + "per-camera recording of a world-level simulation.");
+            }
+        }
+
+        /// <summary>
+        /// The FFT normal/foam history is FFT-domain, not screen-space, so a per-camera copy
+        /// is byte-identical duplication rather than a temporal necessity. It lives on
+        /// SolWaterSpectralTargets now; this guards the camera registry against growing it
+        /// back.
+        /// </summary>
+        [Test]
+        public void CameraRegistry_DoesNotOwnTheNormalFoamHistory()
+        {
+            Assert.IsNull(
+                typeof(SolEnvironmentCameraRegistry.Context).GetProperty("WaterNormalFoamHistory"),
+                "The per-camera normal/foam history is back; it is a world-level resource.");
+            Assert.IsNull(
+                typeof(SolEnvironmentCameraRegistry).GetMethod("EnsureWaterNormalFoamHistory"),
+                "EnsureWaterNormalFoamHistory is back; it is a world-level resource.");
         }
 
         /// <summary>

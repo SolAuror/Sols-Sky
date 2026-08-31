@@ -19,6 +19,8 @@ public sealed class SolAtmosphereController : MonoBehaviour
     bool _legacyFogWasEnabled;
     SolAtmosphereQuality? _runtimeQualityOverride;
     SolEnvironmentCoordinator _coordinator;
+    CameraState _baselineCameraState;
+    CameraOverrideDirty _cameraOverrideDirty;
 
     static readonly int ActiveID = Shader.PropertyToID("_SolAtmosphereActive");
     static readonly int FogColorID = Shader.PropertyToID("_SolAtmosphereFogColor");
@@ -49,17 +51,56 @@ public sealed class SolAtmosphereController : MonoBehaviour
     static readonly Vector4[] LocalLightData1 = new Vector4[16];
     static readonly Vector4[] LocalLightData2 = new Vector4[16];
 
+    [System.Flags]
+    enum CameraOverrideDirty
+    {
+        None = 0,
+        FogColor = 1 << 0,
+        Params0 = 1 << 1,
+        Params2 = 1 << 2,
+        VolumetricParams = 1 << 3,
+    }
+
+    /// <summary>
+    /// The four atmosphere values a Volume can change for one camera, plus the authored
+    /// raymarch distance needed to resolve a maximum-distance override without losing
+    /// information to the baseline min(raymarch, maximum) clamp.
+    /// </summary>
+    internal readonly struct CameraState
+    {
+        internal readonly Color FogColor;
+        internal readonly Vector4 Params0;
+        internal readonly Vector4 Params2;
+        internal readonly Vector4 VolumetricParams;
+        internal readonly float RaymarchDistance;
+
+        internal SolAtmosphereQuality Quality =>
+            (SolAtmosphereQuality)Mathf.Clamp(Mathf.RoundToInt(Params2.w), 0, 2);
+
+        internal CameraState(
+            Color fogColor,
+            Vector4 params0,
+            Vector4 params2,
+            Vector4 volumetricParams,
+            float raymarchDistance)
+        {
+            FogColor = fogColor;
+            Params0 = params0;
+            Params2 = params2;
+            VolumetricParams = volumetricParams;
+            RaymarchDistance = raymarchDistance;
+        }
+    }
+
     public SolAtmosphereQuality Quality => _runtimeQualityOverride
         ?? (profile != null ? profile.quality : fallbackQuality);
     public Color CurrentFogColor { get; private set; }
     public float CurrentDensity { get; private set; }
 
     /// <summary>
-    /// Directional scattering after the weather multiplier. Exposed because the per-camera
-    /// override path rewrites the same global and has to reapply it: writing the raw
-    /// setting there silently reverted fog scattering to its un-weathered value for the
-    /// whole frame whenever a SolAtmosphereVolume was active -- including for the water,
-    /// which draws afterwards.
+    /// Directional scattering after the weather multiplier. Cached as part of the baseline
+    /// so every camera Volume inherits the exact weather-modulated value rather than
+    /// accidentally reverting to the authored profile value.
     /// </summary>
     public float CurrentDirectionalScattering { get; private set; }
 
@@ -77,37 +118,102 @@ public sealed class SolAtmosphereController : MonoBehaviour
 
     public SolAtmosphereQuality ApplyCameraOverrides(VolumeStack stack)
     {
-        PushGlobals();
-        SolAtmosphereQuality quality = Quality;
-        SolAtmosphereVolume volume = stack?.GetComponent<SolAtmosphereVolume>();
-        if (volume == null || !volume.IsActive())
-            return quality;
+        // Normally cleared by endCameraRendering after the previous camera has actually
+        // executed. This defensive restore also covers a custom pipeline that omits that
+        // callback or a camera that aborts after recording.
+        RestoreCameraOverrides();
 
+        SolAtmosphereVolume volume = stack?.GetComponent<SolAtmosphereVolume>();
+        CameraState resolved = Resolve(_baselineCameraState, volume);
+
+        if (resolved.FogColor != _baselineCameraState.FogColor)
+        {
+            Shader.SetGlobalColor(FogColorID, resolved.FogColor);
+            _cameraOverrideDirty |= CameraOverrideDirty.FogColor;
+        }
+        if (resolved.Params0 != _baselineCameraState.Params0)
+        {
+            Shader.SetGlobalVector(Params0ID, resolved.Params0);
+            _cameraOverrideDirty |= CameraOverrideDirty.Params0;
+        }
+        if (resolved.Params2 != _baselineCameraState.Params2)
+        {
+            Shader.SetGlobalVector(Params2ID, resolved.Params2);
+            _cameraOverrideDirty |= CameraOverrideDirty.Params2;
+        }
+        if (resolved.VolumetricParams != _baselineCameraState.VolumetricParams)
+        {
+            Shader.SetGlobalVector(VolumetricParamsID, resolved.VolumetricParams);
+            _cameraOverrideDirty |= CameraOverrideDirty.VolumetricParams;
+        }
+
+        return resolved.Quality;
+    }
+
+    /// <summary>
+    /// Resolves a camera-local Volume without touching global state. A null or inactive
+    /// volume returns the baseline bit-for-bit, which makes the common no-volume path a
+    /// zero-write operation.
+    /// </summary>
+    internal static CameraState Resolve(CameraState baseline, SolAtmosphereVolume volume)
+    {
+        if (volume == null || !volume.IsActive())
+            return baseline;
+
+        SolAtmosphereQuality quality = baseline.Quality;
         if (volume.quality.overrideState)
             quality = (SolAtmosphereQuality)Mathf.Clamp(volume.quality.value, 0, 2);
-        float density = CurrentDensity * (volume.densityMultiplier.overrideState
-            ? volume.densityMultiplier.value
-            : 1f);
-        float start = volume.startDistance.overrideState
-            ? volume.startDistance.value
-            : SettingsStartDistance;
-        float maximum = volume.maximumDistance.overrideState
-            ? volume.maximumDistance.value
-            : SettingsMaxDistance;
-        float opacity = volume.maximumOpacity.overrideState
-            ? volume.maximumOpacity.value
-            : SettingsMaxOpacity;
-        Color color = volume.fogColor.overrideState ? volume.fogColor.value : CurrentFogColor;
-        Shader.SetGlobalColor(FogColorID, color);
-        Shader.SetGlobalVector(Params0ID, new Vector4(density, start, maximum, opacity));
-        Shader.SetGlobalVector(Params2ID, new Vector4(
-            CurrentDirectionalScattering, SettingsPhaseAnisotropy, SettingsSkyFog, (float)quality));
-        Shader.SetGlobalVector(VolumetricParamsID, new Vector4(
-            SettingsShadowedScattering,
-            Mathf.Min(SettingsRaymarchDistance, maximum),
-            quality == SolAtmosphereQuality.Medium ? 16 : SettingsRaymarchSteps,
-            SettingsRaymarchJitter));
-        return quality;
+
+        Vector4 params0 = baseline.Params0;
+        if (volume.densityMultiplier.overrideState)
+            params0.x *= volume.densityMultiplier.value;
+        if (volume.startDistance.overrideState)
+            params0.y = volume.startDistance.value;
+        if (volume.maximumDistance.overrideState)
+            params0.z = volume.maximumDistance.value;
+        if (volume.maximumOpacity.overrideState)
+            params0.w = volume.maximumOpacity.value;
+
+        Color fogColor = volume.fogColor.overrideState
+            ? volume.fogColor.value
+            : baseline.FogColor;
+        Vector4 params2 = baseline.Params2;
+        params2.w = (float)quality;
+        Vector4 volumetricParams = baseline.VolumetricParams;
+        volumetricParams.y = Mathf.Min(baseline.RaymarchDistance, params0.z);
+        volumetricParams.z = quality == SolAtmosphereQuality.Medium
+            ? 16f
+            : baseline.VolumetricParams.z;
+
+        return new CameraState(
+            fogColor,
+            params0,
+            params2,
+            volumetricParams,
+            baseline.RaymarchDistance);
+    }
+
+    /// <summary>
+    /// Restores only globals changed for the current camera. This runs from
+    /// endCameraRendering, after RenderGraph execution; restoring at the end of
+    /// RecordRenderGraph would erase the override before its draw commands execute.
+    /// </summary>
+    internal void RestoreCameraOverrides()
+    {
+        CameraOverrideDirty dirty = _cameraOverrideDirty;
+        if (dirty == CameraOverrideDirty.None)
+            return;
+
+        if ((dirty & CameraOverrideDirty.FogColor) != 0)
+            Shader.SetGlobalColor(FogColorID, _baselineCameraState.FogColor);
+        if ((dirty & CameraOverrideDirty.Params0) != 0)
+            Shader.SetGlobalVector(Params0ID, _baselineCameraState.Params0);
+        if ((dirty & CameraOverrideDirty.Params2) != 0)
+            Shader.SetGlobalVector(Params2ID, _baselineCameraState.Params2);
+        if ((dirty & CameraOverrideDirty.VolumetricParams) != 0)
+            Shader.SetGlobalVector(VolumetricParamsID, _baselineCameraState.VolumetricParams);
+
+        _cameraOverrideDirty = CameraOverrideDirty.None;
     }
 
     void OnEnable()
@@ -125,6 +231,7 @@ public sealed class SolAtmosphereController : MonoBehaviour
         _coordinator?.Register(this);
         ResolveReferences();
         PushGlobals();
+        RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
     }
 
     void OnDisable()
@@ -135,6 +242,8 @@ public sealed class SolAtmosphereController : MonoBehaviour
         if (Active != this)
             return;
 
+        RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
+        RestoreCameraOverrides();
         Active = null;
         CurrentDominantLight = null;
         Shader.SetGlobalFloat(ActiveID, 0f);
@@ -151,6 +260,11 @@ public sealed class SolAtmosphereController : MonoBehaviour
         float delta = timeOfDay != null ? timeOfDay.WorldDeltaSeconds : Time.deltaTime;
         _noiseTime += Mathf.Max(0f, delta) * SettingsNoiseSpeed;
         PushGlobals();
+    }
+
+    void OnEndCameraRendering(ScriptableRenderContext context, Camera camera)
+    {
+        RestoreCameraOverrides();
     }
 
     public void SetQuality(SolAtmosphereQuality quality)
@@ -207,25 +321,33 @@ public sealed class SolAtmosphereController : MonoBehaviour
         float effectiveNoiseIntensity = Mathf.Clamp01(
             SettingsNoiseIntensity * Mathf.Lerp(1f, 1.6f, mistiness));
 
+        _baselineCameraState = new CameraState(
+            CurrentFogColor,
+            new Vector4(CurrentDensity, SettingsStartDistance, SettingsMaxDistance, SettingsMaxOpacity),
+            new Vector4(scattering, SettingsPhaseAnisotropy, SettingsSkyFog, (float)Quality),
+            new Vector4(
+                SettingsShadowedScattering,
+                Mathf.Min(SettingsRaymarchDistance, SettingsMaxDistance),
+                SettingsRaymarchSteps,
+                SettingsRaymarchJitter),
+            SettingsRaymarchDistance);
+        _cameraOverrideDirty = CameraOverrideDirty.None;
+
         Shader.SetGlobalFloat(ActiveID, 1f);
-        Shader.SetGlobalColor(FogColorID, CurrentFogColor);
-        Shader.SetGlobalVector(Params0ID, new Vector4(CurrentDensity, SettingsStartDistance, SettingsMaxDistance, SettingsMaxOpacity));
+        Shader.SetGlobalColor(FogColorID, _baselineCameraState.FogColor);
+        Shader.SetGlobalVector(Params0ID, _baselineCameraState.Params0);
         Shader.SetGlobalVector(Params1ID, new Vector4(
             effectiveBaseHeight,
             effectiveHeightFalloff,
             effectiveNoiseIntensity,
             SettingsNoiseScale));
-        Shader.SetGlobalVector(Params2ID, new Vector4(scattering, SettingsPhaseAnisotropy, SettingsSkyFog, (float)Quality));
+        Shader.SetGlobalVector(Params2ID, _baselineCameraState.Params2);
         Shader.SetGlobalVector(SunDirectionID, sunDirection);
         Shader.SetGlobalColor(SunColorID, directionalColor);
         Shader.SetGlobalVector(WindTimeID, new Vector4(wind.x, wind.z, _noiseTime, weather.WindStrength));
         Shader.SetGlobalFloat(LightningID, weather.LightningFlash);
         Shader.SetGlobalFloat(LightningScatteringID, SettingsLightningScattering);
-        Shader.SetGlobalVector(VolumetricParamsID, new Vector4(
-            SettingsShadowedScattering,
-            Mathf.Min(SettingsRaymarchDistance, SettingsMaxDistance),
-            SettingsRaymarchSteps,
-            SettingsRaymarchJitter));
+        Shader.SetGlobalVector(VolumetricParamsID, _baselineCameraState.VolumetricParams);
         Shader.SetGlobalVector(UpsampleParamsID, new Vector4(
             SettingsBilateralDepthThreshold,
             SettingsSpatialFilterStrength,

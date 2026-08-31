@@ -1,6 +1,7 @@
 using System.Reflection;
 using NUnit.Framework;
 using Sol.Environment;
+using Sol.ToD;
 using Sol.Water;
 using Sol.Water.Rendering;
 using UnityEditor;
@@ -146,6 +147,125 @@ namespace Sol.Tests.Editor
                 controller.SetQuality(SolAtmosphereQuality.High);
                 Assert.Greater(controller.CurrentSpatialFilterStrength, 0.001f,
                     "High quality must author a spatial filter above the shader epsilon.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        /// <summary>
+        /// A camera with no active atmosphere Volume must inherit the baseline exactly.
+        /// That equality is what makes the common Scene/Game-view path perform zero
+        /// per-camera global writes instead of replaying the full atmosphere state.
+        /// </summary>
+        [Test]
+        public void AtmosphereCameraResolve_WithoutVolumeReturnsBaselineFieldForField()
+        {
+            System.Type stateType = GetAtmosphereCameraStateType();
+            object baseline = CreateAtmosphereCameraState(stateType);
+            object resolved = ResolveAtmosphereCameraState(stateType, baseline, null);
+
+            foreach (FieldInfo field in stateType.GetFields(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                Assert.AreEqual(field.GetValue(baseline), field.GetValue(resolved),
+                    $"Camera baseline field '{field.Name}' changed without an active Volume.");
+            }
+        }
+
+        /// <summary>
+        /// Resolve is deliberately sparse. A Volume that overrides only fog colour must
+        /// change only the packed fog-colour field, otherwise ApplyCameraOverrides starts
+        /// writing unrelated globals again.
+        /// </summary>
+        [Test]
+        public void AtmosphereCameraResolve_OneOverrideChangesOneField()
+        {
+            System.Type stateType = GetAtmosphereCameraStateType();
+            object baseline = CreateAtmosphereCameraState(stateType);
+            SolAtmosphereVolume volume = ScriptableObject.CreateInstance<SolAtmosphereVolume>();
+            try
+            {
+                volume.active = true;
+                volume.enabledOverride.value = true;
+                volume.fogColor.overrideState = true;
+                volume.fogColor.value = Color.magenta;
+
+                object resolved = ResolveAtmosphereCameraState(stateType, baseline, volume);
+                int changedFields = 0;
+                string changedFieldName = null;
+                foreach (FieldInfo field in stateType.GetFields(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                {
+                    if (Equals(field.GetValue(baseline), field.GetValue(resolved)))
+                        continue;
+
+                    changedFields++;
+                    changedFieldName = field.Name;
+                }
+
+                Assert.AreEqual(1, changedFields,
+                    "A fog-colour-only Volume changed unrelated camera-state fields.");
+                Assert.AreEqual("FogColor", changedFieldName);
+            }
+            finally
+            {
+                Object.DestroyImmediate(volume);
+            }
+        }
+
+        /// <summary>
+        /// The environment stack relies on this Update ordering: time solves celestial
+        /// state, weather publishes modulation, world state and water consume it, then
+        /// atmosphere and rain publish presentation globals. Attributes are easy to remove
+        /// during a refactor and no compiler error reveals the one-frame latency it causes.
+        /// </summary>
+        [Test]
+        public void EnvironmentAuthorities_KeepTheirExecutionOrderChain()
+        {
+            int time = ExecutionOrderOf<TimeOfDay>();
+            int weather = ExecutionOrderOf<SolWeatherManager>();
+            int environment = ExecutionOrderOf<SolEnvironmentWorld>();
+            int water = ExecutionOrderOf<SolWaterWorld>();
+            int atmosphere = ExecutionOrderOf<SolAtmosphereController>();
+            int rain = ExecutionOrderOf<SolRainVfxController>();
+
+            Assert.Less(time, weather);
+            Assert.Less(weather, environment);
+            Assert.Less(environment, water);
+            Assert.Less(water, atmosphere);
+            Assert.Less(atmosphere, rain);
+        }
+
+        /// <summary>
+        /// TimeOfDay's environment application is a world-level operation. Multiple
+        /// consumers reaching it in one frame must still produce one RenderSettings and
+        /// sky-material push.
+        /// </summary>
+        [Test]
+        public void TimeOfDayEnvironmentUpdate_IsIdempotentWithinAFrame()
+        {
+            GameObject host = new("TimeOfDayEnvironmentGateFixture");
+            host.SetActive(false);
+            try
+            {
+                TimeOfDay timeOfDay = host.AddComponent<TimeOfDay>();
+                SetPrivateField(timeOfDay, "controlSkybox", false);
+                SetPrivateField(timeOfDay, "controlAmbient", false);
+                SetPrivateField(timeOfDay, "controlFog", false);
+
+                MethodInfo updateEnvironment = typeof(TimeOfDay).GetMethod(
+                    "UpdateEnvironment", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(updateEnvironment, "TimeOfDay.UpdateEnvironment was not found.");
+
+                int before = SolEnvironmentBudget.Current.EnvironmentUpdates;
+                updateEnvironment.Invoke(timeOfDay, null);
+                updateEnvironment.Invoke(timeOfDay, null);
+                int after = SolEnvironmentBudget.Current.EnvironmentUpdates;
+
+                Assert.AreEqual(1, after - before,
+                    "TimeOfDay applied its environment more than once in the same frame.");
             }
             finally
             {
@@ -366,6 +486,63 @@ namespace Sol.Tests.Editor
             Assert.IsNotNull(constant, $"{passType.Name}.{constantName} was not found.");
             Assert.AreEqual(material.FindPass(passName), (int)constant.GetRawConstantValue(),
                 $"Shader pass '{passName}' no longer matches {constantName}.");
+        }
+
+        static System.Type GetAtmosphereCameraStateType()
+        {
+            System.Type stateType = typeof(SolAtmosphereController)
+                .GetNestedType("CameraState", BindingFlags.NonPublic);
+            Assert.IsNotNull(stateType,
+                "SolAtmosphereController.CameraState was not found.");
+            return stateType;
+        }
+
+        static object CreateAtmosphereCameraState(System.Type stateType)
+        {
+            return System.Activator.CreateInstance(
+                stateType,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                args: new object[]
+                {
+                    new Color(0.2f, 0.3f, 0.4f, 1f),
+                    new Vector4(0.01f, 5f, 500f, 0.92f),
+                    new Vector4(0.65f, 0.55f, 1f, (float)SolAtmosphereQuality.High),
+                    new Vector4(0.85f, 400f, 32f, 0.15f),
+                    400f,
+                },
+                culture: null);
+        }
+
+        static object ResolveAtmosphereCameraState(
+            System.Type stateType,
+            object baseline,
+            SolAtmosphereVolume volume)
+        {
+            MethodInfo resolve = typeof(SolAtmosphereController).GetMethod(
+                "Resolve", BindingFlags.Static | BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { stateType, typeof(SolAtmosphereVolume) },
+                modifiers: null);
+            Assert.IsNotNull(resolve,
+                "SolAtmosphereController.Resolve(CameraState, SolAtmosphereVolume) was not found.");
+            return resolve.Invoke(null, new[] { baseline, volume });
+        }
+
+        static int ExecutionOrderOf<T>() where T : MonoBehaviour
+        {
+            DefaultExecutionOrder attribute = typeof(T)
+                .GetCustomAttribute<DefaultExecutionOrder>();
+            Assert.IsNotNull(attribute, $"{typeof(T).Name} has no DefaultExecutionOrder attribute.");
+            return attribute.order;
+        }
+
+        static void SetPrivateField<T>(object target, string fieldName, T value)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"{target.GetType().Name}.{fieldName} was not found.");
+            field.SetValue(target, value);
         }
 
         /// <summary>

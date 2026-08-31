@@ -476,6 +476,7 @@ public class TimeOfDay : MonoBehaviour
     Material _cloudKeywordMaterial;
     SolCloudQuality _appliedCloudQuality;
     bool _cloudKeywordsApplied;
+    Sol.Environment.SolWorldFrameGate environmentUpdateGate;
 
     /// <summary>World-space direction toward the sun (unit vector).</summary>
     public Vector3 SunDirection => cachedSunDirection;
@@ -556,6 +557,7 @@ public class TimeOfDay : MonoBehaviour
 
     void OnEnable()
     {
+        environmentUpdateGate.Invalidate();
         ResolveCalendar();
 
         if (!Application.isPlaying)
@@ -594,6 +596,7 @@ public class TimeOfDay : MonoBehaviour
 
     void OnDisable()
     {
+        environmentUpdateGate.Invalidate();
         DestroyEditPreviewSun();
 
         worldDeltaSeconds = 0f;
@@ -802,8 +805,15 @@ public class TimeOfDay : MonoBehaviour
         UpdateDominantAtmosphereLight();
         UpdateCelestialBodies();
         UpdateTertiaryPlanets(daysFraction);
-        UpdateEnvironment();
     }
+
+    /// <summary>
+    /// Final environment fallback for scenes without an active weather director. When
+    /// weather is present it refreshes after publishing its blended state in Update, so
+    /// the frame gate turns this into a no-op. Unity runs every Update before any
+    /// LateUpdate, making this independent of script execution order within LateUpdate.
+    /// </summary>
+    void LateUpdate() => UpdateEnvironment();
 
     /// <summary>
     /// Edit-mode preview. Runs the same solvers as the play path so what the Scene View
@@ -827,7 +837,6 @@ public class TimeOfDay : MonoBehaviour
         UpdateMoon(daysFraction);
         UpdateEclipses();
         UpdateDominantAtmosphereLight();
-        UpdateEnvironment();
     }
 
     /// <summary>
@@ -1230,6 +1239,9 @@ public class TimeOfDay : MonoBehaviour
 
     void UpdateEnvironment()
     {
+        if (!environmentUpdateGate.TryBeginFrame(Time.frameCount))
+            return;
+
         Sol.Environment.SolEnvironmentBudget.AddEnvironmentUpdate();
         float eclipseEnv = solarEclipseFactor;
         float weatherDim = Mathf.Clamp01(WeatherDim);
@@ -1454,8 +1466,14 @@ public class TimeOfDay : MonoBehaviour
     /// </summary>
     internal void RefreshEnvironmentFromWeather()
     {
-        if (Application.isPlaying && isActiveAndEnabled)
-            UpdateEnvironment();
+        if (!isActiveAndEnabled)
+            return;
+
+        // Weather runs after the celestial solver and now owns the normal application
+        // point. Invalidate also covers explicit weather changes made after an earlier
+        // fallback in the same frame, where the better-informed state must replace it.
+        environmentUpdateGate.Invalidate();
+        UpdateEnvironment();
     }
 
     #endregion

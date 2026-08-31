@@ -13,15 +13,12 @@ public class WeatherManagerEditor : Editor
         var wm = (SolWeatherManager)target;
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Manual Control (Play Mode)", EditorStyles.boldLabel);
-
+        EditorGUILayout.LabelField("Manual Control", EditorStyles.boldLabel);
         if (!Application.isPlaying)
-        {
             EditorGUILayout.HelpBox(
-                "Enter Play Mode to force weather states and see live status.",
+                "Edit Mode uses the same weather blend as runtime and remains frozen in "
+                + "chronology. Clear Preview restores the state that was live beforehand.",
                 MessageType.Info);
-            return;
-        }
 
         // -- Live status --
         var targetProfile = wm.TargetProfile;
@@ -43,20 +40,36 @@ public class WeatherManagerEditor : Editor
         // -- One button per profile --
         if (wm.profiles != null)
         {
-            foreach (var p in wm.profiles)
+            for (int i = 0; i < wm.profiles.Length; i++)
             {
+                var p = wm.profiles[i];
                 if (p?.profile == null) continue;
                 if (GUILayout.Button($"Set: {p.profile.name}", GUILayout.Height(26)))
-                    wm.SetWeather(p.profile.name, _instant);
+                {
+                    if (Application.isPlaying)
+                        wm.SetWeather(i, _instant);
+                    else
+                        wm.SetPreview(i, i, 1f);
+                }
             }
         }
 
         EditorGUILayout.Space();
-        if (GUILayout.Button("Advance Weather (weighted random)", GUILayout.Height(22)))
-            wm.NextWeather();
+        using (new EditorGUI.DisabledScope(!Application.isPlaying))
+        {
+            if (GUILayout.Button("Advance Weather (weighted random)", GUILayout.Height(22)))
+                wm.NextWeather();
+        }
 
-        // Keep the status readout live while playing.
-        Repaint();
+        if (!Application.isPlaying && wm.HasPreview
+            && GUILayout.Button("Clear Preview", GUILayout.Height(22)))
+            wm.ClearPreview();
+
+        // Runtime transitions need a live status readout. Edit previews are static and
+        // repaint on user input, so continuously repainting the inspector would only
+        // spend editor CPU while the dockable preview window is closed.
+        if (Application.isPlaying)
+            Repaint();
     }
 }
 

@@ -3,6 +3,7 @@ using UnityEngine.Rendering;
 using Sol.ToD;
 
 /// <summary>Combines authored atmosphere settings with current sky and weather state.</summary>
+[ExecuteAlways]
 [DefaultExecutionOrder(-100)]
 public sealed class SolAtmosphereController : MonoBehaviour
 {

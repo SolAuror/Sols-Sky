@@ -130,6 +130,12 @@ public class SolWeatherManager : MonoBehaviour
     /// <summary>Shared progress for every presented weather channel.</summary>
     public float TransitionProgress => Mathf.Clamp01(_blend);
 
+    /// <summary>True while an editor A/B preview owns the presentation snapshot.</summary>
+    public bool HasPreview => _previewActive;
+
+    /// <summary>Instantaneous horizontal wind heading in the Sol X/Z plane.</summary>
+    public float WindDirectionDegrees => Mathf.Repeat(_windAngleDeg, 360f);
+
     /// <summary>Logical weather target selected by chronology before presentation smoothing.</summary>
     public SolWeatherState TargetState { get; private set; }
 
@@ -219,6 +225,17 @@ public class SolWeatherManager : MonoBehaviour
     bool _climateInitialized;
     bool _initialized;
     SolEnvironmentCoordinator _environmentCoordinator;
+
+    // Editor preview state is deliberately non-serialized. Closing the window restores
+    // the exact live presentation that it borrowed, and a domain reload cannot bake an
+    // A/B blend into the scene or grow a second weather-blend implementation.
+    bool _previewActive;
+    int _previewRestoreTargetIndex;
+    Snapshot _previewRestoreFrom;
+    Snapshot _previewRestorePresented;
+    float _previewRestoreBlend;
+    float _previewRestoreHoursRemaining;
+    float _previewRestoreWindAngleDeg;
 
     struct OwnedWaterState
     {
@@ -340,6 +357,7 @@ public class SolWeatherManager : MonoBehaviour
 
     void OnDisable()
     {
+        RestorePreviewState(apply: false);
         if (Instance == this) Instance = null;
         if (todManager != null) todManager.TimeSkipped -= OnTimeSkipped;
 
@@ -396,7 +414,10 @@ public class SolWeatherManager : MonoBehaviour
         RefreshClimateTarget();
         AdvanceClimatePresentation(presentationDeltaSeconds);
         AdvanceWeatherTimeline(deltaHours);
-        AdvancePresentation(presentationDeltaSeconds);
+        if (_previewActive)
+            PublishTargetState();
+        else
+            AdvancePresentation(presentationDeltaSeconds);
         ApplyEffectiveState(worldDeltaSeconds, presentationDeltaSeconds);
     }
 
@@ -406,6 +427,7 @@ public class SolWeatherManager : MonoBehaviour
     public void SetWeather(int index, bool instant = false)
     {
         if (!HasValidProfiles(out _)) return;
+        RestorePreviewState(apply: false);
         index = Mathf.Clamp(index, 0, profiles.Length - 1);
 
         // Retarget from the currently presented values so every channel stays continuous.
@@ -440,7 +462,87 @@ public class SolWeatherManager : MonoBehaviour
     [ContextMenu("Advance Weather Now")]
     public void NextWeather() => SetWeather(PickNextIndex());
 
+    /// <summary>
+    /// Present an arbitrary point between two configured profiles without starting a
+    /// second transition. This directly borrows the existing from/presented/blend state;
+    /// <see cref="ClearPreview"/> restores it field-for-field.
+    /// </summary>
+    public void SetPreview(int indexA, int indexB, float t)
+    {
+        if (!HasValidProfiles(out _))
+            return;
+
+        indexA = Mathf.Clamp(indexA, 0, profiles.Length - 1);
+        indexB = Mathf.Clamp(indexB, 0, profiles.Length - 1);
+        if (!_previewActive)
+        {
+            _previewRestoreTargetIndex = _targetIndex;
+            _previewRestoreFrom = _from;
+            _previewRestorePresented = _presented;
+            _previewRestoreBlend = _blend;
+            _previewRestoreHoursRemaining = _hoursRemaining;
+            _previewRestoreWindAngleDeg = _windAngleDeg;
+            _previewActive = true;
+        }
+
+        _from = Snapshot.From(GetProfile(indexA));
+        _targetIndex = indexB;
+        _blend = Mathf.Clamp01(t);
+        float eased = Mathf.SmoothStep(0f, 1f, _blend);
+        _presented = Snapshot.Lerp(_from, Snapshot.From(GetProfile(indexB)), eased);
+        RefreshClimateTarget();
+        AdvanceClimatePresentation(0f);
+        PublishTargetState();
+        ApplyEffectiveState(0f, 0f);
+    }
+
+    /// <summary>Restore the presentation that was live before <see cref="SetPreview"/>.</summary>
+    public void ClearPreview() => RestorePreviewState(apply: true);
+
+    /// <summary>Change the non-serialized preview wind heading used by every consumer.</summary>
+    public void SetPreviewWindDirection(float degrees)
+    {
+        if (!_previewActive)
+            return;
+
+        _windAngleDeg = Mathf.Repeat(degrees, 360f);
+        PublishTargetState();
+        ApplyEffectiveState(0f, 0f);
+    }
+
+    /// <summary>Find a shared profile in this scene's selection policy.</summary>
+    public int IndexOfProfile(SolWeatherProfileAsset profile)
+    {
+        if (profile == null || profiles == null)
+            return -1;
+
+        for (int i = 0; i < profiles.Length; i++)
+            if (GetProfile(i) == profile)
+                return i;
+        return -1;
+    }
+
     // --- Internals ------------------------------------------------------------
+
+    void RestorePreviewState(bool apply)
+    {
+        if (!_previewActive)
+            return;
+
+        _targetIndex = _previewRestoreTargetIndex;
+        _from = _previewRestoreFrom;
+        _presented = _previewRestorePresented;
+        _blend = _previewRestoreBlend;
+        _hoursRemaining = _previewRestoreHoursRemaining;
+        _windAngleDeg = _previewRestoreWindAngleDeg;
+        _previewActive = false;
+
+        if (!apply || !isActiveAndEnabled)
+            return;
+
+        PublishTargetState();
+        ApplyEffectiveState(0f, 0f);
+    }
 
     float ComputeDeltaHours()
     {

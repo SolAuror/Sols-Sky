@@ -257,6 +257,54 @@ namespace Sol.Tests.Editor
         }
 
         /// <summary>
+        /// The Phase 7 window relies on player-loop updates while stopped. Without
+        /// ExecuteAlways the window still repaints, but atmosphere globals and rain stay
+        /// frozen, which looks like a renderer bug rather than a missing lifecycle flag.
+        /// </summary>
+        [Test]
+        public void AtmosphereAndRain_RunInEditMode()
+        {
+            Assert.IsNotNull(typeof(SolAtmosphereController)
+                .GetCustomAttribute<ExecuteAlways>());
+            Assert.IsNotNull(typeof(SolRainVfxController)
+                .GetCustomAttribute<ExecuteAlways>());
+        }
+
+        /// <summary>
+        /// Editor A/B preview must borrow the runtime blend. Pin the public seam so a
+        /// future custom inspector cannot accidentally grow a parallel weather model.
+        /// </summary>
+        [Test]
+        public void WeatherManager_ExposesTheSharedABPreviewSeam()
+        {
+            MethodInfo setPreview = typeof(SolWeatherManager).GetMethod(
+                "SetPreview", BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(int), typeof(int), typeof(float) },
+                modifiers: null);
+            Assert.IsNotNull(setPreview,
+                "SolWeatherManager.SetPreview(int, int, float) was not found.");
+            Assert.IsNotNull(typeof(SolWeatherManager).GetMethod(
+                "ClearPreview", BindingFlags.Instance | BindingFlags.Public));
+        }
+
+        /// <summary>
+        /// A HideAndDontSave skybox clone must never become a serialized TimeOfDay field.
+        /// Unity resolves such a scene reference to null on save/reopen, permanently
+        /// clearing RenderSettings.skybox from the scene.
+        /// </summary>
+        [Test]
+        public void TimeOfDay_RuntimeSkyboxCloneField_IsNotSerialized()
+        {
+            FieldInfo field = typeof(TimeOfDay).GetField(
+                "controlledSkyboxMaterial", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, "TimeOfDay.controlledSkyboxMaterial was not found.");
+            Assert.IsFalse(field.IsPublic);
+            Assert.IsNull(field.GetCustomAttribute<SerializeField>());
+            Assert.IsNull(field.GetCustomAttribute<SerializeReference>());
+        }
+
+        /// <summary>
         /// TimeOfDay's environment application is a world-level operation. Multiple
         /// consumers reaching it in one frame must still produce one RenderSettings and
         /// sky-material push.

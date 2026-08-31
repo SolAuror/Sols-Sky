@@ -1,11 +1,15 @@
 using Sol.Environment;
 using Sol.ToD;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// Camera-following Sol rain presentation. Weather owns intensity and wind;
 /// gameplay and a lightweight upward probe own shelter exposure.
 /// </summary>
+[ExecuteAlways]
 [DefaultExecutionOrder(100)]
 public sealed class SolRainVfxController : MonoBehaviour
 {
@@ -49,6 +53,9 @@ public sealed class SolRainVfxController : MonoBehaviour
     float _targetShelterExposure = 1f;
     float _probeTimer;
     float _referenceRetryTimer;
+#if UNITY_EDITOR
+    double _editorSimulationStamp;
+#endif
 
     public float RainExposure => _manualExposure;
     public float ShelterExposure => _shelterExposure;
@@ -57,6 +64,9 @@ public sealed class SolRainVfxController : MonoBehaviour
 
     void OnEnable()
     {
+#if UNITY_EDITOR
+        _editorSimulationStamp = EditorApplication.timeSinceStartup;
+#endif
         _coordinator = SolEnvironmentCoordinator.Resolve(this, createIfMissing: true);
         _coordinator?.Register(this);
         ResolveReferences();
@@ -82,22 +92,39 @@ public sealed class SolRainVfxController : MonoBehaviour
 
     void Update()
     {
+        float editorDeltaSeconds = 0f;
+        bool manualEditorSimulation = false;
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            double now = EditorApplication.timeSinceStartup;
+            editorDeltaSeconds = Mathf.Clamp((float)(now - _editorSimulationStamp), 0f, 0.1f);
+            _editorSimulationStamp = now;
+            manualEditorSimulation = true;
+        }
+#endif
+
         ResolveReferences();
         EnsureSystems();
 
-        ActiveCamera = trackedCamera != null ? trackedCamera : Camera.main;
+        ActiveCamera = ResolveActiveCamera();
         if (ActiveCamera == null || _runtimeRoot == null)
         {
-            ApplyIntensity(0f, 0f, false, Vector3.right, 0f, 0f, 0f);
+            ApplyIntensity(0f, 0f, false, Vector3.right, 0f, 0f, 0f,
+                manualEditorSimulation);
             return;
         }
 
         Vector3 cameraPosition = ActiveCamera.transform.position;
         _runtimeRoot.position = new Vector3(cameraPosition.x, cameraPosition.y + height * 0.45f, cameraPosition.z);
 
-        float presentationDelta = timeOfDay != null ? timeOfDay.PresentationDeltaSeconds : Time.deltaTime;
-        bool worldRunning = timeOfDay == null || presentationDelta > 0f;
-        float visualScale = timeOfDay != null && worldRunning
+        float presentationDelta = manualEditorSimulation
+            ? editorDeltaSeconds
+            : timeOfDay != null ? timeOfDay.PresentationDeltaSeconds : Time.deltaTime;
+        bool worldRunning = manualEditorSimulation || timeOfDay == null || presentationDelta > 0f;
+        float visualScale = manualEditorSimulation
+            ? 1f
+            : timeOfDay != null && worldRunning
             ? Mathf.Min(timeOfDay.TimeScale, maxParticleTimeScale)
             : worldRunning ? 1f : 0f;
 
@@ -117,11 +144,40 @@ public sealed class SolRainVfxController : MonoBehaviour
 
         float day = timeOfDay != null ? timeOfDay.DayFactor : 1f;
         ApplyIntensity(EffectiveRainIntensity, visualScale, worldRunning,
-            wind.Direction, wind.Speed, day, state.LightningFlash);
+            wind.Direction, wind.Speed, day, state.LightningFlash, manualEditorSimulation);
+
+#if UNITY_EDITOR
+        if (manualEditorSimulation && editorDeltaSeconds > 0f)
+        {
+            // ParticleSystem does not advance from an edit-mode player-loop update.
+            // Simulate explicitly using the same bounded editor tick that moves the
+            // camera-follow volume and updates its weather inputs.
+            _rain?.Simulate(editorDeltaSeconds, true, false, true);
+            _mist?.Simulate(editorDeltaSeconds, true, false, true);
+        }
+#endif
     }
 
     public void SetRainExposure(float exposure) => _manualExposure = Mathf.Clamp01(exposure);
     public void ResetRainExposure() => _manualExposure = 1f;
+
+    Camera ResolveActiveCamera()
+    {
+        if (trackedCamera != null)
+            return trackedCamera;
+
+        Camera main = Camera.main;
+        if (main != null)
+            return main;
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+            return SceneView.lastActiveSceneView != null
+                ? SceneView.lastActiveSceneView.camera
+                : null;
+#endif
+        return null;
+    }
 
     void ResolveReferences()
     {
@@ -173,12 +229,15 @@ public sealed class SolRainVfxController : MonoBehaviour
         Vector3 windDirection,
         float windSpeedMetresPerSecond,
         float daylight,
-        float lightning)
+        float lightning,
+        bool manualSimulation)
     {
         ConfigureLiveSystem(_rain, intensity, simulationScale, worldRunning,
-            windDirection, windSpeedMetresPerSecond, daylight, lightning, false);
+            windDirection, windSpeedMetresPerSecond, daylight, lightning, false,
+            manualSimulation);
         ConfigureLiveSystem(_mist, enableMist ? intensity * mistRatio : 0f, simulationScale, worldRunning,
-            windDirection, windSpeedMetresPerSecond, daylight, lightning, true);
+            windDirection, windSpeedMetresPerSecond, daylight, lightning, true,
+            manualSimulation);
     }
 
     void ConfigureLiveSystem(
@@ -190,7 +249,8 @@ public sealed class SolRainVfxController : MonoBehaviour
         float windSpeedMetresPerSecond,
         float daylight,
         float lightning,
-        bool mist)
+        bool mist,
+        bool manualSimulation)
     {
         if (system == null) return;
 
@@ -212,6 +272,12 @@ public sealed class SolRainVfxController : MonoBehaviour
         var velocity = system.velocityOverLifetime;
         velocity.x = wind.x * windSpeedMetresPerSecond * windInfluence;
         velocity.z = wind.z * windSpeedMetresPerSecond * windInfluence;
+
+        // Edit mode is advanced explicitly by Simulate after both systems have been
+        // configured. Play/Pause does not advance particles there and can leave the
+        // inspector reporting a misleading runtime state.
+        if (manualSimulation)
+            return;
 
         if (!worldRunning)
         {

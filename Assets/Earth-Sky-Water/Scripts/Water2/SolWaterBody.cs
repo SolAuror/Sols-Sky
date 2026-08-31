@@ -190,11 +190,11 @@ namespace Sol.Water
             return geometry != null
                 ? SolWaterWaveEvaluator.EvaluateFinite(
                     Profile, new Vector2(localPosition.x, localPosition.z), time,
-                    origin, waveDirection, environment.Wind.Speed,
+                    origin, waveDirection, environment.Wind.SeaStateSpeed,
                     environment.Weather.WaterTurbulence)
                 : SolWaterWaveEvaluator.Evaluate(
                     Profile, new Vector2(localPosition.x, localPosition.z), time,
-                    origin, waveDirection, environment.Wind.Speed,
+                    origin, waveDirection, environment.Wind.SeaStateSpeed,
                     environment.Weather.WaterTurbulence);
         }
 

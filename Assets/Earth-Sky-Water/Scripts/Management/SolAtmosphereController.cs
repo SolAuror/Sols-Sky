@@ -7,6 +7,7 @@ using Sol.ToD;
 public sealed class SolAtmosphereController : MonoBehaviour
 {
     public static SolAtmosphereController Active { get; private set; }
+    const float BaselineFogAdvectionSpeedMetresPerSecond = 6f;
 
     [SerializeField] SolAtmosphereProfile profile;
     [SerializeField] TimeOfDay timeOfDay;
@@ -257,8 +258,15 @@ public sealed class SolAtmosphereController : MonoBehaviour
     void Update()
     {
         ResolveReferences();
-        float delta = timeOfDay != null ? timeOfDay.WorldDeltaSeconds : Time.deltaTime;
-        _noiseTime += Mathf.Max(0f, delta) * SettingsNoiseSpeed;
+        Sol.Environment.SolEnvironmentWorld environmentWorld =
+            Sol.Environment.SolEnvironmentWorld.Active;
+        float delta = environmentWorld != null
+            ? (float)environmentWorld.WorldDeltaSeconds
+            : timeOfDay != null ? timeOfDay.WorldDeltaSeconds : Time.deltaTime;
+        float fogWindSpeed = Sol.Environment.SolEnvironmentWorld.ResolveState()
+            .Wind.FogAdvectionSpeed;
+        _noiseTime += Mathf.Max(0f, delta) * SettingsNoiseSpeed
+            * (fogWindSpeed / BaselineFogAdvectionSpeedMetresPerSecond);
         PushGlobals();
     }
 
@@ -304,9 +312,9 @@ public sealed class SolAtmosphereController : MonoBehaviour
         CurrentDensity = Mathf.Max(0f, RenderSettings.fogDensity)
                        * SettingsDensityMultiplier;
 
-        Vector3 wind = weather.WindDirection.sqrMagnitude > 0.0001f
-            ? weather.WindDirection
-            : Vector3.right;
+        Sol.Environment.SolEnvironmentWindState environmentWind =
+            Sol.Environment.SolEnvironmentWorld.ResolveState().Wind;
+        Vector3 wind = environmentWind.FogAdvectionDirection;
         float day = timeOfDay != null ? timeOfDay.DayFactor : 1f;
         CurrentDominantLight = timeOfDay != null ? timeOfDay.DominantAtmosphereLight : null;
         Vector3 sunDirection = ResolveLightDirection(day);
@@ -344,7 +352,8 @@ public sealed class SolAtmosphereController : MonoBehaviour
         Shader.SetGlobalVector(Params2ID, _baselineCameraState.Params2);
         Shader.SetGlobalVector(SunDirectionID, sunDirection);
         Shader.SetGlobalColor(SunColorID, directionalColor);
-        Shader.SetGlobalVector(WindTimeID, new Vector4(wind.x, wind.z, _noiseTime, weather.WindStrength));
+        // .w was historically written with wind strength but no shader reads it.
+        Shader.SetGlobalVector(WindTimeID, new Vector4(wind.x, wind.z, _noiseTime, 0f));
         Shader.SetGlobalFloat(LightningID, weather.LightningFlash);
         Shader.SetGlobalFloat(LightningScatteringID, SettingsLightningScattering);
         Shader.SetGlobalVector(VolumetricParamsID, _baselineCameraState.VolumetricParams);

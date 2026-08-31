@@ -30,7 +30,7 @@ public class WeatherManagerEditor : Editor
         EditorGUILayout.HelpBox(
             $"Target: {status}\n" +
             $"Blend: {wm.TransitionProgress:P0}    Rain: {wm.CurrentRainIntensity:0.00}    Dim: {wm.CurrentDim:0.00}\n" +
-            $"Wind: {wm.CurrentState.WindStrength:0.00}    Waves: {wm.CurrentState.WaveSpeedMultiplier:0.00}    Turbulence: {wm.CurrentState.WaterTurbulence:0.00}\n" +
+            $"Wind: {wm.CurrentState.WindSpeedMetresPerSecond:0.0} m/s    Waves: {wm.CurrentState.WaveSpeedMultiplier:0.00}    Turbulence: {wm.CurrentState.WaterTurbulence:0.00}\n" +
             $"Fog: {wm.CurrentState.FogBoost:0.00}    Daily: {wm.CurrentDailyFog:0.00}    Mist: {wm.CurrentState.Mistiness:0.00}    Sky: {wm.CurrentState.SkyObscuration:0.00}",
             MessageType.None);
 

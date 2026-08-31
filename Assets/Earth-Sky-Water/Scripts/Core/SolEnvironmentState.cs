@@ -3,6 +3,32 @@ using UnityEngine;
 
 namespace Sol.Environment
 {
+    /// <summary>
+    /// Exact first-order response for one scalar channel. Stepping returns a new value,
+    /// keeping the primitive pure and independent of frame rate.
+    /// </summary>
+    [Serializable]
+    public readonly struct SolWindLag
+    {
+        public readonly float Value;
+
+        public SolWindLag(float value)
+        {
+            Value = value;
+        }
+
+        public SolWindLag Step(float target, float deltaSeconds, float timeConstantSeconds)
+        {
+            if (deltaSeconds <= 0f)
+                return this;
+            if (timeConstantSeconds <= 0f)
+                return new SolWindLag(target);
+
+            float response = 1f - Mathf.Exp(-deltaSeconds / timeConstantSeconds);
+            return new SolWindLag(Value + (target - Value) * response);
+        }
+    }
+
     /// <summary>Immutable directional lighting values consumed by environment subsystems.</summary>
     [Serializable]
     public readonly struct SolEnvironmentLightingState
@@ -41,16 +67,42 @@ namespace Sol.Environment
     [Serializable]
     public readonly struct SolEnvironmentWindState
     {
+        /// <summary>Instantaneous horizontal wind direction at 10 m.</summary>
         public readonly Vector3 Direction;
+        /// <summary>Instantaneous horizontal wind speed in m/s at 10 m.</summary>
         public readonly float Speed;
+        /// <summary>Twenty-second response used to advect fog and low mist.</summary>
+        public readonly Vector3 FogAdvectionDirection;
+        public readonly float FogAdvectionSpeed;
+        /// <summary>Two-minute response used for cloud direction and scroll speed.</summary>
+        public readonly Vector3 CloudDirection;
+        public readonly float CloudSpeed;
+        /// <summary>Twenty-minute developed-sea response in m/s.</summary>
+        public readonly float SeaStateSpeed;
         public readonly float Turbulence;
 
-        public SolEnvironmentWindState(Vector3 direction, float speed, float turbulence)
+        public SolEnvironmentWindState(
+            Vector3 direction,
+            float speed,
+            Vector3 fogAdvectionDirection,
+            float fogAdvectionSpeed,
+            Vector3 cloudDirection,
+            float cloudSpeed,
+            float seaStateSpeed,
+            float turbulence)
         {
-            Direction = direction.sqrMagnitude > 0.000001f ? direction.normalized : Vector3.right;
+            Direction = NormalizeOrRight(direction);
             Speed = Mathf.Max(0f, speed);
+            FogAdvectionDirection = NormalizeOrRight(fogAdvectionDirection);
+            FogAdvectionSpeed = Mathf.Max(0f, fogAdvectionSpeed);
+            CloudDirection = NormalizeOrRight(cloudDirection);
+            CloudSpeed = Mathf.Max(0f, cloudSpeed);
+            SeaStateSpeed = Mathf.Max(0f, seaStateSpeed);
             Turbulence = Mathf.Clamp01(turbulence);
         }
+
+        static Vector3 NormalizeOrRight(Vector3 value)
+            => value.sqrMagnitude > 0.000001f ? value.normalized : Vector3.right;
     }
 
     /// <summary>Immutable weather presentation and forcing values.</summary>

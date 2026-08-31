@@ -8,8 +8,8 @@ float4 _SolWaterWaveDataB[SOL_WATER_MAX_WAVES]; // steepness, phase offset, rese
 int _SolWaterWaveCount;
 float _SolWaterWaveTime;
 float4 _SolWaterWorldOrigin;
-float4 _SolWaterWind;    // direction.xyz, speed
-float4 _SolWaterWeather; // wind speed, turbulence, rain, wave-speed multiplier
+float4 _SolWaterWind;    // direction.xyz, sea-state speed m/s
+float4 _SolWaterWeather; // seaStateSpeedMetresPerSecond, turbulence, rain, wave-speed multiplier
 float4 _SolWaterWeatherExtended; // cloudiness, lightning, rain roughness, rain normal
 float4 _SolWaterOptics;  // IOR, smoothness, scattering, profile wave speed
 float4 _SolWaterSpectrum; // wind response, reserved
@@ -40,9 +40,10 @@ float4 _SolWaterSpectralParams; // cascade count, strength, resolution, reserved
 // Wind speed in metres per second that counts as a full gale. Mirrors
 // SolWaterWaveEvaluator.WindResponseReferenceSpeed -- keep the two in step.
 #define SOL_WATER_WIND_REFERENCE_SPEED 24.0
+#define SOL_WATER_SEA_STATE_SPEED_METRES_PER_SECOND (_SolWaterWeather.x)
 
-// Normalised wind response, 0 at dead calm and 1 at gale. _SolWaterWeather.x is a
-// speed in metres per second; the divide-by-3 and divide-by-8 forms this replaced were
+// Normalised wind response, 0 at dead calm and 1 at gale. The material parameter is a
+// physical speed; the divide-by-3 and divide-by-8 forms this replaced were
 // written against the old authored 0..3 range and saturated at a light breeze.
 float SolWaterWindResponse01(float windSpeedMetresPerSecond)
 {
@@ -146,7 +147,7 @@ void SolApplyShorelineBreaker(float2 localXZ, float4 shorelineData,
     float cosine;
     sincos(phase, sine, cosine);
     float windScale = lerp(0.65, 1.15,
-        SolWaterWindResponse01(_SolWaterWeather.x));
+        SolWaterWindResponse01(SOL_WATER_SEA_STATE_SPEED_METRES_PER_SECOND));
     float amplitude = strength * envelope * windScale;
     float choppiness = max(0.0, _SolWaterShorelineBreakerDetail.x);
 
@@ -258,7 +259,8 @@ SolWaterWaveResult SolEvaluateWaterWaves(float2 localXZ, float geometrySpacing,
     wind = dot(wind, wind) > 0.0001 ? normalize(wind) : float2(1, 0);
     float turbulence = saturate(_SolWaterWeather.y);
     float weatherAmplitude = lerp(1.0, 1.8, turbulence)
-        * lerp(0.65, 1.35, SolWaterWindResponse01(_SolWaterWeather.x));
+        * lerp(0.65, 1.35,
+            SolWaterWindResponse01(SOL_WATER_SEA_STATE_SPEED_METRES_PER_SECOND));
     // Gerstner is the deterministic Low-tier fallback. Medium/High use the
     // directional spectrum directly; stacking both produces coherent sine bands
     // that expose the clipmap triangulation at grazing angles.

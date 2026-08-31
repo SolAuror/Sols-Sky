@@ -148,8 +148,11 @@ namespace Sol.Water.Rendering
             SolEnvironmentState environment = SolEnvironmentWorld.ResolveState();
             Vector3 windDirection = environment.Wind.Direction.sqrMagnitude > 0.0001f
                 ? environment.Wind.Direction.normalized : Vector3.right;
-            float windSpeed = environment.Wind.Speed;
-            Vector4 wind = new(windDirection.x, windDirection.z, windSpeed, environment.Wind.Turbulence);
+            // Pierson-Moskowitz assumes a developed sea. The twenty-minute response
+            // prevents a newly arrived storm from producing its full swell instantly.
+            float seaStateSpeed = environment.Wind.SeaStateSpeed;
+            Vector4 wind = new(windDirection.x, windDirection.z, seaStateSpeed,
+                environment.Wind.Turbulence);
             Vector4 weather = new(environment.Weather.WaterTurbulence, environment.Weather.Rain,
                 Mathf.Max(0.01f, environment.Weather.WaveSpeedMultiplier), 0f);
             Vector4 spectrum = new(profile.windResponse, profile.spectralChoppiness,

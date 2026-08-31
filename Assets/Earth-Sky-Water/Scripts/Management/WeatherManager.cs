@@ -15,7 +15,7 @@ using Sol.ToD;
 /// Drives:
 ///   - TimeOfDay.WeatherCloudiness / WeatherFogBoost / WeatherDim /
 ///     WeatherLightningFlash  (sky, clouds, fog, ambient, sun/moon dimming)
-///   - SolWaterManager.rainIntensity / windStrength /
+///   - SolWaterManager.rainIntensity / legacy windStrength /
 ///     globalWaveSpeedMultiplier / windDirection (optional slow wander)
 ///
 /// While this component is enabled it OWNS those SolWaterManager fields;
@@ -161,7 +161,8 @@ public class SolWeatherManager : MonoBehaviour
     // --- Private ------------------------------------------------------------
     struct Snapshot
     {
-        public float cloudiness, cloudErosion, rain, wind, fog, mistiness, skyObscuration,
+        public float cloudiness, cloudErosion, rain, windSpeedMetresPerSecond, fog,
+            mistiness, skyObscuration,
             scattering, dim, waveMul, turbulence, lightningIntensity;
 
         public static Snapshot From(SolWeatherProfileAsset p)
@@ -174,7 +175,7 @@ public class SolWeatherManager : MonoBehaviour
                 cloudiness = p.cloudiness,
                 cloudErosion = p.cloudErosion,
                 rain = p.rainIntensity,
-                wind = p.windStrength,
+                windSpeedMetresPerSecond = p.windSpeedMetresPerSecond,
                 fog = p.fogBoost,
                 mistiness = p.mistiness,
                 skyObscuration = p.skyObscuration,
@@ -191,7 +192,8 @@ public class SolWeatherManager : MonoBehaviour
             cloudiness = Mathf.Lerp(a.cloudiness, b.cloudiness, t),
             cloudErosion = Mathf.Lerp(a.cloudErosion, b.cloudErosion, t),
             rain = Mathf.Lerp(a.rain, b.rain, t),
-            wind = Mathf.Lerp(a.wind, b.wind, t),
+            windSpeedMetresPerSecond = Mathf.Lerp(
+                a.windSpeedMetresPerSecond, b.windSpeedMetresPerSecond, t),
             fog = Mathf.Lerp(a.fog, b.fog, t),
             mistiness = Mathf.Lerp(a.mistiness, b.mistiness, t),
             skyObscuration = Mathf.Lerp(a.skyObscuration, b.skyObscuration, t),
@@ -229,6 +231,7 @@ public class SolWeatherManager : MonoBehaviour
 
     OwnedWaterState _ownedWaterState;
     bool _hasOwnedWaterState;
+    const float LegacyWaterWindUnitMetresPerSecond = 8f;
 
     SolWeatherProfileAsset GetProfile(int index)
     {
@@ -615,7 +618,7 @@ public class SolWeatherManager : MonoBehaviour
             now.cloudErosion,
             now.rain,
             windDirection,
-            now.wind,
+            now.windSpeedMetresPerSecond,
             combinedFog,
             combinedMist,
             now.skyObscuration,
@@ -639,8 +642,8 @@ public class SolWeatherManager : MonoBehaviour
             todManager.WeatherFogBoost = combinedFog;
             todManager.WeatherDim = now.dim;
             todManager.WeatherLightningFlash = _flash;
-            todManager.WeatherCloudSpeedMul = 1f + now.wind * 0.35f;
-            todManager.WeatherWindDirection = windDirection;
+            // Cloud wind is published by SolEnvironmentWorld after its dedicated
+            // response lag. Do not overwrite it here with the instantaneous target.
             todManager.RefreshEnvironmentFromWeather();
         }
 
@@ -652,7 +655,10 @@ public class SolWeatherManager : MonoBehaviour
             if (driveWind)
             {
                 waterManager.windDirection = windDirection;
-                waterManager.windStrength = now.wind;
+                // Water 1 is the sole legacy adapter seam. Its shaders still author
+                // wind in the old 0..3 unit, while every shared/Water2 path is m/s.
+                waterManager.windStrength = now.windSpeedMetresPerSecond
+                    / LegacyWaterWindUnitMetresPerSecond;
             }
 
             if (driveWaves)
@@ -729,7 +735,7 @@ public class SolWeatherManager : MonoBehaviour
             target.cloudErosion,
             target.rain,
             windDirection,
-            target.wind,
+            target.windSpeedMetresPerSecond,
             target.fog + targetClimateFog,
             targetMist,
             target.skyObscuration,

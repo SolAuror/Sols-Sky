@@ -15,7 +15,7 @@ MonoBehaviour:
   cloudiness: 0.84
   cloudErosion: 0.46
   rainIntensity: 0.65
-  windStrength: 1.35
+  windSpeedMetresPerSecond: 10.8
   fogBoost: 0.12
   mistiness: 0.65
   skyObscuration: 0.12

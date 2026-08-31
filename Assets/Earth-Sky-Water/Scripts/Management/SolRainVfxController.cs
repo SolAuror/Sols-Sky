@@ -1,5 +1,6 @@
-using UnityEngine;
+using Sol.Environment;
 using Sol.ToD;
+using UnityEngine;
 
 /// <summary>
 /// Camera-following Sol rain presentation. Weather owns intensity and wind;
@@ -20,7 +21,7 @@ public sealed class SolRainVfxController : MonoBehaviour
     [SerializeField, Min(1f)] float fallSpeed = 28f;
     [SerializeField, Range(64, 10000)] int maxParticles = 2400;
     [SerializeField, Min(0f)] float maxEmissionRate = 850f;
-    [SerializeField, Range(0f, 10f)] float windInfluence = 2.5f;
+    [SerializeField, Range(0f, 1f)] float windInfluence = 1f;
     [SerializeField, Range(1f, 100f)] float maxParticleTimeScale = 10f;
     [SerializeField] Color rainColor = new(0.68f, 0.78f, 0.9f, 0.42f);
 
@@ -103,6 +104,7 @@ public sealed class SolRainVfxController : MonoBehaviour
         UpdateShelter(cameraPosition, presentationDelta);
 
         SolWeatherState state = weatherManager != null ? weatherManager.CurrentState : default;
+        SolEnvironmentWindState wind = SolEnvironmentWorld.ResolveState().Wind;
         // Submersion comes from the _UnderwaterFactor global rather than from the legacy
         // UnderwaterVolumeController. Both water paths publish that contract -- Water 2
         // from SolWaterRendererFeature, Water 1 from the controller -- but the controller
@@ -115,7 +117,7 @@ public sealed class SolRainVfxController : MonoBehaviour
 
         float day = timeOfDay != null ? timeOfDay.DayFactor : 1f;
         ApplyIntensity(EffectiveRainIntensity, visualScale, worldRunning,
-            state.WindDirection, state.WindStrength, day, state.LightningFlash);
+            wind.Direction, wind.Speed, day, state.LightningFlash);
     }
 
     public void SetRainExposure(float exposure) => _manualExposure = Mathf.Clamp01(exposure);
@@ -169,14 +171,14 @@ public sealed class SolRainVfxController : MonoBehaviour
         float simulationScale,
         bool worldRunning,
         Vector3 windDirection,
-        float windStrength,
+        float windSpeedMetresPerSecond,
         float daylight,
         float lightning)
     {
         ConfigureLiveSystem(_rain, intensity, simulationScale, worldRunning,
-            windDirection, windStrength, daylight, lightning, false);
+            windDirection, windSpeedMetresPerSecond, daylight, lightning, false);
         ConfigureLiveSystem(_mist, enableMist ? intensity * mistRatio : 0f, simulationScale, worldRunning,
-            windDirection, windStrength, daylight, lightning, true);
+            windDirection, windSpeedMetresPerSecond, daylight, lightning, true);
     }
 
     void ConfigureLiveSystem(
@@ -185,7 +187,7 @@ public sealed class SolRainVfxController : MonoBehaviour
         float simulationScale,
         bool worldRunning,
         Vector3 windDirection,
-        float windStrength,
+        float windSpeedMetresPerSecond,
         float daylight,
         float lightning,
         bool mist)
@@ -208,8 +210,8 @@ public sealed class SolRainVfxController : MonoBehaviour
 
         Vector3 wind = windDirection.sqrMagnitude > 0.0001f ? windDirection.normalized : Vector3.right;
         var velocity = system.velocityOverLifetime;
-        velocity.x = wind.x * windStrength * windInfluence;
-        velocity.z = wind.z * windStrength * windInfluence;
+        velocity.x = wind.x * windSpeedMetresPerSecond * windInfluence;
+        velocity.z = wind.z * windSpeedMetresPerSecond * windInfluence;
 
         if (!worldRunning)
         {

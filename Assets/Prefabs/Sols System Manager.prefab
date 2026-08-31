@@ -208,77 +208,25 @@ MonoBehaviour:
   todManager: {fileID: 3149415258223262805}
   waterManager: {fileID: 4004012691867663335}
   profiles:
-  - name: Clear
-    cloudiness: 0
-    cloudErosion: 0.52
-    rainIntensity: 0
-    windStrength: 0.35
-    fogBoost: 0
-    mistiness: 0
-    skyObscuration: 0
-    lightScattering: 0.55
-    dim: 0
-    waveSpeedMultiplier: 0.85
-    waterTurbulence: 0.05
-    lightning: 0
-    lightningIntensity: 0
+  - profile: {fileID: 11400000, guid: 52b54904ba7364c4e9b5fea9cfa55dc7, type: 2}
     weight: 4
     springWeightMultiplier: 1.05
     summerWeightMultiplier: 1.45
     autumnWeightMultiplier: 0.85
     winterWeightMultiplier: 0.65
-  - name: Overcast
-    cloudiness: 0.68
-    cloudErosion: 0.22
-    rainIntensity: 0
-    windStrength: 0.75
-    fogBoost: 0.03
-    mistiness: 0.06
-    skyObscuration: 0.04
-    lightScattering: 0.3
-    dim: 0.28
-    waveSpeedMultiplier: 1
-    waterTurbulence: 0.18
-    lightning: 0
-    lightningIntensity: 0
+  - profile: {fileID: 11400000, guid: 8f44363d30c98b94780b842515e95e22, type: 2}
     weight: 3
     springWeightMultiplier: 0.95
     summerWeightMultiplier: 0.7
     autumnWeightMultiplier: 1.25
     winterWeightMultiplier: 1.35
-  - name: Rain
-    cloudiness: 0.84
-    cloudErosion: 0.46
-    rainIntensity: 0.65
-    windStrength: 1.35
-    fogBoost: 0.12
-    mistiness: 0.65
-    skyObscuration: 0.12
-    lightScattering: 0.24
-    dim: 0.44
-    waveSpeedMultiplier: 1.25
-    waterTurbulence: 0.48
-    lightning: 0
-    lightningIntensity: 0
+  - profile: {fileID: 11400000, guid: 9ff615dac6b8ecb489fcf6617c80e2d5, type: 2}
     weight: 2
     springWeightMultiplier: 1.35
     summerWeightMultiplier: 0.75
     autumnWeightMultiplier: 1.05
     winterWeightMultiplier: 1.25
-  - name: Storm
-    cloudiness: 0.97
-    cloudErosion: 0.64
-    rainIntensity: 0.95
-    windStrength: 2.65
-    fogBoost: 0.3
-    mistiness: 0.82
-    skyObscuration: 0.36
-    lightScattering: 0.16
-    dim: 0.78
-    waveSpeedMultiplier: 1.85
-    waterTurbulence: 1
-    lightning: 1
-    lightningIntensity: 0.28
+  - profile: {fileID: 11400000, guid: e644aa5618e584743b6fdab754dd2794, type: 2}
     weight: 1
     springWeightMultiplier: 0.75
     summerWeightMultiplier: 0.55
@@ -407,7 +355,7 @@ MonoBehaviour:
   fallSpeed: 28
   maxParticles: 2400
   maxEmissionRate: 850
-  windInfluence: 2.5
+  windInfluence: 1
   maxParticleTimeScale: 10
   rainColor: {r: 0.68, g: 0.78, b: 0.9, a: 0.42}
   probeShelter: 1

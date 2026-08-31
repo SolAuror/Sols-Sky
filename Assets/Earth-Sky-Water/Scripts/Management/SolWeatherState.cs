@@ -9,7 +9,8 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
     public readonly float CloudErosion;
     public readonly float RainIntensity;
     public readonly Vector3 WindDirection;
-    public readonly float WindStrength;
+    /// <summary>Horizontal wind speed in m/s at the standard 10 m reference height.</summary>
+    public readonly float WindSpeedMetresPerSecond;
     public readonly float FogBoost;
     public readonly float Mistiness;
     public readonly float SkyObscuration;
@@ -25,7 +26,7 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
         float cloudErosion,
         float rainIntensity,
         Vector3 windDirection,
-        float windStrength,
+        float windSpeedMetresPerSecond,
         float fogBoost,
         float mistiness,
         float skyObscuration,
@@ -40,7 +41,7 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
         CloudErosion = Mathf.Clamp01(cloudErosion);
         RainIntensity = Mathf.Clamp01(rainIntensity);
         WindDirection = windDirection.sqrMagnitude > 0.0001f ? windDirection.normalized : Vector3.right;
-        WindStrength = Mathf.Max(0f, windStrength);
+        WindSpeedMetresPerSecond = Mathf.Max(0f, windSpeedMetresPerSecond);
         FogBoost = Mathf.Max(0f, fogBoost);
         Mistiness = Mathf.Clamp01(mistiness);
         SkyObscuration = Mathf.Clamp01(skyObscuration);
@@ -58,7 +59,7 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
         float cloudErosion,
         float rainIntensity,
         Vector3 windDirection,
-        float windStrength,
+        float windSpeedMetresPerSecond,
         float fogBoost,
         float skyObscuration,
         float lightScattering,
@@ -66,7 +67,7 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
         float waveSpeedMultiplier,
         float lightningIntensity,
         float lightningFlash)
-        : this(cloudiness, cloudErosion, rainIntensity, windDirection, windStrength,
+        : this(cloudiness, cloudErosion, rainIntensity, windDirection, windSpeedMetresPerSecond,
             fogBoost, 0f, skyObscuration, lightScattering, dim, waveSpeedMultiplier,
             0f, lightningIntensity, lightningFlash)
     {
@@ -78,13 +79,13 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
         float cloudErosion,
         float rainIntensity,
         Vector3 windDirection,
-        float windStrength,
+        float windSpeedMetresPerSecond,
         float fogBoost,
         float lightScattering,
         float dim,
         float waveSpeedMultiplier,
         float lightningFlash)
-        : this(cloudiness, cloudErosion, rainIntensity, windDirection, windStrength,
+        : this(cloudiness, cloudErosion, rainIntensity, windDirection, windSpeedMetresPerSecond,
             fogBoost, 0f, 0f, lightScattering, dim, waveSpeedMultiplier, 0f, 1f, lightningFlash)
     {
     }
@@ -94,7 +95,7 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
         && Approximately(CloudErosion, other.CloudErosion)
         && Approximately(RainIntensity, other.RainIntensity)
         && (WindDirection - other.WindDirection).sqrMagnitude < 0.000001f
-        && Approximately(WindStrength, other.WindStrength)
+        && Approximately(WindSpeedMetresPerSecond, other.WindSpeedMetresPerSecond)
         && Approximately(FogBoost, other.FogBoost)
         && Approximately(Mistiness, other.Mistiness)
         && Approximately(SkyObscuration, other.SkyObscuration)
@@ -107,7 +108,7 @@ public readonly struct SolWeatherState : IEquatable<SolWeatherState>
 
     public override bool Equals(object obj) => obj is SolWeatherState other && Equals(other);
     public override int GetHashCode() => HashCode.Combine(
-        HashCode.Combine(Cloudiness, CloudErosion, RainIntensity, WindDirection, WindStrength),
+        HashCode.Combine(Cloudiness, CloudErosion, RainIntensity, WindDirection, WindSpeedMetresPerSecond),
         HashCode.Combine(FogBoost, Mistiness, SkyObscuration, LightScattering, Dim),
         HashCode.Combine(WaveSpeedMultiplier, WaterTurbulence, LightningIntensity, LightningFlash));
 

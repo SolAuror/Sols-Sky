@@ -3320,7 +3320,7 @@ MonoBehaviour:
   fallSpeed: 28
   maxParticles: 2400
   maxEmissionRate: 850
-  windInfluence: 2.5
+  windInfluence: 1
   maxParticleTimeScale: 10
   rainColor: {r: 0.68, g: 0.78, b: 0.9, a: 0.42}
   probeShelter: 1
@@ -3372,7 +3372,6 @@ MonoBehaviour:
   paused: 0
   fallbackWindDirection: {x: 0.92, y: 0.38}
   fallbackWindSpeed: 6
-  windStrengthToMetresPerSecond: 8
   initialWetness: 0
   initialSnowCover: 0
   initialTemperatureCelsius: 18

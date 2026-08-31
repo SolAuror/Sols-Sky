@@ -8,8 +8,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// One-shot deterministic migration from the inline WeatherProfile YAML used before
-/// Phase 5 to reusable SolWeatherProfileAsset objects plus scene-local selection weights.
+/// Deterministic migration from the inline WeatherProfile YAML used before Phase 5 to
+/// reusable SolWeatherProfileAsset objects plus scene/prefab-local selection weights.
 /// The parser reads the source YAML before Unity discards fields no longer present on the
 /// runtime selection type, so no presentation value is reconstructed from defaults.
 /// </summary>
@@ -17,11 +17,12 @@ public static class SolWeatherProfileMigration
 {
     public const string ProfileFolder = "Assets/Earth-Sky-Water/Weather Profiles";
 
-    static readonly string[] ScenePaths =
+    static readonly string[] SerializedAssetPaths =
     {
         "Assets/Scenes/Sc_Sols_FiniteBodies.unity",
         "Assets/Scenes/Sc_Sols_Landscape.unity",
         "Assets/Scenes/Sols_Water2_Demo.unity",
+        "Assets/Prefabs/Sols System Manager.prefab",
     };
 
     const string WeatherManagerScriptGuid = "73f599d83cb25b048a81f2549fd3490a";
@@ -69,20 +70,20 @@ public static class SolWeatherProfileMigration
 
     static void MigrateAll()
     {
-        var legacyByScene = new Dictionary<string, List<LegacyProfile>>(StringComparer.Ordinal);
+        var legacyByAsset = new Dictionary<string, List<LegacyProfile>>(StringComparer.Ordinal);
         List<LegacyProfile> canonical = null;
 
-        foreach (string scenePath in ScenePaths)
+        foreach (string serializedAssetPath in SerializedAssetPaths)
         {
-            List<LegacyProfile> parsed = ParseLegacyProfiles(scenePath);
-            legacyByScene.Add(scenePath, parsed);
+            List<LegacyProfile> parsed = ParseLegacyProfiles(serializedAssetPath);
+            legacyByAsset.Add(serializedAssetPath, parsed);
             if (parsed.Count == 0)
                 continue;
 
             if (canonical == null)
                 canonical = parsed;
             else
-                RequireMatchingPresentation(canonical, parsed, scenePath);
+                RequireMatchingPresentation(canonical, parsed, serializedAssetPath);
         }
 
         EnsureFolder(ProfileFolder);
@@ -99,11 +100,13 @@ public static class SolWeatherProfileMigration
             assetsByName.Add(asset.name, asset);
 
         AssetDatabase.SaveAssets();
-        foreach (string scenePath in ScenePaths)
-            RewriteSceneYaml(scenePath, legacyByScene[scenePath], assetsByName);
+        foreach (string serializedAssetPath in SerializedAssetPaths)
+            RewriteSerializedYaml(serializedAssetPath,
+                legacyByAsset[serializedAssetPath], assetsByName);
 
         AssetDatabase.Refresh();
-        Debug.Log($"[SolWeatherProfileMigration] Migrated {ScenePaths.Length} scenes and "
+        Debug.Log($"[SolWeatherProfileMigration] Migrated "
+            + $"{SerializedAssetPaths.Length} scene/prefab containers and "
             + $"{assets.Length} reusable weather profiles.");
     }
 
@@ -144,8 +147,8 @@ public static class SolWeatherProfileMigration
         return assets.ToArray();
     }
 
-    static void RewriteSceneYaml(
-        string scenePath,
+    static void RewriteSerializedYaml(
+        string serializedAssetPath,
         List<LegacyProfile> legacy,
         Dictionary<string, SolWeatherProfileAsset> assetsByName)
     {
@@ -154,11 +157,11 @@ public static class SolWeatherProfileMigration
         if (legacy.Count == 0)
             return;
 
-        string source = File.ReadAllText(scenePath);
+        string source = File.ReadAllText(serializedAssetPath);
         string newline = source.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         bool endsWithNewline = source.EndsWith("\n", StringComparison.Ordinal);
         string[] lines = source.Replace("\r\n", "\n").Split('\n');
-        int profilesLine = FindProfilesLine(lines, scenePath);
+        int profilesLine = FindProfilesLine(lines, serializedAssetPath);
         int blockEnd = profilesLine + 1;
         while (blockEnd < lines.Length
             && (lines[blockEnd].StartsWith("  - ", StringComparison.Ordinal)
@@ -172,7 +175,7 @@ public static class SolWeatherProfileMigration
         {
             if (!assetsByName.TryGetValue(old.Name, out SolWeatherProfileAsset asset))
                 throw new InvalidDataException(
-                    $"No weather profile asset exists for '{old.Name}' in {scenePath}.");
+                    $"No weather profile asset exists for '{old.Name}' in {serializedAssetPath}.");
 
             string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(asset));
             replacement.Add($"  - profile: {{fileID: 11400000, guid: {guid}, type: 2}}");
@@ -194,8 +197,8 @@ public static class SolWeatherProfileMigration
         string migrated = string.Join(newline, output);
         if (endsWithNewline && !migrated.EndsWith(newline, StringComparison.Ordinal))
             migrated += newline;
-        File.WriteAllText(scenePath, migrated);
-        AssetDatabase.ImportAsset(scenePath, ImportAssetOptions.ForceUpdate);
+        File.WriteAllText(serializedAssetPath, migrated);
+        AssetDatabase.ImportAsset(serializedAssetPath, ImportAssetOptions.ForceUpdate);
     }
 
     static List<LegacyProfile> ParseLegacyProfiles(string assetPath)
@@ -287,7 +290,9 @@ public static class SolWeatherProfileMigration
         destination.cloudiness = source.Cloudiness;
         destination.cloudErosion = source.CloudErosion;
         destination.rainIntensity = source.RainIntensity;
-        destination.windStrength = source.WindStrength;
+        // Inline profiles authored the legacy 0..3 multiplier. Phase 6 makes the
+        // asset physical at the standard 10 m reference height, so convert once here.
+        destination.windSpeedMetresPerSecond = source.WindStrength * 8f;
         destination.fogBoost = source.FogBoost;
         destination.mistiness = source.Mistiness;
         destination.skyObscuration = source.SkyObscuration;

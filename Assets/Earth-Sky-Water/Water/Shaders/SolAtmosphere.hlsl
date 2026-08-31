@@ -12,7 +12,7 @@ float4 _SolAtmosphereSkyParams; // zenith strength, horizon strength, saturation
 float4 _SolAtmosphereLightingParams; // sky obscuration, cloudiness, storm dim, max luminance
 float4 _SolAtmosphereSunDirection;
 float4 _SolAtmosphereSunColor;
-float4 _SolAtmosphereWindTime; // wind xz, accumulated time, strength
+float4 _SolAtmosphereWindTime; // lagged fog-wind xz, accumulated time, reserved
 float _SolAtmosphereLightning;
 float _SolAtmosphereLightningScattering;
 float _SolAtmosphereLightAvailable;

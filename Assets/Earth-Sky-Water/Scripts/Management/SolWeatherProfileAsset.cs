@@ -18,8 +18,8 @@ public sealed class SolWeatherProfileAsset : ScriptableObject
     [Tooltip("Rain intensity pushed to SolWaterManager (0 = dry, 1 = downpour).")]
     [Range(0f, 1f)] public float rainIntensity;
 
-    [Tooltip("Wind strength pushed to SolWaterManager.")]
-    [Range(0f, 3f)] public float windStrength = 1f;
+    [Tooltip("Horizontal wind speed in metres per second at the standard 10 m reference height.")]
+    [Range(0f, 24f)] public float windSpeedMetresPerSecond = 8f;
 
     [Tooltip("Additional fog density multiplier (0 = none, 1 = double).")]
     [Range(0f, 2f)] public float fogBoost;
@@ -53,7 +53,7 @@ public sealed class SolWeatherProfileAsset : ScriptableObject
         cloudiness = Mathf.Clamp01(cloudiness);
         cloudErosion = Mathf.Clamp01(cloudErosion);
         rainIntensity = Mathf.Clamp01(rainIntensity);
-        windStrength = Mathf.Clamp(windStrength, 0f, 3f);
+        windSpeedMetresPerSecond = Mathf.Clamp(windSpeedMetresPerSecond, 0f, 24f);
         fogBoost = Mathf.Clamp(fogBoost, 0f, 2f);
         mistiness = Mathf.Clamp01(mistiness);
         skyObscuration = Mathf.Clamp01(skyObscuration);

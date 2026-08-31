@@ -19,7 +19,12 @@ namespace Sol.Environment
     [DisallowMultipleComponent]
     public sealed class SolEnvironmentWorld : MonoBehaviour
     {
-        public const int SnapshotVersion = 2;
+        public const int SnapshotVersion = 3;
+
+        const float FogWindTimeConstantSeconds = 20f;
+        const float CloudWindTimeConstantSeconds = 120f;
+        const float SeaStateTimeConstantSeconds = 20f * 60f;
+        const float LegacyCloudSpeedUnitMetresPerSecond = 8f;
 
         public static SolEnvironmentWorld Active { get; private set; }
 
@@ -31,7 +36,11 @@ namespace Sol.Environment
         static readonly SolEnvironmentState Fallback = new(
             0UL, 0L, 0d, 0d, 0L, 12f,
             new SolEnvironmentLightingState(Vector3.up, Vector3.down, Color.white, 1f, 1f, 0f, 0f),
-            new SolEnvironmentWindState(new Vector3(0.92f, 0f, 0.38f), 6f, 0f),
+            new SolEnvironmentWindState(
+                new Vector3(0.92f, 0f, 0.38f), 6f,
+                new Vector3(0.92f, 0f, 0.38f), 6f,
+                new Vector3(0.92f, 0f, 0.38f), 6f,
+                6f, 0f),
             new SolEnvironmentWeatherState(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f),
             new SolSurfaceConditionState(0f, 0f, 18f, 0.55f));
 
@@ -67,14 +76,6 @@ namespace Sol.Environment
         [Header("Fair Weather Fallback")]
         [SerializeField] Vector2 fallbackWindDirection = new(0.92f, 0.38f);
         [SerializeField, Min(0f)] float fallbackWindSpeed = 6f;
-
-        [Header("Weather Wind Conversion")]
-        [Tooltip("Metres per second represented by a WeatherProfile windStrength of 1. "
-            + "WeatherProfile authors wind as a 0-3 normalised multiplier, but the water "
-            + "spectrum needs a real speed: it derives the Pierson-Moskowitz peak "
-            + "frequency from it, so feeding the raw multiplier put all wave energy into "
-            + "sub-two-metre ripples and the ocean read as flat.")]
-        [SerializeField, Min(0f)] float windStrengthToMetresPerSecond = 8f;
 
         [Header("Surface Climate")]
         [SerializeField, Range(0f, 1f)] float initialWetness;
@@ -121,6 +122,12 @@ namespace Sol.Environment
         float _temperature;
         bool _temperatureOverridden;
         float _humidity;
+        SolWindLag _fogWindX;
+        SolWindLag _fogWindZ;
+        SolWindLag _cloudWindX;
+        SolWindLag _cloudWindZ;
+        SolWindLag _seaStateSpeed;
+        bool _windResponseInitialized;
 
         void Awake()
         {
@@ -137,6 +144,7 @@ namespace Sol.Environment
             _snowCover = initialSnowCover;
             _temperature = initialTemperatureCelsius;
             _humidity = initialRelativeHumidity;
+            InitializeWindResponse();
             PublishState(force: true);
         }
 
@@ -159,7 +167,6 @@ namespace Sol.Environment
             wettingPerWorldSecond = Mathf.Max(0f, wettingPerWorldSecond);
             dryingPerWorldSecond = Mathf.Max(0f, dryingPerWorldSecond);
             fallbackWindSpeed = Mathf.Max(0f, fallbackWindSpeed);
-            windStrengthToMetresPerSecond = Mathf.Max(0f, windStrengthToMetresPerSecond);
             if (fallbackWindDirection.sqrMagnitude < 0.0001f)
                 fallbackWindDirection = Vector2.right;
         }
@@ -265,6 +272,16 @@ namespace Sol.Environment
             // the saved climate rather than fighting it. Resume it.
             _temperatureOverridden = false;
             _humidity = snapshot.State.Surface.RelativeHumidity;
+            Vector3 fogVelocity = snapshot.State.Wind.FogAdvectionDirection
+                * snapshot.State.Wind.FogAdvectionSpeed;
+            Vector3 cloudVelocity = snapshot.State.Wind.CloudDirection
+                * snapshot.State.Wind.CloudSpeed;
+            _fogWindX = new SolWindLag(fogVelocity.x);
+            _fogWindZ = new SolWindLag(fogVelocity.z);
+            _cloudWindX = new SolWindLag(cloudVelocity.x);
+            _cloudWindZ = new SolWindLag(cloudVelocity.z);
+            _seaStateSpeed = new SolWindLag(snapshot.State.Wind.SeaStateSpeed);
+            _windResponseInitialized = true;
             _accumulator = 0d;
             PublishState(force: true);
             return true;
@@ -305,6 +322,7 @@ namespace Sol.Environment
         void StepSimulation(float deltaSeconds)
         {
             _simulationTick++;
+            StepWindResponse(deltaSeconds);
             _temperature = ResolveSeasonalTemperature();
             float precipitation = weather != null ? weather.CurrentState.RainIntensity : 0f;
             // Only liquid precipitation wets the ground.
@@ -337,16 +355,23 @@ namespace Sol.Environment
                 tod != null ? tod.MoonIllumination : 0f,
                 tod != null ? Mathf.Max(tod.SolarEclipseStrength, tod.LunarEclipseStrength) : 0f);
 
-            bool hasWeatherSource = weather != null;
-            Vector3 fairDirection = new(fallbackWindDirection.x, 0f, fallbackWindDirection.y);
+            ResolveSourceWind(out Vector3 windDirection, out float windSpeed,
+                out float turbulence);
+            if (!_windResponseInitialized)
+                InitializeWindResponse();
+            Vector3 fogVelocity = new(_fogWindX.Value, 0f, _fogWindZ.Value);
+            Vector3 cloudVelocity = new(_cloudWindX.Value, 0f, _cloudWindZ.Value);
+            Vector3 fogDirection = ResolveDirection(fogVelocity, windDirection);
+            Vector3 cloudDirection = ResolveDirection(cloudVelocity, windDirection);
             SolEnvironmentWindState wind = new(
-                hasWeatherSource
-                    ? sourceWeather.WindDirection == Vector3.zero ? fairDirection : sourceWeather.WindDirection
-                    : fairDirection,
-                hasWeatherSource
-                    ? sourceWeather.WindStrength * windStrengthToMetresPerSecond
-                    : fallbackWindSpeed,
-                sourceWeather.WaterTurbulence);
+                windDirection,
+                windSpeed,
+                fogDirection,
+                fogVelocity.magnitude,
+                cloudDirection,
+                cloudVelocity.magnitude,
+                _seaStateSpeed.Value,
+                turbulence);
 
             SolEnvironmentWeatherState presentedWeather = new(
                 sourceWeather.Cloudiness,
@@ -373,8 +398,72 @@ namespace Sol.Environment
                 surface);
 
             State = next;
+            ApplyCloudWindToTimeOfDay(wind);
             if (force)
                 StateChanged?.Invoke(next);
+        }
+
+        void InitializeWindResponse()
+        {
+            ResolveSourceWind(out Vector3 direction, out float speed, out _);
+            Vector3 velocity = direction * speed;
+            _fogWindX = new SolWindLag(velocity.x);
+            _fogWindZ = new SolWindLag(velocity.z);
+            _cloudWindX = new SolWindLag(velocity.x);
+            _cloudWindZ = new SolWindLag(velocity.z);
+            _seaStateSpeed = new SolWindLag(speed);
+            _windResponseInitialized = true;
+        }
+
+        void StepWindResponse(float deltaSeconds)
+        {
+            if (!_windResponseInitialized)
+                InitializeWindResponse();
+
+            ResolveSourceWind(out Vector3 direction, out float speed, out _);
+            Vector3 targetVelocity = direction * speed;
+            _fogWindX = _fogWindX.Step(
+                targetVelocity.x, deltaSeconds, FogWindTimeConstantSeconds);
+            _fogWindZ = _fogWindZ.Step(
+                targetVelocity.z, deltaSeconds, FogWindTimeConstantSeconds);
+            _cloudWindX = _cloudWindX.Step(
+                targetVelocity.x, deltaSeconds, CloudWindTimeConstantSeconds);
+            _cloudWindZ = _cloudWindZ.Step(
+                targetVelocity.z, deltaSeconds, CloudWindTimeConstantSeconds);
+            _seaStateSpeed = _seaStateSpeed.Step(
+                speed, deltaSeconds, SeaStateTimeConstantSeconds);
+        }
+
+        void ResolveSourceWind(
+            out Vector3 direction,
+            out float speedMetresPerSecond,
+            out float turbulence)
+        {
+            SolWeatherState source = weather != null ? weather.CurrentState : default;
+            Vector3 fallbackDirection = new(
+                fallbackWindDirection.x, 0f, fallbackWindDirection.y);
+            direction = weather != null && source.WindDirection.sqrMagnitude > 0.0001f
+                ? source.WindDirection.normalized
+                : fallbackDirection.normalized;
+            speedMetresPerSecond = weather != null
+                ? source.WindSpeedMetresPerSecond
+                : fallbackWindSpeed;
+            turbulence = weather != null ? source.WaterTurbulence : 0f;
+        }
+
+        static Vector3 ResolveDirection(Vector3 velocity, Vector3 fallback)
+            => velocity.sqrMagnitude > 0.000001f ? velocity.normalized : fallback;
+
+        void ApplyCloudWindToTimeOfDay(in SolEnvironmentWindState wind)
+        {
+            if (timeOfDay == null)
+                return;
+
+            timeOfDay.WeatherWindDirection = wind.CloudDirection;
+            // Preserve the existing scenic cloud pacing while deriving it from the
+            // physical 10 m speed. The sky shader still consumes a dimensionless trim.
+            timeOfDay.WeatherCloudSpeedMul = 1f + wind.CloudSpeed
+                * (0.35f / LegacyCloudSpeedUnitMetresPerSecond);
         }
 
         /// <summary>

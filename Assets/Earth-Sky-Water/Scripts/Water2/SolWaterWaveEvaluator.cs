@@ -26,9 +26,8 @@ namespace Sol.Water
 
         /// <summary>
         /// Wind speed, in metres per second, that counts as a full gale for wave
-        /// response. SolEnvironmentWorld publishes wind in m/s as the authored 0..3
-        /// WeatherProfile multiplier times windStrengthToMetresPerSecond (default 8),
-        /// so the authored maximum lands at 24.
+        /// response. Weather profiles and SolEnvironmentWorld publish the same physical
+        /// 10 m wind directly, so the authored range ends at this 24 m/s reference.
         /// </summary>
         public const float WindResponseReferenceSpeed = 24f;
 
@@ -51,10 +50,10 @@ namespace Sol.Water
             double time,
             in SolDouble3 logicalOrigin,
             Vector3 windDirection,
-            float windStrength,
+            float windSpeedMetresPerSecond,
             float turbulence)
             => EvaluateCore(profile, localXZ, time, logicalOrigin, windDirection,
-                windStrength, turbulence, true);
+                windSpeedMetresPerSecond, turbulence, true);
 
         internal static SolWaterWaveSample EvaluateFinite(
             SolWaterProfile profile,
@@ -62,10 +61,10 @@ namespace Sol.Water
             double time,
             in SolDouble3 logicalOrigin,
             Vector3 flowDirection,
-            float windStrength,
+            float windSpeedMetresPerSecond,
             float turbulence)
             => EvaluateCore(profile, localXZ, time, logicalOrigin, flowDirection,
-                windStrength, turbulence, false);
+                windSpeedMetresPerSecond, turbulence, false);
 
         static SolWaterWaveSample EvaluateCore(
             SolWaterProfile profile,
@@ -73,7 +72,7 @@ namespace Sol.Water
             double time,
             in SolDouble3 logicalOrigin,
             Vector3 windDirection,
-            float windStrength,
+            float windSpeedMetresPerSecond,
             float turbulence,
             bool evaluateShoreline)
         {
@@ -93,7 +92,8 @@ namespace Sol.Water
             wind.Normalize();
 
             float weatherAmplitude = Mathf.Lerp(1f, 1.8f, Mathf.Clamp01(turbulence))
-                * Mathf.Lerp(0.65f, 1.35f, WindResponse01(windStrength));
+                * Mathf.Lerp(0.65f, 1.35f,
+                    WindResponse01(windSpeedMetresPerSecond));
 
             // Medium and High render the spectrum instead of Gerstner, and the shader
             // zeroes the Gerstner amplitude outright when a cascade count is set
@@ -179,7 +179,8 @@ namespace Sol.Water
             float finalFoam = Mathf.Max(foam * profile.crestFoamStrength, shorelineFoam);
             if (evaluateShoreline)
             {
-                EvaluateShorelineBreaker(profile, worldXZ, time, windStrength,
+                EvaluateShorelineBreaker(profile, worldXZ, time,
+                    windSpeedMetresPerSecond,
                     out Vector3 breakerDisplacement, out Vector3 breakerNormal,
                     out Vector3 breakerVelocity, out float breakerFoam);
                 displacement += breakerDisplacement;
@@ -221,7 +222,7 @@ namespace Sol.Water
             SolWaterProfile profile,
             Vector2 logicalXZ,
             double time,
-            float windStrength,
+            float windSpeedMetresPerSecond,
             out Vector3 displacement,
             out Vector3 normal,
             out Vector3 velocity,
@@ -275,7 +276,8 @@ namespace Sol.Water
             float sine = Mathf.Sin(phase);
             float cosine = Mathf.Cos(phase);
             float amplitude = profile.shorelineBreakerStrength * envelope
-                * Mathf.Lerp(0.65f, 1.15f, WindResponse01(windStrength));
+                * Mathf.Lerp(0.65f, 1.15f,
+                    WindResponse01(windSpeedMetresPerSecond));
             float choppiness = Mathf.Max(0f, profile.shorelineBreakerChoppiness);
 
             displacement = new Vector3(

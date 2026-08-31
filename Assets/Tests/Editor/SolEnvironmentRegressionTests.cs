@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Sol.Environment;
 using Sol.ToD;
@@ -29,12 +31,19 @@ namespace Sol.Tests.Editor
         const string RendererPath = "Assets/Settings/Sol_Renderer.asset";
         const string AtmosphereShaderPath = "Assets/Earth-Sky-Water/Shaders/SolAtmosphere.shader";
         const string WeatherProfileFolder = "Assets/Earth-Sky-Water/Weather Profiles";
+        const string WaterWaveIncludePath =
+            "Assets/Earth-Sky-Water/Shaders/Water2/SolWaterWaves2.hlsl";
+        const string WaterFftComputePath =
+            "Assets/Earth-Sky-Water/Shaders/Water2/SolWaterFFT.compute";
+        const string WaterFftReadbackPath =
+            "Assets/Earth-Sky-Water/Scripts/Water2/SolWaterFftReadback.cs";
 
-        static readonly string[] WeatherScenePaths =
+        static readonly string[] WeatherSelectionAssetPaths =
         {
             "Assets/Scenes/Sc_Sols_FiniteBodies.unity",
             "Assets/Scenes/Sc_Sols_Landscape.unity",
             "Assets/Scenes/Sols_Water2_Demo.unity",
+            "Assets/Prefabs/Sols System Manager.prefab",
         };
 
         /// <summary>
@@ -360,17 +369,88 @@ namespace Sol.Tests.Editor
 
             string[] profileGuids = AssetDatabase.FindAssets(
                 "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder });
-            foreach (string scenePath in WeatherScenePaths)
+            foreach (string serializedAssetPath in WeatherSelectionAssetPaths)
             {
-                string yaml = File.ReadAllText(scenePath);
+                string yaml = File.ReadAllText(serializedAssetPath);
                 foreach (string guid in profileGuids)
                 {
                     Assert.That(yaml, Does.Contain($"guid: {guid}"),
-                        $"{scenePath} does not reference weather profile {guid}.");
+                        $"{serializedAssetPath} does not reference weather profile {guid}.");
                 }
                 Assert.That(yaml, Does.Not.Contain("  - name: Clear"),
-                    $"{scenePath} still contains inline weather presentation data.");
+                    $"{serializedAssetPath} still contains inline weather presentation data.");
             }
+        }
+
+        [TestCase("Clear", 2.8f)]
+        [TestCase("Overcast", 6f)]
+        [TestCase("Rain", 10.8f)]
+        [TestCase("Storm", 21.2f)]
+        public void WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(
+            string profileName, float expectedMetresPerSecond)
+        {
+            string path = $"{WeatherProfileFolder}/{profileName}.asset";
+            SolWeatherProfileAsset profile =
+                AssetDatabase.LoadAssetAtPath<SolWeatherProfileAsset>(path);
+            Assert.IsNotNull(profile, $"Weather profile was not found at {path}.");
+            Assert.AreEqual(expectedMetresPerSecond,
+                profile.windSpeedMetresPerSecond, 1e-6f);
+        }
+
+        [Test]
+        public void WindLag_ReachesExactFirstOrderResponse()
+        {
+            SolWindLag result = new SolWindLag(0f).Step(1f, 10f, 10f);
+            Assert.AreEqual(0.6321f, result.Value, 1e-3f);
+        }
+
+        [Test]
+        public void WindLag_IsFrameRateIndependent()
+        {
+            SolWindLag oneStep = new SolWindLag(0f).Step(1f, 10f, 10f);
+            SolWindLag manySteps = new(0f);
+            for (int i = 0; i < 100; i++)
+                manySteps = manySteps.Step(1f, 0.1f, 10f);
+
+            Assert.AreEqual(oneStep.Value, manySteps.Value, 1e-4f);
+        }
+
+        [Test]
+        public void WindLag_ZeroDeltaIsANoOp()
+        {
+            SolWindLag initial = new(0.37f);
+            Assert.AreEqual(initial.Value, initial.Step(1f, 0f, 10f).Value, 0f);
+        }
+
+        [Test]
+        public void WindLag_ZeroTimeConstantSnaps()
+        {
+            Assert.AreEqual(1f, new SolWindLag(0f).Step(1f, 0.1f, 0f).Value, 0f);
+        }
+
+        [Test]
+        public void WaterWindReferenceSpeed_MatchesBetweenCpuAndShader()
+        {
+            string source = File.ReadAllText(WaterWaveIncludePath);
+            float shaderValue = ParseShaderDefine(
+                source, "SOL_WATER_WIND_REFERENCE_SPEED");
+            Assert.AreEqual(SolWaterWaveEvaluator.WindResponseReferenceSpeed,
+                shaderValue, 1e-6f);
+        }
+
+        [Test]
+        public void WaterCascadeDomains_MatchAcrossComputeShaderIncludeAndCpu()
+        {
+            float[] expected = { 5f, 20f, 100f, 600f };
+            CollectionAssert.AreEqual(expected, ParseCascadeTable(
+                File.ReadAllText(WaterFftComputePath), "CascadeSize"));
+            CollectionAssert.AreEqual(expected, ParseCascadeTable(
+                File.ReadAllText(WaterWaveIncludePath), "SolWaterCascadeSize"));
+            CollectionAssert.AreEqual(expected, ParseCascadeTable(
+                File.ReadAllText(WaterFftReadbackPath), "CascadeSize"));
+
+            for (int cascade = 0; cascade < expected.Length; cascade++)
+                Assert.AreEqual(expected[cascade], SolWaterFftReadback.CascadeSize(cascade));
         }
 
         /// <summary>
@@ -566,6 +646,50 @@ namespace Sol.Tests.Editor
                 Object.DestroyImmediate(profile);
             }
         }
+
+        static float ParseShaderDefine(string source, string defineName)
+        {
+            Match match = Regex.Match(source,
+                $@"^\s*#define\s+{Regex.Escape(defineName)}\s+(?<value>[0-9]+(?:\.[0-9]+)?)",
+                RegexOptions.Multiline);
+            Assert.IsTrue(match.Success, $"Shader define {defineName} was not found.");
+            return float.Parse(match.Groups["value"].Value,
+                CultureInfo.InvariantCulture);
+        }
+
+        static float[] ParseCascadeTable(string source, string functionName)
+        {
+            Match signature = Regex.Match(source,
+                $@"\b{Regex.Escape(functionName)}\s*\(\s*(?:u?int)\s+cascade\s*\)\s*(?:=>|\{{)");
+            Assert.IsTrue(signature.Success,
+                $"Cascade function {functionName} was not found.");
+            int functionStart = signature.Index;
+            int statementEnd = source.IndexOf(';', functionStart);
+            Assert.Greater(statementEnd, functionStart,
+                $"Cascade function {functionName} has no return statement terminator.");
+            string statement = source.Substring(
+                functionStart, statementEnd - functionStart + 1);
+            const string Number = @"[0-9]+(?:\.[0-9]+)?";
+            Match match = Regex.Match(statement,
+                $@"cascade\s*==\s*0\s*\?\s*(?<a>{Number})[fF]?\s*:\s*"
+                + $@"cascade\s*==\s*1\s*\?\s*(?<b>{Number})[fF]?\s*:\s*"
+                + $@"cascade\s*==\s*2\s*\?\s*(?<c>{Number})[fF]?\s*:\s*"
+                + $@"(?<d>{Number})[fF]?",
+                RegexOptions.Singleline);
+            Assert.IsTrue(match.Success,
+                $"Cascade function {functionName} does not expose the expected four-entry table.");
+
+            return new[]
+            {
+                ParseInvariant(match.Groups["a"].Value),
+                ParseInvariant(match.Groups["b"].Value),
+                ParseInvariant(match.Groups["c"].Value),
+                ParseInvariant(match.Groups["d"].Value),
+            };
+        }
+
+        static float ParseInvariant(string value)
+            => float.Parse(value, CultureInfo.InvariantCulture);
 
         static void InvokeOnValidate(SolWaterQualityProfile profile)
         {

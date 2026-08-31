@@ -143,9 +143,10 @@ namespace Sol.Water.Rendering
                 new Vector4((float)origin.X, (float)origin.Y, (float)origin.Z, 0f));
             target.SetVector(SolWaterShaderIds.Wind,
                 new Vector4(environment.Wind.Direction.x, environment.Wind.Direction.y,
-                    environment.Wind.Direction.z, environment.Wind.Speed));
+                    environment.Wind.Direction.z, environment.Wind.SeaStateSpeed));
+            float seaStateSpeedMetresPerSecond = environment.Wind.SeaStateSpeed;
             target.SetVector(SolWaterShaderIds.Weather,
-                new Vector4(environment.Wind.Speed, environment.Weather.WaterTurbulence,
+                new Vector4(seaStateSpeedMetresPerSecond, environment.Weather.WaterTurbulence,
                     environment.Weather.Rain, environment.Weather.WaveSpeedMultiplier));
             target.SetVector(SolWaterShaderIds.WeatherExtended,
                 new Vector4(environment.Weather.Cloudiness * profile.cloudShadowStrength,

@@ -297,6 +297,26 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("Pseudo-volume cloud shell and lighting quality.")]
     [SerializeField] SolCloudQuality cloudQuality = SolCloudQuality.Medium;
 
+    [Tooltip("Optional packed periodic cloud noise override. R = shape, G = erosion, "
+        + "B/A = warp. The shipped Resources texture is used when this is null.")]
+    [SerializeField] Texture2D cloudNoiseTexture;
+
+    [Tooltip("Optional regional weather-map override. R biases coverage and G biases "
+        + "cloud type. The shipped Resources texture is used when this is null.")]
+    [SerializeField] Texture2D cloudWeatherMap;
+
+    [Tooltip("Temporary art-review escape hatch. Uses the original hash-heavy procedural "
+        + "cloud path instead of the baked packed texture.")]
+    [SerializeField] bool useProceduralCloudNoise;
+
+    [Tooltip("Regional coverage variation contributed by the weather map.")]
+    [Range(0f, 0.5f)]
+    [SerializeField] float cloudWeatherInfluence = 0.22f;
+
+    [Tooltip("Regional erosion/cloud-type variation contributed by the weather map.")]
+    [Range(0f, 0.5f)]
+    [SerializeField] float cloudTypeInfluence = 0.18f;
+
  [Tooltip("Virtual cloud plane height - affects horizon stretching.")]
     [Range(0.01f, 1f)]
     [SerializeField] float cloudHeight = 0.15f;
@@ -412,6 +432,12 @@ public class TimeOfDay : MonoBehaviour
     static readonly int _CloudTimeID            = Shader.PropertyToID("_CloudTime");
     static readonly int _CloudWindDirectionID   = Shader.PropertyToID("_CloudWindDirection");
     static readonly int _CloudErosionID         = Shader.PropertyToID("_CloudErosion");
+    static readonly int _CloudNoiseTexID        = Shader.PropertyToID("_CloudNoiseTex");
+    static readonly int _CloudWeatherMapID      = Shader.PropertyToID("_CloudWeatherMap");
+    static readonly int _CloudNoiseTilingID     = Shader.PropertyToID("_CloudNoiseTiling");
+    static readonly int _CloudWeatherScaleID    = Shader.PropertyToID("_CloudWeatherScale");
+    static readonly int _CloudWeatherInfluenceID = Shader.PropertyToID("_CloudWeatherInfluence");
+    static readonly int _CloudTypeInfluenceID   = Shader.PropertyToID("_CloudTypeInfluence");
     static readonly int _CloudCoverageID        = Shader.PropertyToID("_CloudCoverage");
     static readonly int _CloudDensityID         = Shader.PropertyToID("_CloudDensity");
     static readonly int _CloudHeightID          = Shader.PropertyToID("_CloudHeight");
@@ -475,7 +501,10 @@ public class TimeOfDay : MonoBehaviour
     Material controlledSkyboxMaterial;
     Material _cloudKeywordMaterial;
     SolCloudQuality _appliedCloudQuality;
+    bool _appliedProceduralCloudNoise;
     bool _cloudKeywordsApplied;
+    Texture2D _resolvedCloudNoiseTexture;
+    Texture2D _resolvedCloudWeatherMap;
     Sol.Environment.SolWorldFrameGate environmentUpdateGate;
 
     /// <summary>World-space direction toward the sun (unit vector).</summary>
@@ -659,6 +688,11 @@ public class TimeOfDay : MonoBehaviour
     void OnValidate()
     {
         timeOfDay = Mathf.Repeat(timeOfDay, 1f);
+        cloudWeatherInfluence = Mathf.Clamp(cloudWeatherInfluence, 0f, 0.5f);
+        cloudTypeInfluence = Mathf.Clamp(cloudTypeInfluence, 0f, 0.5f);
+        _cloudKeywordsApplied = false;
+        _resolvedCloudNoiseTexture = null;
+        _resolvedCloudWeatherMap = null;
 
         // Serialized inspector edits do not go through CurrentTime's setter.
         // Refresh the edit-mode preview immediately so the inspector slider
@@ -1436,6 +1470,15 @@ public class TimeOfDay : MonoBehaviour
                     : Vector3.right;
                 sky.SetVector(_CloudWindDirectionID, new Vector4(wind.x, wind.z, 0f, 0f));
                 sky.SetFloat(_CloudErosionID,       Mathf.Clamp01(WeatherCloudErosion));
+                ResolveCloudTextures();
+                if (_resolvedCloudNoiseTexture != null)
+                    Shader.SetGlobalTexture(_CloudNoiseTexID, _resolvedCloudNoiseTexture);
+                if (_resolvedCloudWeatherMap != null)
+                    Shader.SetGlobalTexture(_CloudWeatherMapID, _resolvedCloudWeatherMap);
+                sky.SetFloat(_CloudNoiseTilingID, 1f / 8f);
+                sky.SetFloat(_CloudWeatherScaleID, 0.06f);
+                sky.SetFloat(_CloudWeatherInfluenceID, cloudWeatherInfluence);
+                sky.SetFloat(_CloudTypeInfluenceID, cloudTypeInfluence);
                 sky.SetFloat(_CloudCoverageID,     cloudCoverage);
                 sky.SetFloat(_CloudDensityID,      cloudDensity);
                 sky.SetFloat(_CloudHeightID,       cloudHeight);
@@ -1991,15 +2034,29 @@ public class TimeOfDay : MonoBehaviour
 
     void ApplyCloudQualityKeywords(Material sky)
     {
-        if (_cloudKeywordsApplied && _cloudKeywordMaterial == sky && _appliedCloudQuality == cloudQuality)
+        if (_cloudKeywordsApplied && _cloudKeywordMaterial == sky
+            && _appliedCloudQuality == cloudQuality
+            && _appliedProceduralCloudNoise == useProceduralCloudNoise)
             return;
 
         SetCloudKeyword(sky, "_SOL_CLOUD_LOW", cloudQuality == SolCloudQuality.Low);
         SetCloudKeyword(sky, "_SOL_CLOUD_MEDIUM", cloudQuality == SolCloudQuality.Medium);
         SetCloudKeyword(sky, "_SOL_CLOUD_HIGH", cloudQuality == SolCloudQuality.High);
+        SetCloudKeyword(sky, "_SOL_CLOUD_PROCEDURAL", useProceduralCloudNoise);
         _cloudKeywordMaterial = sky;
         _appliedCloudQuality = cloudQuality;
+        _appliedProceduralCloudNoise = useProceduralCloudNoise;
         _cloudKeywordsApplied = true;
+    }
+
+    void ResolveCloudTextures()
+    {
+        _resolvedCloudNoiseTexture ??= cloudNoiseTexture != null
+            ? cloudNoiseTexture
+            : Resources.Load<Texture2D>("SolEnvironment/Sol_CloudNoisePacked");
+        _resolvedCloudWeatherMap ??= cloudWeatherMap != null
+            ? cloudWeatherMap
+            : Resources.Load<Texture2D>("SolEnvironment/Sol_CloudWeatherMap");
     }
 
     /// <summary>Current lunar phase (0 = new moon, 0.5 = full moon).</summary>

@@ -98,6 +98,8 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_Sol_RippleSimTex"),
         Shader.PropertyToID("_Sol_TerrainSandMask"),
         Shader.PropertyToID("_Sol_TerrainShorelineData"),
+        Shader.PropertyToID("_CloudNoiseTex"),
+        Shader.PropertyToID("_CloudWeatherMap"),
     };
 
     static readonly int[] VectorArrayIds =

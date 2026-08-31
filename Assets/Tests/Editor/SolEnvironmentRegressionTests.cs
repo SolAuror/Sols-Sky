@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Sol.Environment;
+using Sol.Environment.EditorTools;
 using Sol.ToD;
 using Sol.Water;
 using Sol.Water.Rendering;
@@ -37,6 +38,8 @@ namespace Sol.Tests.Editor
             "Assets/Earth-Sky-Water/Shaders/Water2/SolWaterFFT.compute";
         const string WaterFftReadbackPath =
             "Assets/Earth-Sky-Water/Scripts/Water2/SolWaterFftReadback.cs";
+        const string SkyboxShaderPath =
+            "Assets/Earth-Sky-Water/TimeOfDay/CelestialBodies/Sol_Skybox.shader";
 
         static readonly string[] WeatherSelectionAssetPaths =
         {
@@ -476,6 +479,124 @@ namespace Sol.Tests.Editor
             Assert.AreEqual(1f, new SolWindLag(0f).Step(1f, 0.1f, 0f).Value, 0f);
         }
 
+        /// <summary>
+        /// Compare the complete 256-square packed bake to its independent floating-point
+        /// reference. PNG quantization is the only allowed error; a changed seed, channel
+        /// order or octave transform fails over the full domain rather than at a few lucky
+        /// sample points.
+        /// </summary>
+        [Test]
+        public void CloudNoiseBake_MatchesReferenceWithinOneByte()
+        {
+            Texture2D baked = LoadReadablePng(
+                SolCloudNoiseBaker.NoiseTexturePath,
+                SolCloudNoiseBaker.NoiseTextureSize);
+            try
+            {
+                Color32[] pixels = baked.GetPixels32();
+                float worstError = 0f;
+                int size = SolCloudNoiseBaker.NoiseTextureSize;
+                for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    Vector4 expected = SolCloudNoiseBaker.EvaluatePackedNoise(
+                        (x + 0.5f) / size, (y + 0.5f) / size);
+                    Color32 actual = pixels[y * size + x];
+                    worstError = Mathf.Max(worstError,
+                        Mathf.Abs(expected.x - actual.r / 255f),
+                        Mathf.Abs(expected.y - actual.g / 255f),
+                        Mathf.Abs(expected.z - actual.b / 255f),
+                        Mathf.Abs(expected.w - actual.a / 255f));
+                }
+
+                Assert.Less(worstError, 1f / 255f,
+                    "The packed PNG no longer reproduces the baker's reference FBM.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(baked);
+            }
+        }
+
+        /// <summary>
+        /// Rotated octaves are only safe when every octave's lattice wraps. Checking both
+        /// axes over a full cross-section catches the tempting but broken implementation
+        /// that bakes a finite window from the old infinite procedural field.
+        /// </summary>
+        [Test]
+        public void CloudNoiseBake_IsPeriodicAcrossBothAxes()
+        {
+            for (int i = 0; i <= 256; i++)
+            {
+                float t = i / 256f;
+                AssertVectorEqual(
+                    SolCloudNoiseBaker.EvaluatePackedNoise(0f, t),
+                    SolCloudNoiseBaker.EvaluatePackedNoise(1f, t), 1e-5f);
+                AssertVectorEqual(
+                    SolCloudNoiseBaker.EvaluatePackedNoise(t, 0f),
+                    SolCloudNoiseBaker.EvaluatePackedNoise(t, 1f), 1e-5f);
+                AssertVectorEqual(
+                    SolCloudNoiseBaker.EvaluateWeatherMap(0f, t),
+                    SolCloudNoiseBaker.EvaluateWeatherMap(1f, t), 1e-5f);
+                AssertVectorEqual(
+                    SolCloudNoiseBaker.EvaluateWeatherMap(t, 0f),
+                    SolCloudNoiseBaker.EvaluateWeatherMap(t, 1f), 1e-5f);
+            }
+        }
+
+        [TestCase(SolCloudNoiseBaker.NoiseTexturePath)]
+        [TestCase(SolCloudNoiseBaker.WeatherMapPath)]
+        public void CloudBake_UsesRuntimeSafeImporterSettings(string assetPath)
+        {
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+            Assert.IsNotNull(texture, $"Cloud texture was not found at {assetPath}.");
+            Assert.AreEqual(256, texture.width);
+            Assert.AreEqual(256, texture.height);
+
+            TextureImporter importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            Assert.IsNotNull(importer);
+            Assert.AreEqual(TextureWrapMode.Repeat, importer.wrapMode);
+            Assert.IsTrue(importer.mipmapEnabled);
+            Assert.IsFalse(importer.sRGBTexture);
+            Assert.IsFalse(importer.isReadable);
+            Assert.AreEqual(TextureImporterCompression.Uncompressed,
+                importer.textureCompression);
+            Assert.IsFalse(importer.crunchedCompression);
+        }
+
+        [Test]
+        public void CloudBake_IsAddressableByTheRuntimeFallbackPaths()
+        {
+            Assert.IsNotNull(Resources.Load<Texture2D>(
+                "SolEnvironment/Sol_CloudNoisePacked"));
+            Assert.IsNotNull(Resources.Load<Texture2D>(
+                "SolEnvironment/Sol_CloudWeatherMap"));
+        }
+
+        /// <summary>
+        /// Hashes remain legitimate for stars, aurora and the temporary procedural escape
+        /// hatch. The shipped cloud-density path itself must be texture-backed, otherwise
+        /// this phase's 192/360-hash-per-pixel saving silently disappears.
+        /// </summary>
+        [Test]
+        public void SkyboxCloudDensity_DefaultPathIsBaked()
+        {
+            string source = File.ReadAllText(SkyboxShaderPath);
+            Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(SkyboxShaderPath);
+            Assert.IsNotNull(shader);
+            Assert.IsFalse(ShaderUtil.ShaderHasError(shader),
+                "The baked cloud shader has an import/compile error.");
+            string density = ExtractFunction(source, "SampleCloudDensity");
+            string volume = ExtractFunction(source, "CloudVolumeFBM");
+            Assert.That(density, Does.Not.Contain("Hash_Tchou"));
+            Assert.That(volume, Does.Not.Contain("Hash_Tchou"));
+            Assert.That(density, Does.Contain("SAMPLE_TEXTURE2D"));
+            Assert.That(source, Does.Contain(
+                "#pragma shader_feature_local _SOL_CLOUD_PROCEDURAL"));
+            Assert.That(source, Does.Contain("const int lightSampleCount = 3;"),
+                "High cloud lighting has regained the two redundant texture taps.");
+        }
+
         [Test]
         public void WaterWindReferenceSpeed_MatchesBetweenCpuAndShader()
         {
@@ -738,6 +859,44 @@ namespace Sol.Tests.Editor
 
         static float ParseInvariant(string value)
             => float.Parse(value, CultureInfo.InvariantCulture);
+
+        static Texture2D LoadReadablePng(string assetPath, int expectedSize)
+        {
+            byte[] bytes = File.ReadAllBytes(assetPath);
+            Texture2D texture = new(2, 2, TextureFormat.RGBA32, false, true);
+            Assert.IsTrue(ImageConversion.LoadImage(texture, bytes, false),
+                $"Could not decode {assetPath}.");
+            Assert.AreEqual(expectedSize, texture.width);
+            Assert.AreEqual(expectedSize, texture.height);
+            return texture;
+        }
+
+        static void AssertVectorEqual(Vector4 expected, Vector4 actual, float tolerance)
+        {
+            Assert.AreEqual(expected.x, actual.x, tolerance);
+            Assert.AreEqual(expected.y, actual.y, tolerance);
+            Assert.AreEqual(expected.z, actual.z, tolerance);
+            Assert.AreEqual(expected.w, actual.w, tolerance);
+        }
+
+        static string ExtractFunction(string source, string functionName)
+        {
+            Match signature = Regex.Match(source,
+                $@"\b(?:float|float[234])\s+{Regex.Escape(functionName)}\s*\([^)]*\)\s*\{{");
+            Assert.IsTrue(signature.Success, $"Shader function {functionName} was not found.");
+
+            int openBrace = source.IndexOf('{', signature.Index);
+            int depth = 0;
+            for (int i = openBrace; i < source.Length; i++)
+            {
+                if (source[i] == '{') depth++;
+                else if (source[i] == '}' && --depth == 0)
+                    return source.Substring(openBrace, i - openBrace + 1);
+            }
+
+            Assert.Fail($"Shader function {functionName} has no closing brace.");
+            return string.Empty;
+        }
 
         static void InvokeOnValidate(SolWaterQualityProfile profile)
         {

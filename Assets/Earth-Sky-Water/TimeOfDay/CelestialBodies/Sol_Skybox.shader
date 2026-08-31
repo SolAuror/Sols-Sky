@@ -54,6 +54,10 @@
         _CloudTime        ("Cloud Time",        Float)          = 0
         _CloudWindDirection ("Cloud Wind Direction", Vector)    = (1, 0.3, 0, 0)
         _CloudErosion     ("Cloud Edge Erosion", Range(0, 1))   = 0.35
+        _CloudNoiseTiling ("Packed Noise UV Scale", Float) = 0.125
+        _CloudWeatherScale ("Weather Map Frequency", Range(0.01, 0.2)) = 0.06
+        _CloudWeatherInfluence ("Regional Coverage Influence", Range(0, 0.5)) = 0.22
+        _CloudTypeInfluence ("Regional Cloud Type Influence", Range(0, 0.5)) = 0.18
         _CloudCoverage    ("Cloud Coverage",    Range(0, 1))    = 0.5
         _CloudDensity     ("Cloud Density",     Range(0, 1))    = 0.8
         _CloudHeight      ("Cloud Height",      Range(0.01, 1)) = 0.15
@@ -96,6 +100,7 @@
             #pragma target 3.5
             #pragma multi_compile_instancing
             #pragma shader_feature_local _SOL_CLOUD_LOW _SOL_CLOUD_MEDIUM _SOL_CLOUD_HIGH
+            #pragma shader_feature_local _SOL_CLOUD_PROCEDURAL
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Hashes.hlsl"
@@ -182,6 +187,10 @@
                 float  _CloudTime;
                 float4 _CloudWindDirection;
                 float  _CloudErosion;
+                float  _CloudNoiseTiling;
+                float  _CloudWeatherScale;
+                float  _CloudWeatherInfluence;
+                float  _CloudTypeInfluence;
                 float  _CloudCoverage;
                 float  _CloudDensity;
                 float  _CloudHeight;
@@ -200,6 +209,11 @@
                 // Atmosphere
                 float  _HazeIntensity;
             CBUFFER_END
+
+            TEXTURE2D(_CloudNoiseTex);
+            SAMPLER(sampler_CloudNoiseTex);
+            TEXTURE2D(_CloudWeatherMap);
+            SAMPLER(sampler_CloudWeatherMap);
 
             // ────────────────────────────────────────
             // Star gradient (HDR, linear RGB)
@@ -250,6 +264,7 @@
 
             float CloudVolumeFBM(float2 uv)
             {
+                #if defined(_SOL_CLOUD_PROCEDURAL)
                 #if defined(_SOL_CLOUD_LOW)
                     const int octaveCount = 3;
                 #elif defined(_SOL_CLOUD_HIGH)
@@ -269,13 +284,26 @@
                     amp *= 0.5;
                 }
                 return result;
+                #else
+                    return SAMPLE_TEXTURE2D(
+                        _CloudNoiseTex, sampler_CloudNoiseTex,
+                        uv * _CloudNoiseTiling).r;
+                #endif
             }
 
-            float SampleCloudDensity(float2 uv)
+            float SampleCloudDensity(float2 uv, float erosionAmount)
             {
+                #if defined(_SOL_CLOUD_PROCEDURAL)
                 float baseShape = CloudVolumeFBM(uv);
                 float erosion = CloudVolumeFBM(uv * 2.37 + 19.4);
-                return baseShape - (erosion - 0.5) * _CloudErosion * 0.28;
+                #else
+                float2 packedShape = SAMPLE_TEXTURE2D(
+                    _CloudNoiseTex, sampler_CloudNoiseTex,
+                    uv * _CloudNoiseTiling).rg;
+                float baseShape = packedShape.r;
+                float erosion = packedShape.g;
+                #endif
+                return baseShape - (erosion - 0.5) * erosionAmount * 0.28;
             }
 
             // Perceptual (OkLab) blend across the star color gradient.
@@ -528,27 +556,51 @@
                 float2 cloudWind = normalize(_CloudWindDirection.xy + float2(1e-4, 0.0));
                 cloudUV += _CloudTime * _CloudSpeed * cloudWind;
 
-                float warp1 = CloudVolumeFBM(cloudUV * _CloudScale);
-                float warp2 = CloudVolumeFBM(cloudUV * _CloudScale + 5.2);
+                #if defined(_SOL_CLOUD_PROCEDURAL)
+                    float warp1 = CloudVolumeFBM(cloudUV * _CloudScale);
+                    float warp2 = CloudVolumeFBM(cloudUV * _CloudScale + 5.2);
+                #else
+                    // B/A hold two independently seeded periodic warp fields, replacing
+                    // both full FBM evaluations with one bilinear texture read.
+                    float2 packedWarp = SAMPLE_TEXTURE2D(
+                        _CloudNoiseTex, sampler_CloudNoiseTex,
+                        cloudUV * _CloudScale * _CloudNoiseTiling).ba;
+                    float warp1 = packedWarp.x;
+                    float warp2 = packedWarp.y;
+                #endif
                 float2 warped = cloudUV + float2(warp1, warp2) * 0.15;
 
-                float rawDensity = SampleCloudDensity(warped * _CloudScale);
+                float2 weather = SAMPLE_TEXTURE2D(
+                    _CloudWeatherMap, sampler_CloudWeatherMap,
+                    cloudUV * _CloudScale * _CloudNoiseTiling * _CloudWeatherScale).rg;
+                float coverageBias = (weather.r - 0.5) * 2.0 * _CloudWeatherInfluence;
+                float typeBias = (weather.g - 0.5) * 2.0 * _CloudTypeInfluence;
+                float localCoverage = saturate(_CloudCoverage - coverageBias);
+                float localErosion = saturate(_CloudErosion + typeBias);
+
+                float rawDensity = SampleCloudDensity(warped * _CloudScale, localErosion);
                 #if !defined(_SOL_CLOUD_LOW)
-                    float shell1 = SampleCloudDensity((warped + cloudWind * 0.055 + dir.xz * 0.025) * _CloudScale + 11.3);
+                    float shell1 = SampleCloudDensity(
+                        (warped + cloudWind * 0.055 + dir.xz * 0.025) * _CloudScale + 11.3,
+                        localErosion);
                     rawDensity = rawDensity * 0.66 + shell1 * 0.34;
                 #endif
                 #if defined(_SOL_CLOUD_HIGH)
-                    float shell2 = SampleCloudDensity((warped - cloudWind * 0.08 + dir.xz * 0.045) * _CloudScale + 23.7);
+                    float shell2 = SampleCloudDensity(
+                        (warped - cloudWind * 0.08 + dir.xz * 0.045) * _CloudScale + 23.7,
+                        localErosion);
                     rawDensity = rawDensity * 0.78 + shell2 * 0.22;
                 #endif
 
-                float density = smoothstep(_CloudCoverage, _CloudCoverage + 0.2, rawDensity);
+                float density = smoothstep(localCoverage, localCoverage + 0.2, rawDensity);
                 density *= _CloudDensity * saturate(dir.y * 10.0);
 
                 #if defined(_SOL_CLOUD_LOW)
                     const int lightSampleCount = 1;
                 #elif defined(_SOL_CLOUD_HIGH)
-                    const int lightSampleCount = 5;
+                    // The third shell is High's shape win. Three lighting taps already
+                    // span the same directional interval; five cost two extra fetches.
+                    const int lightSampleCount = 3;
                 #else
                     const int lightSampleCount = 3;
                 #endif
@@ -559,13 +611,14 @@
                 {
                     float stepDistance = 0.026 * lightSample;
                     densityTowardSun += SampleCloudDensity(
-                        (warped + sunDir.xz * stepDistance) * _CloudScale);
+                        (warped + sunDir.xz * stepDistance) * _CloudScale,
+                        localErosion);
                 }
                 densityTowardSun /= lightSampleCount;
                 float dirLit     = saturate((rawDensity - densityTowardSun) * 4.0 + 0.7);
                 float ambientLit = saturate(sunDot * 0.5 + 0.6);
                 float litTerm    = ambientLit * lerp(1.0, dirLit * 1.4, _CloudLighting);
-                float opticalDepth = saturate((rawDensity - _CloudCoverage) * 3.5);
+                float opticalDepth = saturate((rawDensity - localCoverage) * 3.5);
                 litTerm *= lerp(1.0, 0.58, opticalDepth * saturate(1.0 - dir.y));
 
                 float3 cloudCol = lerp(_CloudShadowColor.rgb, _CloudColor.rgb,

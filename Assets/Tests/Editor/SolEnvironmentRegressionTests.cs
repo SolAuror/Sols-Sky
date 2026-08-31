@@ -252,6 +252,75 @@ namespace Sol.Tests.Editor
         }
 
         /// <summary>
+        /// The SSR histories are allocated at the resolution the reflection is traced at.
+        ///
+        /// They used to clone the camera descriptor unscaled -- two persistent full-screen
+        /// R16G16B16A16 arrays per camera holding half-resolution information. The parameter
+        /// is the mechanism, so its absence is the regression: without it the call silently
+        /// goes back to full screen and nothing downstream complains, it just costs ~32 MB
+        /// per camera again.
+        /// </summary>
+        [Test]
+        public void ReflectionHistory_IsAllocatedAtTraceResolution()
+        {
+            MethodInfo ensure = typeof(SolEnvironmentCameraRegistry)
+                .GetMethod("EnsureWaterReflectionHistory",
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.IsNotNull(ensure, "EnsureWaterReflectionHistory was not found.");
+
+            // Two explicit int dimensions beyond the signature int: the caller computes the
+            // size once and hands the same numbers to its resolve target, so the two ends of
+            // the history blit cannot drift apart.
+            int intParameters = 0;
+            foreach (ParameterInfo parameter in ensure.GetParameters())
+            {
+                if (parameter.ParameterType == typeof(int))
+                    intParameters++;
+            }
+
+            Assert.AreEqual(3, intParameters,
+                "EnsureWaterReflectionHistory no longer takes explicit width and height, so "
+                + "the SSR histories are either back to full screen resolution or sizing "
+                + "themselves independently of the resolve target.");
+        }
+
+        /// <summary>
+        /// The Low tier caps the SSR trace scale. Now that the resolve target and both
+        /// histories follow that same scale, this clamp sets their size too, so it governs
+        /// persistent memory rather than only trace cost.
+        /// </summary>
+        [Test]
+        public void WaterQualityLowTier_ClampsSsrResolutionScale()
+        {
+            SolWaterQualityProfile profile = ScriptableObject.CreateInstance<SolWaterQualityProfile>();
+            try
+            {
+                profile.tier = SolWaterQualityTier.Low;
+                profile.ssrResolutionScale = 1f;
+                InvokeOnValidate(profile);
+                Assert.LessOrEqual(profile.ssrResolutionScale, 0.35f);
+
+                // The clamp is a ceiling, not an assignment: a tier that already asks for
+                // less than the cap must keep what it asked for.
+                profile.ssrResolutionScale = 0.25f;
+                InvokeOnValidate(profile);
+                Assert.AreEqual(0.25f, profile.ssrResolutionScale, 1e-6f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(profile);
+            }
+        }
+
+        static void InvokeOnValidate(SolWaterQualityProfile profile)
+        {
+            MethodInfo onValidate = typeof(SolWaterQualityProfile)
+                .GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(onValidate, "SolWaterQualityProfile.OnValidate was not found.");
+            onValidate.Invoke(profile, null);
+        }
+
+        /// <summary>
         /// Rain resolves submersion from the shared _UnderwaterFactor global, not from
         /// UnderwaterVolumeController. That controller yields entirely whenever Water 2 is
         /// live, so a direct reference silently reported "not underwater" in every Water 2

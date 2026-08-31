@@ -192,14 +192,33 @@ namespace Sol.Environment
         // camera was keeping its own byte-identical copy of it. It now lives on
         // SolWaterSpectralTargets as a single world-level resource.
 
+        /// <summary>
+        /// Allocates the SSR colour and validation histories at the resolution the
+        /// reflection is actually traced at.
+        ///
+        /// These used to clone the camera descriptor unscaled, which meant two persistent
+        /// full-resolution R16G16B16A16 arrays per camera -- about 32 MB at 1080p, doubled
+        /// again with the Scene view open -- holding data that had never contained more than
+        /// half-resolution detail. The trace itself always respected ssrResolutionScale; only
+        /// the resolve target and these two histories did not, so the extra pixels were
+        /// carrying interpolation, not information.
+        /// </summary>
         public static bool EnsureWaterReflectionHistory(
             Context context,
             RenderTextureDescriptor cameraDescriptor,
+            int width,
+            int height,
             int signature)
         {
             if (context == null)
                 return false;
 
+            // Dimensions are passed in rather than derived from a scale here, because the
+            // caller's resolve target has to match these exactly -- it is the other end of
+            // a blit. Two places computing "half of the screen" independently is precisely
+            // how they end up disagreeing by a pixel at an odd viewport size.
+            cameraDescriptor.width = Mathf.Max(1, width);
+            cameraDescriptor.height = Mathf.Max(1, height);
             cameraDescriptor.msaaSamples = 1;
             cameraDescriptor.depthBufferBits = 0;
             cameraDescriptor.depthStencilFormat = GraphicsFormat.None;

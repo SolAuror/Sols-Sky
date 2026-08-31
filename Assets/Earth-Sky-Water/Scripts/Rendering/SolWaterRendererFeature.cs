@@ -731,6 +731,23 @@ namespace Sol.Water.Rendering
                             quality.ssrDepthTolerance, quality.ssrNormalTolerance),
                         quality.ssrMaximumLuminance);
 
+                    // Resolved at the trace resolution, not the screen's. The trace has
+                    // always run at ssrResolutionScale; resolving it into a full-resolution
+                    // target spent a full-screen pass, plus two persistent full-screen
+                    // histories, carrying interpolated pixels rather than new information.
+                    // The ocean samples this by screen UV through a bilinear sampler
+                    // (SolOcean.shader), so the upscale happens for free at read time.
+                    //
+                    // Sized explicitly rather than by TextureSizeMode.Scale, and the same
+                    // two integers are handed to the history allocation below. This target
+                    // and the history are the destination and source of a blit, so their
+                    // dimensions have to agree exactly -- and RenderGraph's own scale
+                    // rounding is not guaranteed to match a CeilToInt done here. At
+                    // 1920x1080 both give 960x540 and the difference never shows; at an odd
+                    // Scene view width they disagree by a pixel and the blit fails
+                    // attachment validation.
+                    int rawWidth = Mathf.Max(1, Mathf.CeilToInt(pixelSize.x * resolutionScale));
+                    int rawHeight = Mathf.Max(1, Mathf.CeilToInt(pixelSize.y * resolutionScale));
                     TextureDesc resolvedDesc = sourceDesc;
                     resolvedDesc.name = "_SolWaterSSRTexture";
                     resolvedDesc.colorFormat = GraphicsFormat.R16G16B16A16_SFloat;
@@ -738,23 +755,22 @@ namespace Sol.Water.Rendering
                     resolvedDesc.msaaSamples = MSAASamples.None;
                     resolvedDesc.bindTextureMS = false;
                     resolvedDesc.sizeMode = TextureSizeMode.Explicit;
-                    resolvedDesc.width = pixelSize.x;
-                    resolvedDesc.height = pixelSize.y;
+                    resolvedDesc.width = rawWidth;
+                    resolvedDesc.height = rawHeight;
                     resolvedDesc.filterMode = FilterMode.Bilinear;
                     resolvedDesc.clearBuffer = true;
                     resolvedDesc.clearColor = Color.clear;
                     ssr = renderGraph.CreateTexture(resolvedDesc);
 
                     bool hasHistory = SolEnvironmentCameraRegistry.EnsureWaterReflectionHistory(
-                        cameraContext, cameraData.cameraTargetDescriptor, reflectionSignature);
+                        cameraContext, cameraData.cameraTargetDescriptor,
+                        rawWidth, rawHeight, reflectionSignature);
                     TextureHandle history = hasHistory
                         ? renderGraph.ImportTexture(cameraContext.WaterReflectionHistory)
                         : renderGraph.defaultResources.blackTexture;
                     TextureHandle validationHistory = hasHistory
                         ? renderGraph.ImportTexture(cameraContext.WaterReflectionValidationHistory)
                         : renderGraph.defaultResources.blackTexture;
-                    int rawWidth = Mathf.Max(1, Mathf.CeilToInt(pixelSize.x * resolutionScale));
-                    int rawHeight = Mathf.Max(1, Mathf.CeilToInt(pixelSize.y * resolutionScale));
                     Vector4 temporalParams = new(
                         quality.ssrBinarySearchSteps,
                         hasHistory && !cameraContext.CameraCut ? quality.ssrHistoryWeight : 0f,

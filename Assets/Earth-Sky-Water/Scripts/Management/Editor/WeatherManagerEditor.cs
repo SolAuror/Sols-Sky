@@ -45,9 +45,9 @@ public class WeatherManagerEditor : Editor
         {
             foreach (var p in wm.profiles)
             {
-                if (p == null) continue;
-                if (GUILayout.Button($"Set: {p.name}", GUILayout.Height(26)))
-                    wm.SetWeather(p.name, _instant);
+                if (p?.profile == null) continue;
+                if (GUILayout.Button($"Set: {p.profile.name}", GUILayout.Height(26)))
+                    wm.SetWeather(p.profile.name, _instant);
             }
         }
 

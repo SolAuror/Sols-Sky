@@ -45,64 +45,6 @@ public class SolWeatherManager : MonoBehaviour
     // --- Singleton -------------------------------------------------------
     public static SolWeatherManager Instance { get; private set; }
 
-    // --- Profile ----------------------------------------------------------
-    [Serializable]
-    public class WeatherProfile
-    {
-        public string name = "Clear";
-
-        [Tooltip("0 = leave the authored ToD cloud settings, 1 = fully overcast.")]
-        [Range(0f, 1f)] public float cloudiness = 0f;
-
-        [Tooltip("Breakup applied to cloud edges (0 = soft masses, 1 = strongly eroded).")]
-        [Range(0f, 1f)] public float cloudErosion = 0.35f;
-
-        [Tooltip("Rain intensity pushed to SolWaterManager (0 = dry, 1 = downpour).")]
-        [Range(0f, 1f)] public float rainIntensity = 0f;
-
-        [Tooltip("Wind strength pushed to SolWaterManager.")]
-        [Range(0f, 3f)] public float windStrength = 1f;
-
-        [Tooltip("Additional fog density multiplier (0 = none, 1 = double).")]
-        [Range(0f, 2f)] public float fogBoost = 0f;
-
-        [Tooltip("Moves atmosphere density toward the low-mist height profile without adding density.")]
-        [Range(0f, 1f)] public float mistiness = 0f;
-
-        [Tooltip("Additional sky-wide atmosphere obscuration. Horizon fog remains independently depth driven.")]
-        [Range(0f, 1f)] public float skyObscuration = 0f;
-
-        [Tooltip("Directional atmosphere light-scattering multiplier.")]
-        [Range(0f, 2f)] public float lightScattering = 0.4f;
-
-        [Tooltip("Storm darkening applied to sun/moon, ambient, sky, and clouds.")]
-        [Range(0f, 1f)] public float dim = 0f;
-
-        [Tooltip("Global wave speed multiplier pushed to SolWaterManager.")]
-        [Range(0f, 3f)] public float waveSpeedMultiplier = 1f;
-
-        [Tooltip("Art-directed water disorder: wave detail, steepness, swell, foam, roughness, and drift.")]
-        [Range(0f, 1f)] public float waterTurbulence = 0f;
-
-        [Tooltip("Enable random lightning flashes during this weather.")]
-        public bool lightning = false;
-
-        [Tooltip("Peak effective lightning flash contributed by this profile.")]
-        [Range(0f, 1f)] public float lightningIntensity = 0.35f;
-
-        [Tooltip("Relative chance of this profile being picked by the auto cycle.")]
-        [Min(0f)] public float weight = 1f;
-
-        [Tooltip("Automatic-selection multiplier during Spring.")]
-        [Min(0f)] public float springWeightMultiplier = 1f;
-        [Tooltip("Automatic-selection multiplier during Summer.")]
-        [Min(0f)] public float summerWeightMultiplier = 1f;
-        [Tooltip("Automatic-selection multiplier during Autumn.")]
-        [Min(0f)] public float autumnWeightMultiplier = 1f;
-        [Tooltip("Automatic-selection multiplier during Winter.")]
-        [Min(0f)] public float winterWeightMultiplier = 1f;
-    }
-
     // --- References -------------------------------------------------------
     [Header("References")]
     public TimeOfDay todManager;
@@ -110,25 +52,8 @@ public class SolWeatherManager : MonoBehaviour
 
     // --- Profiles ---------------------------------------------------------
     [Header("Profiles")]
-    public WeatherProfile[] profiles =
-    {
-        // Clear preserves the authored fair-weather cloud baseline. Its higher
-        // erosion breaks those clouds into smaller, crisp shapes while calm
-        // wind and sub-unity wave speed keep the water from reading stormy.
-        new WeatherProfile { name = "Clear",    cloudiness = 0.00f, cloudErosion = 0.52f, rainIntensity = 0.00f, windStrength = 0.35f, fogBoost = 0.00f, mistiness = 0.00f, skyObscuration = 0.00f, lightScattering = 0.55f, dim = 0.00f, waveSpeedMultiplier = 0.85f, waterTurbulence = 0.05f, lightningIntensity = 0.00f, weight = 4f, springWeightMultiplier = 1.05f, summerWeightMultiplier = 1.45f, autumnWeightMultiplier = 0.85f, winterWeightMultiplier = 0.65f },
-
-        // Overcast is a broad, comparatively soft cloud deck. It dims direct
-        // light more than it adds fog, preserving depth and readable silhouettes.
-        new WeatherProfile { name = "Overcast", cloudiness = 0.68f, cloudErosion = 0.22f, rainIntensity = 0.00f, windStrength = 0.75f, fogBoost = 0.03f, mistiness = 0.06f, skyObscuration = 0.04f, lightScattering = 0.30f, dim = 0.28f, waveSpeedMultiplier = 1.00f, waterTurbulence = 0.18f, lightningIntensity = 0.00f, weight = 3f, springWeightMultiplier = 0.95f, summerWeightMultiplier = 0.70f, autumnWeightMultiplier = 1.25f, winterWeightMultiplier = 1.35f },
-
-        // Rain keeps visible overhead structure and useful middle-distance
-        // visibility. Wetness, rain VFX, and water response carry the state.
-        new WeatherProfile { name = "Rain",     cloudiness = 0.84f, cloudErosion = 0.46f, rainIntensity = 0.65f, windStrength = 1.35f, fogBoost = 0.12f, mistiness = 0.65f, skyObscuration = 0.12f, lightScattering = 0.24f, dim = 0.44f, waveSpeedMultiplier = 1.25f, waterTurbulence = 0.48f, lightningIntensity = 0.00f, weight = 2f, springWeightMultiplier = 1.35f, summerWeightMultiplier = 0.75f, autumnWeightMultiplier = 1.05f, winterWeightMultiplier = 1.25f },
-
-        // Storm is dark and turbulent rather than a bright fog whiteout. Keep
-        // obscuration below full coverage so pseudo-volume cloud detail survives.
-        new WeatherProfile { name = "Storm",    cloudiness = 0.97f, cloudErosion = 0.64f, rainIntensity = 0.95f, windStrength = 2.65f, fogBoost = 0.30f, mistiness = 0.82f, skyObscuration = 0.36f, lightScattering = 0.16f, dim = 0.78f, waveSpeedMultiplier = 1.85f, waterTurbulence = 1.00f, lightning = true, lightningIntensity = 0.28f, weight = 1f, springWeightMultiplier = 0.75f, summerWeightMultiplier = 0.55f, autumnWeightMultiplier = 1.35f, winterWeightMultiplier = 1.15f },
-    };
+    [Tooltip("Reusable presentation assets plus scene-specific selection weights.")]
+    public SolWeatherSelection[] profiles = Array.Empty<SolWeatherSelection>();
 
     [Header("Seasonal Climate")]
     [Tooltip("Stable seed combined with WorldDayIndex for deterministic daily climate.")]
@@ -188,7 +113,7 @@ public class SolWeatherManager : MonoBehaviour
 
     // --- Events / Public state ---------------------------------------------
     /// <summary>Fired when a transition toward a new profile begins.</summary>
-    public event Action<WeatherProfile> WeatherChanged;
+    public event Action<SolWeatherProfileAsset> WeatherChanged;
 
     /// <summary>Fired when the effective blended state changes.</summary>
     public event Action<SolWeatherState> WeatherStateChanged;
@@ -197,8 +122,7 @@ public class SolWeatherManager : MonoBehaviour
     public event Action LightningTriggered;
 
     /// <summary>Profile the system is currently blending toward (or holding).</summary>
-    public WeatherProfile TargetProfile =>
-        profiles != null && profiles.Length > 0 ? profiles[_targetIndex] : null;
+    public SolWeatherProfileAsset TargetProfile => GetProfile(_targetIndex);
 
     /// <summary>True while blending between two profiles.</summary>
     public bool IsTransitioning => _blend < 1f;
@@ -240,21 +164,27 @@ public class SolWeatherManager : MonoBehaviour
         public float cloudiness, cloudErosion, rain, wind, fog, mistiness, skyObscuration,
             scattering, dim, waveMul, turbulence, lightningIntensity;
 
-        public static Snapshot From(WeatherProfile p) => new()
+        public static Snapshot From(SolWeatherProfileAsset p)
         {
-            cloudiness = p.cloudiness,
-            cloudErosion = p.cloudErosion,
-            rain = p.rainIntensity,
-            wind = p.windStrength,
-            fog = p.fogBoost,
-            mistiness = p.mistiness,
-            skyObscuration = p.skyObscuration,
-            scattering = p.lightScattering,
-            dim = p.dim,
-            waveMul = p.waveSpeedMultiplier,
-            turbulence = p.waterTurbulence,
-            lightningIntensity = p.lightning ? p.lightningIntensity : 0f,
-        };
+            if (p == null)
+                return new Snapshot { scattering = 1f, waveMul = 1f };
+
+            return new Snapshot
+            {
+                cloudiness = p.cloudiness,
+                cloudErosion = p.cloudErosion,
+                rain = p.rainIntensity,
+                wind = p.windStrength,
+                fog = p.fogBoost,
+                mistiness = p.mistiness,
+                skyObscuration = p.skyObscuration,
+                scattering = p.lightScattering,
+                dim = p.dim,
+                waveMul = p.waveSpeedMultiplier,
+                turbulence = p.waterTurbulence,
+                lightningIntensity = p.lightning ? p.lightningIntensity : 0f,
+            };
+        }
 
         public static Snapshot Lerp(in Snapshot a, in Snapshot b, float t) => new()
         {
@@ -300,6 +230,46 @@ public class SolWeatherManager : MonoBehaviour
     OwnedWaterState _ownedWaterState;
     bool _hasOwnedWaterState;
 
+    SolWeatherProfileAsset GetProfile(int index)
+    {
+        if (profiles == null || index < 0 || index >= profiles.Length)
+            return null;
+        return profiles[index]?.profile;
+    }
+
+    bool HasValidProfiles(out string reason)
+    {
+        if (profiles == null || profiles.Length == 0)
+        {
+            reason = "No weather profile selections are configured.";
+            return false;
+        }
+
+        for (int i = 0; i < profiles.Length; i++)
+        {
+            SolWeatherProfileAsset profile = GetProfile(i);
+            if (profile == null)
+            {
+                reason = $"Weather selection {i} has no profile asset.";
+                return false;
+            }
+
+            for (int previous = 0; previous < i; previous++)
+            {
+                SolWeatherProfileAsset other = GetProfile(previous);
+                if (other != null && string.Equals(other.name, profile.name,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    reason = $"Weather profile name '{profile.name}' is duplicated.";
+                    return false;
+                }
+            }
+        }
+
+        reason = null;
+        return true;
+    }
+
     // --- Lifecycle ----------------------------------------------------------
 
     void Awake()
@@ -329,10 +299,10 @@ public class SolWeatherManager : MonoBehaviour
         if (Instance == null || Instance == this)
             Instance = this;
 
-        if (profiles == null || profiles.Length == 0)
+        if (!HasValidProfiles(out string profileError))
         {
             enabled = false;
-            Debug.LogWarning("[SolWeatherManager] No weather profiles configured.", this);
+            Debug.LogWarning($"[SolWeatherManager] {profileError}", this);
             return;
         }
 
@@ -347,7 +317,7 @@ public class SolWeatherManager : MonoBehaviour
         _targetIndex = Mathf.Clamp(_targetIndex, 0, profiles.Length - 1);
         if (!_initialized)
         {
-            _presented = Snapshot.From(profiles[_targetIndex]);
+            _presented = Snapshot.From(GetProfile(_targetIndex));
             _from = _presented;
             _blend = 1f;
             _hoursRemaining = NextWeatherDuration();
@@ -400,7 +370,7 @@ public class SolWeatherManager : MonoBehaviour
 
     void Update()
     {
-        if (profiles == null || profiles.Length == 0) return;
+        if (!HasValidProfiles(out _)) return;
         _targetIndex = Mathf.Clamp(_targetIndex, 0, profiles.Length - 1);
 
         _referenceRetryTimer -= Time.unscaledDeltaTime;
@@ -432,7 +402,7 @@ public class SolWeatherManager : MonoBehaviour
     /// <summary>Begin transitioning to the given profile index.</summary>
     public void SetWeather(int index, bool instant = false)
     {
-        if (profiles == null || profiles.Length == 0) return;
+        if (!HasValidProfiles(out _)) return;
         index = Mathf.Clamp(index, 0, profiles.Length - 1);
 
         // Retarget from the currently presented values so every channel stays continuous.
@@ -440,10 +410,10 @@ public class SolWeatherManager : MonoBehaviour
         _targetIndex = index;
         _blend = instant ? 1f : 0f;
         if (instant)
-            _presented = Snapshot.From(profiles[_targetIndex]);
+            _presented = Snapshot.From(GetProfile(_targetIndex));
         _hoursRemaining = NextWeatherDuration();
         PublishTargetState();
-        WeatherChanged?.Invoke(profiles[_targetIndex]);
+        WeatherChanged?.Invoke(GetProfile(_targetIndex));
     }
 
     /// <summary>Begin transitioning to the named profile. Returns false if not found.</summary>
@@ -452,7 +422,9 @@ public class SolWeatherManager : MonoBehaviour
         if (profiles == null) return false;
         for (int i = 0; i < profiles.Length; i++)
         {
-            if (string.Equals(profiles[i].name, profileName, StringComparison.OrdinalIgnoreCase))
+            SolWeatherProfileAsset profile = GetProfile(i);
+            if (profile != null
+                && string.Equals(profile.name, profileName, StringComparison.OrdinalIgnoreCase))
             {
                 SetWeather(i, instant);
                 return true;
@@ -538,13 +510,13 @@ public class SolWeatherManager : MonoBehaviour
 
         if (_blend >= 1f)
         {
-            _presented = Snapshot.From(profiles[_targetIndex]);
+            _presented = Snapshot.From(GetProfile(_targetIndex));
             return;
         }
 
         _blend = Mathf.Min(1f, _blend + delta / Mathf.Max(transitionDurationSeconds, 0.01f));
         float eased = Mathf.SmoothStep(0f, 1f, _blend);
-        _presented = Snapshot.Lerp(_from, Snapshot.From(profiles[_targetIndex]), eased);
+        _presented = Snapshot.Lerp(_from, Snapshot.From(GetProfile(_targetIndex)), eased);
     }
 
     void RefreshClimateTarget(bool force = false)
@@ -624,7 +596,7 @@ public class SolWeatherManager : MonoBehaviour
 
     void ApplyEffectiveState(float worldDeltaSeconds, float presentationDeltaSeconds)
     {
-        if (profiles == null || profiles.Length == 0)
+        if (!HasValidProfiles(out _))
             return;
 
         Snapshot now = _presented;
@@ -716,19 +688,19 @@ public class SolWeatherManager : MonoBehaviour
         return _targetIndex;
     }
 
-    static float GetEffectiveWeight(WeatherProfile profile, SolSeason season)
+    static float GetEffectiveWeight(SolWeatherSelection selection, SolSeason season)
     {
-        if (profile == null)
+        if (selection == null || selection.profile == null)
             return 0f;
 
         float seasonalMultiplier = season switch
         {
-            SolSeason.Summer => profile.summerWeightMultiplier,
-            SolSeason.Autumn => profile.autumnWeightMultiplier,
-            SolSeason.Winter => profile.winterWeightMultiplier,
-            _ => profile.springWeightMultiplier,
+            SolSeason.Summer => selection.summerWeightMultiplier,
+            SolSeason.Autumn => selection.autumnWeightMultiplier,
+            SolSeason.Winter => selection.winterWeightMultiplier,
+            _ => selection.springWeightMultiplier,
         };
-        return Mathf.Max(0f, profile.weight) * Mathf.Max(0f, seasonalMultiplier);
+        return Mathf.Max(0f, selection.weight) * Mathf.Max(0f, seasonalMultiplier);
     }
 
     float NextWeatherDuration()
@@ -740,13 +712,13 @@ public class SolWeatherManager : MonoBehaviour
 
     void PublishTargetState()
     {
-        if (profiles == null || profiles.Length == 0)
+        if (!HasValidProfiles(out _))
         {
             TargetState = default;
             return;
         }
 
-        Snapshot target = Snapshot.From(profiles[Mathf.Clamp(_targetIndex, 0, profiles.Length - 1)]);
+        Snapshot target = Snapshot.From(GetProfile(Mathf.Clamp(_targetIndex, 0, profiles.Length - 1)));
         float targetClimateFog = Mathf.Clamp01(DailyFogTarget * FogDiurnalFactor);
         float targetMist = 1f - (1f - Mathf.Clamp01(target.mistiness))
                          * (1f - Mathf.Clamp01(targetClimateFog * 0.75f));
@@ -778,12 +750,14 @@ public class SolWeatherManager : MonoBehaviour
             _flash = 0f;
         _flash = Mathf.Min(_flash, peak);
 
+        SolWeatherProfileAsset targetProfile = GetProfile(_targetIndex);
         bool active = worldDeltaSeconds > 0f
-                   && profiles[_targetIndex].lightning
+                   && targetProfile != null
+                   && targetProfile.lightning
                    && peak > 0.01f;
         if (!active)
         {
-            if (!profiles[_targetIndex].lightning)
+            if (targetProfile == null || !targetProfile.lightning)
                 _secondsUntilStrike = -1f;
             return;
         }

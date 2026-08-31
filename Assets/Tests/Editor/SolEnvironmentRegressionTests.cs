@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using Sol.Environment;
@@ -27,6 +28,14 @@ namespace Sol.Tests.Editor
     {
         const string RendererPath = "Assets/Settings/Sol_Renderer.asset";
         const string AtmosphereShaderPath = "Assets/Earth-Sky-Water/Shaders/SolAtmosphere.shader";
+        const string WeatherProfileFolder = "Assets/Earth-Sky-Water/Weather Profiles";
+
+        static readonly string[] WeatherScenePaths =
+        {
+            "Assets/Scenes/Sc_Sols_FiniteBodies.unity",
+            "Assets/Scenes/Sc_Sols_Landscape.unity",
+            "Assets/Scenes/Sols_Water2_Demo.unity",
+        };
 
         /// <summary>
         /// The renderer feature addresses atmosphere passes by fixed numeric index. Keep
@@ -270,6 +279,97 @@ namespace Sol.Tests.Editor
             finally
             {
                 Object.DestroyImmediate(host);
+            }
+        }
+
+        /// <summary>
+        /// Weather identity now comes from one reusable asset set. Names are the public
+        /// string-lookup keys, so both the expected set and uniqueness are contractual.
+        /// </summary>
+        [Test]
+        public void WeatherProfiles_ShipTheExpectedUniqueAssetSet()
+        {
+            string[] guids = AssetDatabase.FindAssets(
+                "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder });
+            Assert.AreEqual(4, guids.Length,
+                "The shipped weather library must contain exactly four profiles.");
+
+            var names = new string[guids.Length];
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                SolWeatherProfileAsset profile =
+                    AssetDatabase.LoadAssetAtPath<SolWeatherProfileAsset>(path);
+                Assert.IsNotNull(profile, $"Weather profile at {path} did not load.");
+                names[i] = profile.name;
+                for (int previous = 0; previous < i; previous++)
+                {
+                    Assert.AreNotEqual(names[previous], names[i],
+                        $"Weather profile name '{names[i]}' is duplicated.");
+                }
+            }
+
+            CollectionAssert.AreEquivalent(
+                new[] { "Clear", "Overcast", "Rain", "Storm" }, names);
+        }
+
+        /// <summary>
+        /// RangeAttribute controls the inspector but does not protect a hand-edited YAML
+        /// asset. Validate the shipped data itself so a corrupt profile cannot feed
+        /// out-of-contract values into every environment consumer.
+        /// </summary>
+        [Test]
+        public void WeatherProfiles_StayWithinDeclaredRanges()
+        {
+            string[] guids = AssetDatabase.FindAssets(
+                "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder });
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                SolWeatherProfileAsset profile =
+                    AssetDatabase.LoadAssetAtPath<SolWeatherProfileAsset>(path);
+                Assert.IsNotNull(profile, $"Weather profile at {path} did not load.");
+
+                foreach (FieldInfo field in typeof(SolWeatherProfileAsset).GetFields(
+                    BindingFlags.Instance | BindingFlags.Public))
+                {
+                    UnityEngine.RangeAttribute range =
+                        field.GetCustomAttribute<UnityEngine.RangeAttribute>();
+                    if (range == null || field.FieldType != typeof(float))
+                        continue;
+
+                    float value = (float)field.GetValue(profile);
+                    Assert.IsFalse(float.IsNaN(value) || float.IsInfinity(value),
+                        $"{profile.name}.{field.Name} is not finite.");
+                    Assert.That(value, Is.InRange(range.min, range.max),
+                        $"{profile.name}.{field.Name} bypassed its declared range.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// The manager must not grow a second inline presentation definition again, and
+        /// each shipped scene must reference every shared profile asset.
+        /// </summary>
+        [Test]
+        public void WeatherManagers_UseSharedProfileAssets()
+        {
+            Assert.IsNull(typeof(SolWeatherManager).GetNestedType(
+                "WeatherProfile", BindingFlags.Public | BindingFlags.NonPublic),
+                "SolWeatherManager has regained an inline WeatherProfile type.");
+
+            string[] profileGuids = AssetDatabase.FindAssets(
+                "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder });
+            foreach (string scenePath in WeatherScenePaths)
+            {
+                string yaml = File.ReadAllText(scenePath);
+                foreach (string guid in profileGuids)
+                {
+                    Assert.That(yaml, Does.Contain($"guid: {guid}"),
+                        $"{scenePath} does not reference weather profile {guid}.");
+                }
+                Assert.That(yaml, Does.Not.Contain("  - name: Clear"),
+                    $"{scenePath} still contains inline weather presentation data.");
             }
         }
 

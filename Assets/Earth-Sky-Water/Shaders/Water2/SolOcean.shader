@@ -555,6 +555,19 @@ Shader "Sol/Water2/Ocean"
                 refracted.b = SAMPLE_TEXTURE2D_X_LOD(_SolWaterSceneColor,
                     sampler_SolWaterSceneColor,
                     SolWaterMirrorUv(refractUV + dispersionOffset), 0).b;
+                // Nothing behind the surface means nothing to refract. Over open water the
+                // scene colour at refractUV is the sky, sun disc included. rayLength below
+                // already snaps to SOL_WATER_MAX_RAY_LENGTH for exactly this case, to absorb
+                // that sky away -- but SolWaterComputeAbsorption floors transmittance at
+                // (0.0005, 0.001, 0.025) so deep water keeps its blue rather than collapsing
+                // to black, and its extinction clamps the path to clarityDistance so the
+                // blend never fully reaches the scattering term either. The product leaks a
+                // few percent of an HDR sun through, which is a blown-out pixel wherever a
+                // normal happens to offset the sample onto the disc and nothing at all in the
+                // neighbouring pixel. The floor exists to tint an absorbed sea bed; it was
+                // never meant to transmit sky. Deep water gets its colour from `scattering`
+                // below, which is what that composite already documents as the intent.
+                refracted *= refractedHasGeometry;
 
                 float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);

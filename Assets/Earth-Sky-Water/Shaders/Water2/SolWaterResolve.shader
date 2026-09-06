@@ -81,6 +81,24 @@ Shader "Hidden/Sol/Water2/Resolve"
             return SolDecodeNormalOct(SolWaterData(uv).zw);
         }
 
+        /// Depth agreement tolerance, in metres, at a given eye depth. The authored value
+        /// is a flat 0.2 m. The trace pass already scales it with distance; the two resolve
+        /// filters below did not, and a fixed metre tolerance does not survive range for two
+        /// compounding reasons. The prepass and validation targets store device depth at half
+        /// precision, which linearizes to roughly 0.05% of eye depth -- about a quarter of a
+        /// metre at 500 m, larger than the entire authored tolerance -- so the comparison is
+        /// quantization noise out there before any real motion. And on a near-horizontal
+        /// surface viewed from above, neighbouring pixels in the far field are genuinely
+        /// metres apart in depth. Both filters therefore rejected every neighbour and all of
+        /// history exactly where they were needed, leaving the raw half-resolution trace to
+        /// flicker frame to frame. The relative term is sized to clear the storage error with
+        /// margin; it is an estimate, not a measurement.
+        float SolWaterSSRDepthTolerance(float eyeDepth)
+        {
+            return max(0.01, _SolWaterSSRTemporalParams.z) * (1.0 + eyeDepth * 0.002)
+                + eyeDepth * 0.005;
+        }
+
         float3 SolClampLuminance(float3 color, float maximumLuminance)
         {
             color = max(color, 0.0);
@@ -297,7 +315,7 @@ Shader "Hidden/Sol/Water2/Resolve"
                 float centerDepth = LinearEyeDepth(centerData.y, _ZBufferParams);
                 float sampleDepth = LinearEyeDepth(sampleData.y, _ZBufferParams);
                 float depthWeight = saturate(1.0 - abs(sampleDepth - centerDepth)
-                    / max(0.01, _SolWaterSSRTemporalParams.z));
+                    / SolWaterSSRDepthTolerance(centerDepth));
                 float normalWeight = saturate((dot(centerNormal, sampleNormal)
                     - _SolWaterSSRTemporalParams.w) / max(0.0001, 1.0 - _SolWaterSSRTemporalParams.w));
                 float weight = bodyWeight * depthWeight * normalWeight;
@@ -353,7 +371,7 @@ Shader "Hidden/Sol/Water2/Resolve"
                 float expectedEye = LinearEyeDepth(expectedDepth, _ZBufferParams);
                 float historyEye = LinearEyeDepth(validation.y, _ZBufferParams);
                 float depthValid = saturate(1.0 - abs(historyEye - expectedEye)
-                    / max(0.01, _SolWaterSSRTemporalParams.z));
+                    / SolWaterSSRDepthTolerance(expectedEye));
                 float3 historyNormal = SolDecodeNormalOct(validation.zw);
                 float normalValid = step(_SolWaterSSRTemporalParams.w,
                     dot(normalWS, historyNormal));

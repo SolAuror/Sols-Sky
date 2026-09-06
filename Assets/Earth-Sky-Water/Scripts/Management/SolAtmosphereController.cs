@@ -312,6 +312,10 @@ public sealed class SolAtmosphereController : MonoBehaviour
         CurrentFogColor = RenderSettings.fogColor;
         CurrentDensity = Mathf.Max(0f, RenderSettings.fogDensity)
                        * SettingsDensityMultiplier;
+        // A whiteout is roughly eighteen times denser than the fog boost can reach on its
+        // own, so weather that must hide the scene at a stated distance raises the floor
+        // rather than trying to multiply its way there.
+        CurrentDensity = Mathf.Max(CurrentDensity, weather.FogDensityFloor);
 
         Sol.Environment.SolEnvironmentWindState environmentWind =
             Sol.Environment.SolEnvironmentWorld.ResolveState().Wind;
@@ -332,7 +336,8 @@ public sealed class SolAtmosphereController : MonoBehaviour
 
         _baselineCameraState = new CameraState(
             CurrentFogColor,
-            new Vector4(CurrentDensity, SettingsStartDistance, SettingsMaxDistance, SettingsMaxOpacity),
+            new Vector4(CurrentDensity, SettingsStartDistance, SettingsMaxDistance,
+                ResolveMaxOpacity(weather.FogDensityFloor)),
             new Vector4(scattering, SettingsPhaseAnisotropy, SettingsSkyFog, (float)Quality),
             new Vector4(
                 SettingsShadowedScattering,
@@ -379,6 +384,17 @@ public sealed class SolAtmosphereController : MonoBehaviour
         if (disableLegacyFog)
             RenderSettings.fog = false;
     }
+
+    /// <summary>
+    /// The authored opacity ceiling deliberately leaves a little scene showing through so
+    /// ordinary fog keeps some depth cue. A stated visibility distance is a promise that
+    /// nothing is visible past it, so it lifts the ceiling as well as the floor: leaving
+    /// 8% of the far scene punched through a blizzard is exactly what reads as fake.
+    /// </summary>
+    float ResolveMaxOpacity(float fogDensityFloor)
+        => fogDensityFloor > 0f
+            ? Mathf.Max(SettingsMaxOpacity, 0.985f)
+            : SettingsMaxOpacity;
 
     float SettingsDensityMultiplier => profile != null ? profile.densityMultiplier : 1f;
     float SettingsStartDistance => profile != null ? profile.startDistance : 5f;

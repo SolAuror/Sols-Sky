@@ -133,15 +133,17 @@ public class SolWaterManager : MonoBehaviour
 
     // --- Reflection Probe ------------------------------------------------
     [Header("Reflection Probe")]
-    [Tooltip("Realtime reflection probe to bake when the time period changes. " +
-             "Leave null to skip probe baking.")]
+    [Tooltip("Realtime reflection probe refreshed by the sky-lighting scheduler when sun, " +
+             "cloud cover, or ambient colour changes meaningfully. Leave null to skip.")]
     public ReflectionProbe reflectionProbe;
 
-    [Tooltip("Hour boundaries for Morning / Day / Afternoon / Night. " +
-             "Probe re-bakes once each time the period changes.")]
+    [HideInInspector, System.Obsolete("Reflection probes now use thresholded sky-lighting updates.")]
     public float morningStart   = 5f;
+    [HideInInspector, System.Obsolete("Reflection probes now use thresholded sky-lighting updates.")]
     public float dayStart       = 9f;
+    [HideInInspector, System.Obsolete("Reflection probes now use thresholded sky-lighting updates.")]
     public float afternoonStart = 14f;
+    [HideInInspector, System.Obsolete("Reflection probes now use thresholded sky-lighting updates.")]
     public float nightStart     = 20f;
 
     // --- Public read-only state ------------------------------------------
@@ -162,11 +164,6 @@ public class SolWaterManager : MonoBehaviour
     // --- Private ---------------------------------------------------------
 
     float _waveTime;
-
-    // Reflection probe bake tracking
-    enum TimePeriod { Night, Morning, Day, Afternoon }
-    TimePeriod _lastPeriod = (TimePeriod)(-1);
-    int _pendingBakeID = -1;
 
     // Global property IDs
     static readonly int _SolSunDirectionID           = Shader.PropertyToID("_Sol_SunDirection");
@@ -294,7 +291,6 @@ public class SolWaterManager : MonoBehaviour
         if (todManager != null)
         {
             PushToD();
-            UpdateReflectionProbe();
         }
     }
 
@@ -588,29 +584,4 @@ public class SolWaterManager : MonoBehaviour
         }
     }
 
-    // --- Reflection Probe Baking -----------------------------------------
-
-    TimePeriod GetCurrentPeriod(float hour)
-    {
-        if (hour >= nightStart || hour < morningStart) return TimePeriod.Night;
-        if (hour < dayStart)       return TimePeriod.Morning;
-        if (hour < afternoonStart) return TimePeriod.Day;
-        return TimePeriod.Afternoon;
-    }
-
-    void UpdateReflectionProbe()
-    {
-        if (reflectionProbe == null || todManager == null) return;
-
-        if (_pendingBakeID >= 0 && reflectionProbe.IsFinishedRendering(_pendingBakeID))
-            _pendingBakeID = -1;
-
-        TimePeriod current = GetCurrentPeriod(todManager.ClockHour);
-        if (current == _lastPeriod) return;
-
-        _lastPeriod = current;
-
-        if (_pendingBakeID < 0)
-            _pendingBakeID = reflectionProbe.RenderProbe();
-    }
 }

@@ -99,8 +99,6 @@
             #pragma fragment Frag
             #pragma target 3.5
             #pragma multi_compile_instancing
-            #pragma shader_feature_local _SOL_CLOUD_LOW _SOL_CLOUD_MEDIUM _SOL_CLOUD_HIGH
-            #pragma shader_feature_local _SOL_CLOUD_PROCEDURAL
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Hashes.hlsl"
@@ -181,27 +179,8 @@
                 float  _SolarEclipseFactor;
                 float  _LunarEclipseFactor;
                 float4 _EclipseTint;
-                // Clouds
-                float  _CloudScale;
-                float  _CloudSpeed;
+                // Shared animation clock (star twinkle and aurora).
                 float  _CloudTime;
-                float4 _CloudWindDirection;
-                float  _CloudErosion;
-                float  _CloudNoiseTiling;
-                float  _CloudWeatherScale;
-                float  _CloudWeatherInfluence;
-                float  _CloudTypeInfluence;
-                float  _CloudCoverage;
-                float  _CloudDensity;
-                float  _CloudHeight;
-                float4 _CloudColor;
-                float4 _CloudShadowColor;
-                float  _CloudLighting;
-                float  _CloudSilverIntensity;
-                float  _CloudSilverPower;
-                // Cirrus
-                float  _CirrusIntensity;
-                float  _CirrusScale;
                 // Aurora
                 float  _AuroraIntensity;
                 float4 _AuroraColor1;
@@ -209,11 +188,6 @@
                 // Atmosphere
                 float  _HazeIntensity;
             CBUFFER_END
-
-            TEXTURE2D(_CloudNoiseTex);
-            SAMPLER(sampler_CloudNoiseTex);
-            TEXTURE2D(_CloudWeatherMap);
-            SAMPLER(sampler_CloudWeatherMap);
 
             // ────────────────────────────────────────
             // Star gradient (HDR, linear RGB)
@@ -260,50 +234,6 @@
                     amp *= 0.5;
                 }
                 return result;
-            }
-
-            float CloudVolumeFBM(float2 uv)
-            {
-                #if defined(_SOL_CLOUD_PROCEDURAL)
-                #if defined(_SOL_CLOUD_LOW)
-                    const int octaveCount = 3;
-                #elif defined(_SOL_CLOUD_HIGH)
-                    const int octaveCount = 5;
-                #else
-                    const int octaveCount = 4;
-                #endif
-
-                float result = 0.0;
-                float amp = 0.5;
-                float2 p = uv;
-                [unroll]
-                for (int i = 0; i < octaveCount; i++)
-                {
-                    result += ValueNoise(p) * amp;
-                    p = mul(float2x2(1.83, -0.64, 0.64, 1.83), p);
-                    amp *= 0.5;
-                }
-                return result;
-                #else
-                    return SAMPLE_TEXTURE2D(
-                        _CloudNoiseTex, sampler_CloudNoiseTex,
-                        uv * _CloudNoiseTiling).r;
-                #endif
-            }
-
-            float SampleCloudDensity(float2 uv, float erosionAmount)
-            {
-                #if defined(_SOL_CLOUD_PROCEDURAL)
-                float baseShape = CloudVolumeFBM(uv);
-                float erosion = CloudVolumeFBM(uv * 2.37 + 19.4);
-                #else
-                float2 packedShape = SAMPLE_TEXTURE2D(
-                    _CloudNoiseTex, sampler_CloudNoiseTex,
-                    uv * _CloudNoiseTiling).rg;
-                float baseShape = packedShape.r;
-                float erosion = packedShape.g;
-                #endif
-                return baseShape - (erosion - 0.5) * erosionAmount * 0.28;
             }
 
             // Perceptual (OkLab) blend across the star color gradient.
@@ -551,113 +481,13 @@
 
                 float3 moonDisc = moonBase * visibleMoon;
 
-                // ── Clouds ────────────────────────────
-                float2 cloudUV = dir.xz / max(dir.y + _CloudHeight, 0.01);
-                float2 cloudWind = normalize(_CloudWindDirection.xy + float2(1e-4, 0.0));
-                cloudUV += _CloudTime * _CloudSpeed * cloudWind;
-
-                #if defined(_SOL_CLOUD_PROCEDURAL)
-                    float warp1 = CloudVolumeFBM(cloudUV * _CloudScale);
-                    float warp2 = CloudVolumeFBM(cloudUV * _CloudScale + 5.2);
-                #else
-                    // B/A hold two independently seeded periodic warp fields, replacing
-                    // both full FBM evaluations with one bilinear texture read.
-                    float2 packedWarp = SAMPLE_TEXTURE2D(
-                        _CloudNoiseTex, sampler_CloudNoiseTex,
-                        cloudUV * _CloudScale * _CloudNoiseTiling).ba;
-                    float warp1 = packedWarp.x;
-                    float warp2 = packedWarp.y;
-                #endif
-                float2 warped = cloudUV + float2(warp1, warp2) * 0.15;
-
-                float2 weather = SAMPLE_TEXTURE2D(
-                    _CloudWeatherMap, sampler_CloudWeatherMap,
-                    cloudUV * _CloudScale * _CloudNoiseTiling * _CloudWeatherScale).rg;
-                float coverageBias = (weather.r - 0.5) * 2.0 * _CloudWeatherInfluence;
-                float typeBias = (weather.g - 0.5) * 2.0 * _CloudTypeInfluence;
-                float localCoverage = saturate(_CloudCoverage - coverageBias);
-                float localErosion = saturate(_CloudErosion + typeBias);
-
-                float rawDensity = SampleCloudDensity(warped * _CloudScale, localErosion);
-                #if !defined(_SOL_CLOUD_LOW)
-                    float shell1 = SampleCloudDensity(
-                        (warped + cloudWind * 0.055 + dir.xz * 0.025) * _CloudScale + 11.3,
-                        localErosion);
-                    rawDensity = rawDensity * 0.66 + shell1 * 0.34;
-                #endif
-                #if defined(_SOL_CLOUD_HIGH)
-                    float shell2 = SampleCloudDensity(
-                        (warped - cloudWind * 0.08 + dir.xz * 0.045) * _CloudScale + 23.7,
-                        localErosion);
-                    rawDensity = rawDensity * 0.78 + shell2 * 0.22;
-                #endif
-
-                float density = smoothstep(localCoverage, localCoverage + 0.2, rawDensity);
-                density *= _CloudDensity * saturate(dir.y * 10.0);
-
-                #if defined(_SOL_CLOUD_LOW)
-                    const int lightSampleCount = 1;
-                #elif defined(_SOL_CLOUD_HIGH)
-                    // The third shell is High's shape win. Three lighting taps already
-                    // span the same directional interval; five cost two extra fetches.
-                    const int lightSampleCount = 3;
-                #else
-                    const int lightSampleCount = 3;
-                #endif
-
-                float densityTowardSun = 0.0;
-                [unroll]
-                for (int lightSample = 1; lightSample <= lightSampleCount; lightSample++)
-                {
-                    float stepDistance = 0.026 * lightSample;
-                    densityTowardSun += SampleCloudDensity(
-                        (warped + sunDir.xz * stepDistance) * _CloudScale,
-                        localErosion);
-                }
-                densityTowardSun /= lightSampleCount;
-                float dirLit     = saturate((rawDensity - densityTowardSun) * 4.0 + 0.7);
-                float ambientLit = saturate(sunDot * 0.5 + 0.6);
-                float litTerm    = ambientLit * lerp(1.0, dirLit * 1.4, _CloudLighting);
-                float opticalDepth = saturate((rawDensity - localCoverage) * 3.5);
-                litTerm *= lerp(1.0, 0.58, opticalDepth * saturate(1.0 - dir.y));
-
-                float3 cloudCol = lerp(_CloudShadowColor.rgb, _CloudColor.rgb,
-                                       saturate(litTerm));
-
-                // Silver lining: forward-scatter glow on thin cloud fringes
-                // near the sun, tinted by the sun's chromaticity. Fades once
-                // the sun drops well below the horizon.
-                float fringe = saturate(density * (1.0 - density) * 4.0);
-                float3 sunChroma = _SunDiscColor.rgb
-                    / max(max(_SunDiscColor.r, max(_SunDiscColor.g, _SunDiscColor.b)), 1e-3);
-                float sunUpFade = saturate(sunDir.y * 4.0 + 0.6);
-                cloudCol += sunChroma * (pow(saturate(sunDot), _CloudSilverPower)
-                          * _CloudSilverIntensity * fringe * sunUpFade);
-
-                // ── Cirrus (high thin layer) ──────────
-                // Anisotropically stretched wisps on a higher virtual plane,
-                // scrolling on a different heading. Drawn under the main
-                // cumulus layer (higher altitude), sharing its lit color so
-                // day/night/sunset tints apply automatically.
-                float cirrus = 0.0;
-                if (_CirrusIntensity > 0.001)
-                {
-                    float2 cirUV = dir.xz / max(dir.y + 0.45, 0.02);
-                    cirUV += _CloudTime * _CloudSpeed * float2(cloudWind.y, -cloudWind.x) * 0.42;
-                    float cir = CloudFBM(float2(cirUV.x * 0.5, cirUV.y * 2.2) * _CirrusScale + 3.7);
-                    cirrus = smoothstep(0.5, 0.85, cir)
-                           * _CirrusIntensity * saturate(dir.y * 6.0);
-                }
-                float3 cirrusCol = lerp(_CloudShadowColor.rgb, _CloudColor.rgb,
-                                        saturate(sunDot * 0.5 + 0.65));
-
                 // ── Atmosphere ─────────────────────────
                 float haze = pow(1.0 - abs(y), 4.0) * _HazeIntensity;
 
                 // ── Composite ─────────────────────────
-                // Layer order: sky → sun/moon (additive) → stars/aurora
-                //            (behind clouds & bodies) → cirrus → clouds
-                //            → atmosphere (additive on top)
+                // Clouds are composited later by SolCloudRendererFeature. Keeping the
+                // sky pass cloud-free makes every quality tier share the same physical
+                // transmittance and depth ordering.
 
                 // Celestial bodies — block stars behind them.
                 float bodyMask = saturate(visibleSun + visibleMoon + occluder);
@@ -666,8 +496,6 @@
                 float3 color = sky;
                 color += stars * (1.0 - bodyMask);   // stars & aurora behind bodies
                 color += bodies;                      // sun & moon on top of sky
-                color  = lerp(color, cirrusCol, cirrus * 0.6); // high cirrus
-                color  = lerp(color, cloudCol, density); // cumulus over everything
                 color += horizonCol * (glow + haze); // atmospheric scatter (warm near sun)
 
                 return float4(color, 1.0);

@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79061fab6b27442f85c0136492b2ef45, type: 3}
+  m_Name: Sol_Clouds
+  m_EditorClassIdentifier: Assembly-CSharp::SolCloudRenderingProfile
+  planetRadius: 6371000
+  maximumRayDistance: 160000
+  packedShapeNoise: {fileID: 2800000, guid: 450ba118ee126c94d8124949f3725cd0, type: 3}
+  authoredStructureMap: {fileID: 0}
+  weatherMap: {fileID: 2800000, guid: 4dde26406205c6e46936461df09ca08c, type: 3}
+  shapeNoiseVolume: {fileID: 11700000, guid: 176e3a92b1aef0a4ba3a2fa88b106b28, type: 2}
+  detailNoiseVolume: {fileID: 11700000, guid: d82292ac00eb49d4fa9308975c23277c, type: 2}
+  shapeScaleMetres: 12000
+  detailScaleMetres: 1800
+  weatherScaleMetres: 85000
+  structureScaleMetres: 8000
+  structureInfluence: 0.38
+  curlWarpStrength: 0.6
+  distanceDensityGain: 0.45
+  structureWarpStrength: 0.12
+  microDetailFadeStartMetres: 25000
+  microDetailFadeEndMetres: 45000
+  cloudAdvectionMultiplier: 2
+  temporalRejectStartMetres: 35000
+  temporalRejectEndMetres: 85000
+  extinctionPerKilometre: 2.5
+  forwardAnisotropy: 0.78
+  backwardAnisotropy: -0.2
+  backwardLobeWeight: 0.18
+  ambientIntensity: 0.75
+  powderIntensity: 0.75
+  lightStepMetres: 1400
+  maximumLightMarchMetres: 30000
+  sculptingStrength: 0.35
+  baseLobeStrength: 0.565
+  surfaceGradientStrength: 0.18
+  multipleScatteringStrength: 0.55
+  innerGlowStrength: 0.35
+  ambientBottomMultiplier: 0.38
+  stormAbsorption: 0.45
+  secondaryCelestialStrength: 0.2
+  lightningColor: {r: 0.78, g: 0.86, b: 1, a: 1}
+  lightningEmissionStrength: 0.8
+  enableWorldCloudShadows: 1
+  shadowFootprintMetres: 12000
+  lowShadowFootprintMetres: 16000
+  mediumShadowFootprintMetres: 24000
+  highShadowFootprintMetres: 32000
+  worldShadowStrength: 0.85
+  lowViewSteps: 6
+  mediumViewSteps: 48
+  highViewSteps: 64
+  mediumLightSteps: 4
+  highLightSteps: 6
+  mediumHistoryWeight: 0.72
+  highHistoryWeight: 0.84
+  bilateralDepthThreshold: 3
+  debugView: 0

@@ -294,7 +294,7 @@ public class TimeOfDay : MonoBehaviour
     [Min(0f)]
     [SerializeField] float cloudBaseSpeed = 0.05f;
 
-    [Tooltip("Pseudo-volume cloud shell and lighting quality.")]
+    [Tooltip("Sol volumetric cloud renderer quality.")]
     [SerializeField] SolCloudQuality cloudQuality = SolCloudQuality.Medium;
 
     [Tooltip("Optional packed periodic cloud noise override. R = shape, G = erosion, "
@@ -758,7 +758,11 @@ public class TimeOfDay : MonoBehaviour
             sunLight = sunInstance.GetComponentInChildren<Light>();
             if (sunLight != null) sunLight.shadows = LightShadows.Soft;
             sunBody  = sunInstance.GetComponentInChildren<CelestialBody>();
-            if (sunBody != null && sunConfig != null) sunBody.Initialize(sunConfig);
+            if (sunBody != null)
+            {
+                if (sunConfig != null) sunBody.Initialize(sunConfig);
+                sunBody.SetMeshVisualEnabled(false);
+            }
         }
 
         if (moonPrefab != null)
@@ -767,7 +771,11 @@ public class TimeOfDay : MonoBehaviour
             moonInstance.name = "Moon";
             moonLight = moonInstance.GetComponentInChildren<Light>();
             moonBody  = moonInstance.GetComponentInChildren<CelestialBody>();
-            if (moonBody != null && moonConfig != null) moonBody.Initialize(moonConfig);
+            if (moonBody != null)
+            {
+                if (moonConfig != null) moonBody.Initialize(moonConfig);
+                moonBody.SetMeshVisualEnabled(false);
+            }
         }
 
         // Tertiary planets
@@ -1281,6 +1289,9 @@ public class TimeOfDay : MonoBehaviour
         float weatherDim = Mathf.Clamp01(WeatherDim);
         float cloudiness = Mathf.Clamp01(WeatherCloudiness);
         float lightning  = Mathf.Clamp01(WeatherLightningFlash);
+        Color scheduledAmbientSky = RenderSettings.ambientSkyColor;
+        Color scheduledAmbientEquator = RenderSettings.ambientEquatorColor;
+        Color scheduledAmbientGround = RenderSettings.ambientGroundColor;
 
         // Flat ambient fallback. When ambientFromSky is on, Trilight ambient
         // is derived from the computed sky colors inside the skybox block.
@@ -1291,6 +1302,7 @@ public class TimeOfDay : MonoBehaviour
             ambient *= 1f - weatherDim * 0.5f;
             if (eclipseEnv > 0f)
                 ambient = Color.Lerp(ambient, eclipseAmbientColor, eclipseEnv);
+            scheduledAmbientSky = scheduledAmbientEquator = scheduledAmbientGround = ambient;
             if (lightning > 0f)
                 ambient += Color.white * (lightning * 0.5f);
             RenderSettings.ambientLight = ambient;
@@ -1333,6 +1345,13 @@ public class TimeOfDay : MonoBehaviour
                 if (eclipseEnv > 0f)
                     horizon = Color.Lerp(horizon, skyHorizonEclipse, eclipseEnv);
 
+                // Capture the stable sky-lighting state before transient lightning is
+                // added. GI and reflection probes must not chase sub-second flashes.
+                Color nadir = Color.Lerp(skyNadirNight, skyNadirDay, df);
+                scheduledAmbientSky = zenith * ambientSkyIntensity;
+                scheduledAmbientEquator = horizon * ambientSkyIntensity;
+                scheduledAmbientGround = nadir * (ambientSkyIntensity * 0.9f);
+
                 // Lightning: sheet flash brightens the sky, horizon most.
                 if (lightning > 0f)
                 {
@@ -1351,8 +1370,7 @@ public class TimeOfDay : MonoBehaviour
                              * (1f - weatherDim * 0.85f)
                              * (1f - cloudiness * 0.45f);
 
-                // Nadir: simple night ? day
-                Color nadir = Color.Lerp(skyNadirNight, skyNadirDay, df);
+                // Nadir remains the stable night/day value captured above.
 
                 // -- Sky-derived ambient & fog --
                 // Everything upstream (eclipse, storm dim, lightning) is
@@ -1401,6 +1419,8 @@ public class TimeOfDay : MonoBehaviour
                 // rotations, so timeOfDay alone keeps the angle small and
                 // continuous across the midnight wrap.
                 sky.SetFloat(_StarRotationID,   timeOfDay * 2f * Mathf.PI);
+                // Star twinkle and aurora animation still share this canonical visual clock.
+                sky.SetFloat(_CloudTimeID, cloudTime);
                 // Night factor gates the milky way (stars are gated by
                 // _StarIntensity already).
                 sky.SetFloat(_NightFactorID,    1f - df);
@@ -1437,55 +1457,6 @@ public class TimeOfDay : MonoBehaviour
                 sky.SetFloat(_LunarEclipseFactorID, lunarEclipseFactor);
                 sky.SetColor(_EclipseTintID,        lunarEclipseTint);
 
-                // -- Clouds --
-                float cloudCoverage = Mathf.Lerp(cloudCoverageNight, cloudCoverageDay, df);
-                float cloudDensity  = Mathf.Lerp(cloudDensityNight,  cloudDensityDay,  df);
-
-                // Weather cloudiness pushes toward full overcast (coverage
-                // parameter is inverted: lower value = more cloud).
-                cloudCoverage = Mathf.Lerp(cloudCoverage, 0.02f, cloudiness);
-                cloudDensity  = Mathf.Lerp(cloudDensity,  0.95f, cloudiness);
-
-                Color cloudLit;
-                if (df < 0.3f)
-                    cloudLit = Color.Lerp(cloudColorNight, cloudColorSunset, df / 0.3f);
-                else if (df < 0.7f)
-                    cloudLit = Color.Lerp(cloudColorSunset, cloudColorDay, (df - 0.3f) / 0.4f);
-                else
-                    cloudLit = cloudColorDay;
-
-                Color cloudShadow = Color.Lerp(cloudShadowNight, cloudShadowDay, df);
-
-                // Storm darkening + lightning glow on cloud bases.
-                cloudLit    *= 1f - weatherDim * 0.5f;
-                cloudShadow *= 1f - weatherDim * 0.55f;
-                if (lightning > 0f)
-                    cloudLit += Color.white * (lightning * 0.7f);
-
-                sky.SetFloat(_CloudScaleID,        cloudScale);
-                sky.SetFloat(_CloudSpeedID,        1f);
-                sky.SetFloat(_CloudTimeID,         cloudTime);
-                Vector3 wind = WeatherWindDirection.sqrMagnitude > 0.0001f
-                    ? WeatherWindDirection.normalized
-                    : Vector3.right;
-                sky.SetVector(_CloudWindDirectionID, new Vector4(wind.x, wind.z, 0f, 0f));
-                sky.SetFloat(_CloudErosionID,       Mathf.Clamp01(WeatherCloudErosion));
-                ResolveCloudTextures();
-                if (_resolvedCloudNoiseTexture != null)
-                    Shader.SetGlobalTexture(_CloudNoiseTexID, _resolvedCloudNoiseTexture);
-                if (_resolvedCloudWeatherMap != null)
-                    Shader.SetGlobalTexture(_CloudWeatherMapID, _resolvedCloudWeatherMap);
-                sky.SetFloat(_CloudNoiseTilingID, 1f / 8f);
-                sky.SetFloat(_CloudWeatherScaleID, 0.06f);
-                sky.SetFloat(_CloudWeatherInfluenceID, cloudWeatherInfluence);
-                sky.SetFloat(_CloudTypeInfluenceID, cloudTypeInfluence);
-                sky.SetFloat(_CloudCoverageID,     cloudCoverage);
-                sky.SetFloat(_CloudDensityID,      cloudDensity);
-                sky.SetFloat(_CloudHeightID,       cloudHeight);
-                sky.SetColor(_CloudColorID,        cloudLit);
-                sky.SetColor(_CloudShadowColorID,  cloudShadow);
-                ApplyCloudQualityKeywords(sky);
-
                 // -- Atmosphere --
                 float glowIntensity = Mathf.Lerp(sunGlowIntensityNight, sunGlowIntensityDay, df);
                 float hazeIntensity = Mathf.Lerp(hazeIntensityNight, hazeIntensityDay, df);
@@ -1499,6 +1470,9 @@ public class TimeOfDay : MonoBehaviour
                 sky.SetFloat(_HazeIntensityID,     hazeIntensity);
             }
         }
+
+        SolSkyLightingScheduler.Tick(this, scheduledAmbientSky,
+            scheduledAmbientEquator, scheduledAmbientGround, cloudiness);
     }
 
     /// <summary>
@@ -2010,11 +1984,31 @@ public class TimeOfDay : MonoBehaviour
         set => SetPaused(value);
     }
 
-    /// <summary>Current pseudo-volume cloud shader quality.</summary>
+    /// <summary>Current Sol volumetric cloud renderer quality.</summary>
     public SolCloudQuality CloudQuality
     {
         get => cloudQuality;
         set => cloudQuality = value;
+    }
+
+    /// <summary>
+    /// Compatibility fallback for scenes that use TimeOfDay without a weather manager.
+    /// New weather profiles own these values when a manager is present.
+    /// </summary>
+    internal SolCloudState LegacyCloudState
+    {
+        get
+        {
+            float threshold = Mathf.Lerp(cloudCoverageNight, cloudCoverageDay, cachedDayFactor);
+            float coverage = 1f - threshold;
+            float density = Mathf.Lerp(cloudDensityNight, cloudDensityDay, cachedDayFactor);
+            float baseHeight = Mathf.Lerp(900f, 2400f, cloudHeight);
+            float scaleResponse = Mathf.Clamp01(cloudScale / 10f);
+            return new SolCloudState(SolCloudFormation.Cumulus, coverage,
+                Mathf.Clamp01(WeatherCloudErosion), density, baseHeight,
+                Mathf.Lerp(4200f, 2400f, scaleResponse), 0.45f, 0f, 0.18f,
+                Vector2.zero, Vector2.zero, Vector2.zero, 0.65f);
+        }
     }
 
     /// <summary>World-simulation seconds produced for the current frame.</summary>

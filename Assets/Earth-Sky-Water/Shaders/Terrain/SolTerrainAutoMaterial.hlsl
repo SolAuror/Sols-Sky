@@ -163,7 +163,6 @@ void SolResolveLandscapeAutoMaterial(
 // coverage follows the integrated surface state while the separately authored altitude
 // response supplies a permanent mountaintop floor.
 static const half kSolLandscapeSnowNormalRetention = 0.35h;
-static const float2 kSolLandscapeSnowTemperatureRange = float2(-2.0f, 2.0f);
 static const float2 kSolLandscapeWeatherSnowAltitudeRange = float2(0.0f, 100.0f);
 static const float kSolLandscapeWeatherSnowAltitudeBaseline = 0.85f;
 static const float2 kSolLandscapeWeatherSnowSlopeSheddingRange = float2(15.0f, 35.0f);
@@ -173,16 +172,11 @@ float SolEvaluateLandscapeSnowCoverage(
     float3 geometricNormalWS,
     float weatherSusceptibility,
     float permanentSusceptibility,
-    out float temperatureResponse,
     out float weatherAltitudeResponse,
     out float permanentCoverage,
     out float weatherCoverage,
     out float slopeShedding)
 {
-    float temperatureInput = (_Sol_SurfaceTemperature - kSolLandscapeSnowTemperatureRange.x)
-        / (kSolLandscapeSnowTemperatureRange.y - kSolLandscapeSnowTemperatureRange.x);
-    temperatureResponse = 1.0f - SolEvaluateLandscapeResponseCurve(temperatureInput, 0.0f);
-
     float weatherAltitudeInput = (positionWS.y - kSolLandscapeWeatherSnowAltitudeRange.x)
         / (kSolLandscapeWeatherSnowAltitudeRange.y - kSolLandscapeWeatherSnowAltitudeRange.x);
     float weatherAltitudeCurve = SolEvaluateLandscapeResponseCurve(weatherAltitudeInput, 0.0f);
@@ -208,13 +202,15 @@ float SolEvaluateLandscapeSnowCoverage(
         - SolEvaluateLandscapeResponseCurve(permanentSlopeInput, 0.0f);
 
     // SnowCover is integrated surface state from SolEnvironmentWorld. Instantaneous
-    // precipitation is intentionally absent so coverage accumulates and recedes.
+    // precipitation and temperature are intentionally absent so coverage accumulates
+    // during freezing precipitation and recedes only as the simulation advances thaw.
+    // Applying the current air temperature again here made an unchanged snowpack appear
+    // on cold mornings and disappear during warm afternoons.
     // max is deliberate: permanent altitude Snow is a floor, never an additive
     // second coat. The split susceptibilities distinguish fresh-weather adhesion
     // from accumulated pack; both are evaluated from already-selected material
     // contributors and cannot feed back into layer weights.
     weatherCoverage = saturate(_Sol_SurfaceSnowCover)
-        * temperatureResponse
         * weatherAltitudeResponse
         * slopeShedding;
     permanentCoverage = permanentAltitudeResponse * permanentSlopeShedding;
@@ -231,7 +227,6 @@ void SolApplyLandscapeSnow(
     float permanentSusceptibility,
     out float snowCoverage)
 {
-    float temperatureResponse;
     float weatherAltitudeResponse;
     float permanentCoverage;
     float weatherCoverage;
@@ -241,7 +236,6 @@ void SolApplyLandscapeSnow(
         geometricNormalWS,
         weatherSusceptibility,
         permanentSusceptibility,
-        temperatureResponse,
         weatherAltitudeResponse,
         permanentCoverage,
         weatherCoverage,

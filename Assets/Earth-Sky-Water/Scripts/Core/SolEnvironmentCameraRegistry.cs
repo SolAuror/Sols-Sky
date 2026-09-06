@@ -27,6 +27,8 @@ namespace Sol.Environment
             public float UnderwaterDepth { get; set; }
             public bool PlanarReflectionConsumed { get; set; }
             public RTHandle AtmosphereHistory { get; set; }
+            public RTHandle CloudHistory { get; set; }
+            public int CloudHistorySignature { get; internal set; }
             public RTHandle WaterVolumetricHistory { get; set; }
             public RTHandle WaterReflectionHistory { get; set; }
             public RTHandle WaterReflectionValidationHistory { get; set; }
@@ -37,10 +39,12 @@ namespace Sol.Environment
             public void Dispose()
             {
                 AtmosphereHistory?.Release();
+                CloudHistory?.Release();
                 WaterVolumetricHistory?.Release();
                 WaterReflectionHistory?.Release();
                 WaterReflectionValidationHistory?.Release();
                 AtmosphereHistory = null;
+                CloudHistory = null;
                 WaterVolumetricHistory = null;
                 WaterReflectionHistory = null;
                 WaterReflectionValidationHistory = null;
@@ -146,6 +150,36 @@ namespace Sol.Environment
             if (allocated)
                 context.CameraCut = true;
             return context.AtmosphereHistory != null;
+        }
+
+        /// <summary>Half-resolution radiance/transmittance history for volumetric clouds.</summary>
+        public static bool EnsureCloudHistory(Context context,
+            RenderTextureDescriptor cameraDescriptor, int signature)
+        {
+            if (context == null)
+                return false;
+            cameraDescriptor.width = Mathf.Max(1, (cameraDescriptor.width + 1) / 2);
+            cameraDescriptor.height = Mathf.Max(1, (cameraDescriptor.height + 1) / 2);
+            cameraDescriptor.msaaSamples = 1;
+            cameraDescriptor.depthBufferBits = 0;
+            cameraDescriptor.depthStencilFormat = GraphicsFormat.None;
+            cameraDescriptor.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
+            cameraDescriptor.bindMS = false;
+            cameraDescriptor.useDynamicScale = false;
+            cameraDescriptor.useMipMap = false;
+            cameraDescriptor.autoGenerateMips = false;
+            cameraDescriptor.enableRandomWrite = false;
+            RTHandle history = context.CloudHistory;
+            bool allocated = RenderingUtils.ReAllocateHandleIfNeeded(
+                ref history, cameraDescriptor, FilterMode.Bilinear, TextureWrapMode.Clamp,
+                name: $"_SolCloudHistory_{context.CameraId}");
+            context.CloudHistory = history;
+            if (allocated || context.CloudHistorySignature != signature)
+            {
+                context.CloudHistorySignature = signature;
+                context.CameraCut = true;
+            }
+            return context.CloudHistory != null;
         }
 
         /// <summary>

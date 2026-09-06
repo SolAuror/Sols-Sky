@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3187298abffe58e4791224101ac4e1ac, type: 3}
   m_Name: Storm
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
+  cloudFormation: 3
   cloudiness: 0.97
   cloudErosion: 0.64
+  overrideAdvancedCloudShape: 0
   rainIntensity: 0.95
   windSpeedMetresPerSecond: 21.2
   fogBoost: 0.3

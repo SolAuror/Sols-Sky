@@ -2703,6 +2703,18 @@ MonoBehaviour:
     summerWeightMultiplier: 0.55
     autumnWeightMultiplier: 1.35
     winterWeightMultiplier: 1.15
+  - profile: {fileID: 11400000, guid: 5c1a7d0e4b3f4a2d9e6c8b1f7a4d2e40, type: 2}
+    weight: 2
+    springWeightMultiplier: 0.35
+    summerWeightMultiplier: 0
+    autumnWeightMultiplier: 0.3
+    winterWeightMultiplier: 2.6
+  - profile: {fileID: 11400000, guid: 5c1a7d0e4b3f4a2d9e6c8b1f7a4d2e41, type: 2}
+    weight: 1
+    springWeightMultiplier: 0.05
+    summerWeightMultiplier: 0
+    autumnWeightMultiplier: 0.05
+    winterWeightMultiplier: 1.4
   climateSeed: 1427
   springDailyFogRange: {x: 0.02, y: 0.3}
   summerDailyFogRange: {x: 0, y: 0.12}
@@ -2712,6 +2724,28 @@ MonoBehaviour:
   autoCycle: 1
   durationHoursRange: {x: 6, y: 18}
   transitionDurationSeconds: 3
+  transitionTimings:
+    wind:
+      delay: 0
+      span: 0.5
+    clouds:
+      delay: 0
+      span: 0.7
+    fog:
+      delay: 0.15
+      span: 0.7
+    water:
+      delay: 0.2
+      span: 0.8
+    precipitation:
+      delay: 0.35
+      span: 0.65
+    lightning:
+      delay: 0.4
+      span: 0.6
+    light:
+      delay: 0.1
+      span: 0.75
   transitionHours: 0.75
   avoidRepeat: 1
   driveWind: 1

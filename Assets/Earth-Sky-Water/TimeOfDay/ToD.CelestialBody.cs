@@ -97,6 +97,18 @@ namespace Sol.ToD
         /// <summary>Assign a config at runtime (called by TimeofDay after instantiation).</summary>
         public void Initialize(CelestialBodyConfig cfg) => config = cfg;
 
+        /// <summary>
+        /// Keeps the body object, light, transform, and API alive while its primary visual
+        /// is supplied by the sky shader. Tertiary planets leave this enabled.
+        /// </summary>
+        public void SetMeshVisualEnabled(bool enabled)
+        {
+            if (rend == null)
+                rend = GetComponentInChildren<Renderer>();
+            if (rend != null)
+                rend.enabled = enabled;
+        }
+
         /// <summary>Call once per frame (from TimeofDay) to position, billboard, and tint the body.</summary>
         public void Refresh()
         {

@@ -83,6 +83,9 @@ public class SolWeatherManager : MonoBehaviour
     [Min(0.01f)]
     public float transitionDurationSeconds = 3f;
 
+    [Tooltip("Lead/lag choreography inside the transition, so the sky leads the ground.")]
+    public SolWeatherTransitionTimings transitionTimings = new();
+
     [Obsolete("Visible weather transitions now use transitionDurationSeconds.")]
     [HideInInspector]
     public float transitionHours = 0.75f;
@@ -167,8 +170,9 @@ public class SolWeatherManager : MonoBehaviour
     // --- Private ------------------------------------------------------------
     struct Snapshot
     {
-        public float cloudiness, cloudErosion, rain, windSpeedMetresPerSecond, fog,
-            mistiness, skyObscuration,
+        public SolCloudState clouds;
+        public float cloudiness, cloudErosion, rain, snowBias, windSpeedMetresPerSecond, fog,
+            mistiness, skyObscuration, fogDensityFloor,
             scattering, dim, waveMul, turbulence, lightningIntensity;
 
         public static Snapshot From(SolWeatherProfileAsset p)
@@ -178,13 +182,16 @@ public class SolWeatherManager : MonoBehaviour
 
             return new Snapshot
             {
+                clouds = p.ResolveCloudState(),
                 cloudiness = p.cloudiness,
                 cloudErosion = p.cloudErosion,
                 rain = p.rainIntensity,
+                snowBias = p.snowBias,
                 windSpeedMetresPerSecond = p.windSpeedMetresPerSecond,
                 fog = p.fogBoost,
                 mistiness = p.mistiness,
                 skyObscuration = p.skyObscuration,
+                fogDensityFloor = p.ResolveFogDensityFloor(),
                 scattering = p.lightScattering,
                 dim = p.dim,
                 waveMul = p.waveSpeedMultiplier,
@@ -193,22 +200,54 @@ public class SolWeatherManager : MonoBehaviour
             };
         }
 
-        public static Snapshot Lerp(in Snapshot a, in Snapshot b, float t) => new()
+        /// <summary>
+        /// Uniform blend, kept for callers that want every channel on one curve.
+        /// </summary>
+        public static Snapshot Lerp(in Snapshot a, in Snapshot b, float t)
+            => Lerp(a, b, null, t);
+
+        /// <summary>
+        /// Blends with per-channel lead/lag. A null timing table falls back to the uniform
+        /// curve, so a scene that has never been opened since this was added still behaves
+        /// exactly as it did before.
+        /// </summary>
+        public static Snapshot Lerp(
+            in Snapshot a, in Snapshot b, SolWeatherTransitionTimings timings, float master)
         {
-            cloudiness = Mathf.Lerp(a.cloudiness, b.cloudiness, t),
-            cloudErosion = Mathf.Lerp(a.cloudErosion, b.cloudErosion, t),
-            rain = Mathf.Lerp(a.rain, b.rain, t),
-            windSpeedMetresPerSecond = Mathf.Lerp(
-                a.windSpeedMetresPerSecond, b.windSpeedMetresPerSecond, t),
-            fog = Mathf.Lerp(a.fog, b.fog, t),
-            mistiness = Mathf.Lerp(a.mistiness, b.mistiness, t),
-            skyObscuration = Mathf.Lerp(a.skyObscuration, b.skyObscuration, t),
-            scattering = Mathf.Lerp(a.scattering, b.scattering, t),
-            dim = Mathf.Lerp(a.dim, b.dim, t),
-            waveMul = Mathf.Lerp(a.waveMul, b.waveMul, t),
-            turbulence = Mathf.Lerp(a.turbulence, b.turbulence, t),
-            lightningIntensity = Mathf.Lerp(a.lightningIntensity, b.lightningIntensity, t),
-        };
+            float t = Mathf.Clamp01(master);
+            float cloudT = timings != null ? timings.clouds.Evaluate(t) : t;
+            float windT = timings != null ? timings.wind.Evaluate(t) : t;
+            float fogT = timings != null ? timings.fog.Evaluate(t) : t;
+            float waterT = timings != null ? timings.water.Evaluate(t) : t;
+            float lightT = timings != null ? timings.light.Evaluate(t) : t;
+            float lightningT = timings != null ? timings.lightning.Evaluate(t) : t;
+            float precipitationT = timings != null ? timings.precipitation.Evaluate(t) : t;
+
+            if (timings != null)
+                precipitationT *= SolWeatherTransitionTimings.PrecipitationCoverGate(
+                    a.clouds.Coverage, b.clouds.Coverage, cloudT);
+
+            return new Snapshot
+            {
+                clouds = SolCloudState.Lerp(a.clouds, b.clouds, cloudT),
+                cloudiness = Mathf.Lerp(a.cloudiness, b.cloudiness, cloudT),
+                cloudErosion = Mathf.Lerp(a.cloudErosion, b.cloudErosion, cloudT),
+                rain = Mathf.Lerp(a.rain, b.rain, precipitationT),
+                snowBias = Mathf.Lerp(a.snowBias, b.snowBias, precipitationT),
+                windSpeedMetresPerSecond = Mathf.Lerp(
+                    a.windSpeedMetresPerSecond, b.windSpeedMetresPerSecond, windT),
+                fog = Mathf.Lerp(a.fog, b.fog, fogT),
+                mistiness = Mathf.Lerp(a.mistiness, b.mistiness, fogT),
+                skyObscuration = Mathf.Lerp(a.skyObscuration, b.skyObscuration, fogT),
+                fogDensityFloor = Mathf.Lerp(a.fogDensityFloor, b.fogDensityFloor, fogT),
+                scattering = Mathf.Lerp(a.scattering, b.scattering, lightT),
+                dim = Mathf.Lerp(a.dim, b.dim, lightT),
+                waveMul = Mathf.Lerp(a.waveMul, b.waveMul, waterT),
+                turbulence = Mathf.Lerp(a.turbulence, b.turbulence, waterT),
+                lightningIntensity = Mathf.Lerp(
+                    a.lightningIntensity, b.lightningIntensity, lightningT),
+            };
+        }
     }
 
     int _targetIndex;
@@ -488,8 +527,8 @@ public class SolWeatherManager : MonoBehaviour
         _from = Snapshot.From(GetProfile(indexA));
         _targetIndex = indexB;
         _blend = Mathf.Clamp01(t);
-        float eased = Mathf.SmoothStep(0f, 1f, _blend);
-        _presented = Snapshot.Lerp(_from, Snapshot.From(GetProfile(indexB)), eased);
+        _presented = Snapshot.Lerp(
+            _from, Snapshot.From(GetProfile(indexB)), transitionTimings, _blend);
         RefreshClimateTarget();
         AdvanceClimatePresentation(0f);
         PublishTargetState();
@@ -620,8 +659,10 @@ public class SolWeatherManager : MonoBehaviour
         }
 
         _blend = Mathf.Min(1f, _blend + delta / Mathf.Max(transitionDurationSeconds, 0.01f));
-        float eased = Mathf.SmoothStep(0f, 1f, _blend);
-        _presented = Snapshot.Lerp(_from, Snapshot.From(GetProfile(_targetIndex)), eased);
+        // Easing now lives inside each channel timing, so the master progress is passed
+        // through raw. Easing it here as well would compound the two curves.
+        _presented = Snapshot.Lerp(
+            _from, Snapshot.From(GetProfile(_targetIndex)), transitionTimings, _blend);
     }
 
     void RefreshClimateTarget(bool force = false)
@@ -716,14 +757,15 @@ public class SolWeatherManager : MonoBehaviour
         UpdateLightning(worldDeltaSeconds, presentationDeltaSeconds, now.lightningIntensity);
 
         SolWeatherState nextState = new(
-            now.cloudiness,
-            now.cloudErosion,
+            now.clouds,
             now.rain,
+            now.snowBias,
             windDirection,
             now.windSpeedMetresPerSecond,
             combinedFog,
             combinedMist,
             now.skyObscuration,
+            now.fogDensityFloor,
             now.scattering,
             now.dim,
             now.waveMul,
@@ -833,14 +875,15 @@ public class SolWeatherManager : MonoBehaviour
         float rad = _windAngleDeg * Mathf.Deg2Rad;
         Vector3 windDirection = new(Mathf.Cos(rad), 0f, Mathf.Sin(rad));
         TargetState = new SolWeatherState(
-            target.cloudiness,
-            target.cloudErosion,
+            target.clouds,
             target.rain,
+            target.snowBias,
             windDirection,
             target.windSpeedMetresPerSecond,
             target.fog + targetClimateFog,
             targetMist,
             target.skyObscuration,
+            target.fogDensityFloor,
             target.scattering,
             target.dim,
             target.waveMul,

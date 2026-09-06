@@ -46,6 +46,7 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_SolAtmosphereLightningScattering"),
         Shader.PropertyToID("_SolAtmosphereLightAvailable"),
         Shader.PropertyToID("_SolAtmosphereTransparentFog"),
+        Shader.PropertyToID("_SolCloudActive"),
         Shader.PropertyToID("_Sol_RippleSpeed"),
         Shader.PropertyToID("_Sol_RippleFrequency"),
         Shader.PropertyToID("_Sol_RippleLifetime"),
@@ -100,6 +101,7 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_Sol_TerrainShorelineData"),
         Shader.PropertyToID("_CloudNoiseTex"),
         Shader.PropertyToID("_CloudWeatherMap"),
+        Shader.PropertyToID("_SolCloudRenderTexture"),
     };
 
     static readonly int[] VectorArrayIds =

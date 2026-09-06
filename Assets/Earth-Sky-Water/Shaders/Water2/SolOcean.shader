@@ -558,7 +558,10 @@ Shader "Sol/Water2/Ocean"
 
                 float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);
-                float cloudShadow = lerp(1.0, 0.45, _SolWaterWeatherExtended.x);
+                // The scalar term is demoted to the low-frequency ambient share so the
+                // spatial map is not multiplied on top of an already-darkened surface.
+                float cloudShadow = lerp(1.0, 0.72, _SolWaterWeatherExtended.x)
+                    * SolSampleCloudShadow(input.positionWS);
                 float lightning = 1.0 + _SolWaterWeatherExtended.y
                     * saturate(_SolWaterWeatherExtended.y);
 

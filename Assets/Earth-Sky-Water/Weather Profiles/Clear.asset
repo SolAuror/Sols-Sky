@@ -12,13 +12,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3187298abffe58e4791224101ac4e1ac, type: 3}
   m_Name: Clear
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
+  cloudFormation: 0
   cloudiness: 0
   cloudErosion: 0.52
+  overrideAdvancedCloudShape: 0
+  cloudDensity: 0.72
+  cloudBaseHeight: 1500
+  cloudThickness: 3200
+  cloudVerticalDevelopment: 0.45
+  cloudAnvilAmount: 0
+  cirrusAmount: 0.18
+  cloudEdgeSoftness: 0.5
+  cloudBaseSoftness: 0.5
+  cloudCoverageBias: 0
+  cloudShadowStrength: 0.65
   rainIntensity: 0
+  snowBias: 0
   windSpeedMetresPerSecond: 2.8
   fogBoost: 0
   mistiness: 0
   skyObscuration: 0
+  visibilityMetres: 0
   lightScattering: 0.55
   dim: 0
   waveSpeedMultiplier: 0.85

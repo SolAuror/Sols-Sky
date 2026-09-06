@@ -52,6 +52,8 @@ Shader "Sol/CelestialBody"
 
             TEXTURE2D(_SurfaceTex);
             SAMPLER(sampler_SurfaceTex);
+            TEXTURE2D_X(_SolCloudRenderTexture);
+            float _SolCloudActive;
 
             struct Attributes
             {
@@ -115,6 +117,17 @@ Shader "Sol/CelestialBody"
 
                 body  = lerp(body, body * _EclipseTint.rgb, _EclipseFactor);
                 body *= 1.0 - _EclipseFactor * 0.9;
+
+                // Tertiary bodies are transparent geometry, so they execute after the
+                // cloud composite. Re-apply the same radiance/transmittance field here to
+                // preserve the physical cloud ordering without a second cloud evaluation.
+                if (_SolCloudActive > 0.5)
+                {
+                    float2 screenUV = GetNormalizedScreenSpaceUV(IN.positionCS);
+                    float4 cloud = SAMPLE_TEXTURE2D_X(
+                        _SolCloudRenderTexture, sampler_LinearClamp, screenUV);
+                    body = body * cloud.a + cloud.rgb;
+                }
 
                 return half4(body, alpha);
             }

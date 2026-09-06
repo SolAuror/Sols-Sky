@@ -359,4 +359,32 @@ float3 SolWaterSunSpecular(float3 normalWS, float3 viewDirection,
     return shadow * specular * lightColor;
 }
 
+/// Spatial cloud shadowing for water.
+///
+/// Water reaches its main light through GetMainLight(shadowCoord), the overload without a
+/// world position, and URP only applies a light cookie inside the overload that takes one.
+/// So the ocean never receives the directional cookie that carries cloud shadows onto
+/// terrain and Lit surfaces, and has to sample the shared map itself.
+///
+/// _SolCloudShadowStrength is zero whenever the cloud feature is not publishing a map, which
+/// leaves this at 1.0 and hands shadowing back to the caller's low-frequency weather term.
+TEXTURE2D(_SolCloudShadowTexture);
+SAMPLER(sampler_SolCloudShadowTexture);
+float4x4 _SolCloudShadowMatrix;
+float _SolCloudShadowStrength;
+
+float SolSampleCloudShadow(float3 positionWS)
+{
+    if (_SolCloudShadowStrength <= 0.0001)
+        return 1.0;
+    float2 uv = mul(_SolCloudShadowMatrix, float4(positionWS, 1.0)).xy;
+    // Outside the mapped footprint the map is not authoritative. Its border is neutral
+    // white, but clamping would still smear the edge texel to the horizon.
+    float2 edge = min(uv, 1.0 - uv);
+    if (min(edge.x, edge.y) <= 0.0)
+        return 1.0;
+    return SAMPLE_TEXTURE2D_LOD(_SolCloudShadowTexture,
+        sampler_SolCloudShadowTexture, uv, 0).r;
+}
+
 #endif

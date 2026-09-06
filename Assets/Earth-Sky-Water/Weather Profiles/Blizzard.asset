@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3187298abffe58e4791224101ac4e1ac, type: 3}
+  m_Name: Blizzard
+  m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
+  cloudFormation: 2
+  cloudiness: 1
+  cloudErosion: 0.45
+  overrideAdvancedCloudShape: 1
+  cloudDensity: 1.1
+  cloudBaseHeight: 650
+  cloudThickness: 3000
+  cloudVerticalDevelopment: 0.35
+  cloudAnvilAmount: 0
+  cirrusAmount: 0.03
+  cloudEdgeSoftness: 0.85
+  cloudBaseSoftness: 0.9
+  cloudCoverageBias: 0.08
+  cloudShadowStrength: 0.88
+  rainIntensity: 1
+  snowBias: 1
+  windSpeedMetresPerSecond: 22
+  fogBoost: 2
+  mistiness: 1
+  skyObscuration: 1
+  visibilityMetres: 55
+  lightScattering: 0.8
+  dim: 0.25
+  waveSpeedMultiplier: 1.6
+  waterTurbulence: 0.85
+  lightning: 0
+  lightningIntensity: 0

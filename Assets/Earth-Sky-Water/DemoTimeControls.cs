@@ -314,8 +314,9 @@ public class DemoTimeControls : MonoBehaviour
         float dailyFog = weatherManager != null ? weatherManager.CurrentDailyFog : 0f;
         float mist = weatherManager != null ? weatherManager.CurrentState.Mistiness : 0f;
         float turbulence = weatherManager != null ? weatherManager.CurrentState.WaterTurbulence : 0f;
+        float cloudWind = Sol.Environment.SolEnvironmentWorld.ResolveState().Wind.CloudSpeed;
         float lunarTide = timeOfDay != null ? timeOfDay.LunarTideFactor : 0f;
-        string status = $"{weather} {season} R:{rain:0.0} F:{dailyFog:0.00} M:{mist:0.00} T:{turbulence:0.00} L:{lunarTide:0.00} C:{cloud}/{fog}";
+        string status = $"{weather} {season} R:{rain:0.0} W:{cloudWind:0.0} F:{dailyFog:0.00} M:{mist:0.00} T:{turbulence:0.00} L:{lunarTide:0.00} C:{cloud}/{fog}";
         if (status == lastEnvironmentStatus)
             return;
 

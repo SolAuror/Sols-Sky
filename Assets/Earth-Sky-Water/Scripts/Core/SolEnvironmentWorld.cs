@@ -120,6 +120,7 @@ namespace Sol.Environment
         float _wetness;
         float _snowCover;
         float _temperature;
+        float _snowBias;
         bool _temperatureOverridden;
         float _humidity;
         SolWindLag _fogWindX;
@@ -316,14 +317,28 @@ namespace Sol.Environment
         /// Fraction of precipitation falling as snow rather than rain. Snow was hard-coded
         /// to zero in the published weather state, which is why SolHydrologyWorld's snow
         /// accumulation branch was unreachable and SnowCover could only ever melt.
+        ///
+        /// Temperature remains the default authority. The authored per-profile bias exists
+        /// so a Blizzard stays a blizzard in a scene whose seasonal temperature model has
+        /// not been tuned; it shifts the split rather than replacing it.
         /// </summary>
-        float ResolveSnowFraction() => Mathf.Clamp01(Mathf.InverseLerp(2f, -1f, _temperature));
+        float ResolveSnowFraction()
+            => Mathf.Clamp01(Mathf.InverseLerp(2f, -1f, _temperature) + _snowBias);
+
+        /// <summary>
+        /// Mirrors the authored snow bias out of the weather authority. Kept separate from
+        /// ResolveSnowFraction so that method stays argument-free: both the accumulation
+        /// step and the publish step must see the same split within one frame.
+        /// </summary>
+        void SyncSnowBias()
+            => _snowBias = weather != null ? weather.CurrentState.SnowBias : 0f;
 
         void StepSimulation(float deltaSeconds)
         {
             _simulationTick++;
             StepWindResponse(deltaSeconds);
             _temperature = ResolveSeasonalTemperature();
+            SyncSnowBias();
             float precipitation = weather != null ? weather.CurrentState.RainIntensity : 0f;
             // Only liquid precipitation wets the ground.
             float rain = precipitation * (1f - ResolveSnowFraction());
@@ -341,6 +356,7 @@ namespace Sol.Environment
         {
             SolWeatherState sourceWeather = weather != null ? weather.CurrentState : default;
             TimeOfDay tod = timeOfDay;
+            SyncSnowBias();
 
             Light dominant = tod != null ? tod.DominantAtmosphereLight : RenderSettings.sun;
             Color lightColor = dominant != null ? dominant.color : Color.white;

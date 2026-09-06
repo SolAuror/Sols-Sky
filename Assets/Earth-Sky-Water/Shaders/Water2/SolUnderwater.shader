@@ -150,7 +150,8 @@ Shader "Hidden/Sol/Water2/Underwater"
                     if (_SolWaterCausticArrayParams.w <= 0.5)
                         causticPattern = (causticPattern - 0.35) * 1.6;
                     causticPattern = clamp(causticPattern, -1.0, 4.0);
-                    float cloudShadow = lerp(1.0, 0.45, _SolWaterWeatherExtended.x);
+                    float cloudShadow = lerp(1.0, 0.72, _SolWaterWeatherExtended.x)
+                        * SolSampleCloudShadow(positionWS);
                     float depthFade = saturate(waterColumn * waterColumn);
                     float visibility = hasSceneGeometry
                         * step(0.02, causticLight.direction.y)
@@ -175,7 +176,7 @@ Shader "Hidden/Sol/Water2/Underwater"
                 float depthConfidence = 1.0 - dot(transmittance,
                     float3(0.333333, 0.333333, 0.333333));
                 Light volumeLight = GetMainLight();
-                float volumeCloudShadow = lerp(1.0, 0.45, _SolWaterWeatherExtended.x);
+                float volumeCloudShadow = lerp(1.0, 0.72, _SolWaterWeatherExtended.x);
                 // ApplyMaterialState publishes the Sol sky gradient to this material too,
                 // so the submerged view lights its scattering from the same sky the
                 // surface does.

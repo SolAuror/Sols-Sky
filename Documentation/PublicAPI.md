@@ -298,7 +298,7 @@ profiles on. The shipped decks author `cloudCoverageDay: 0.437`, so `authoredCov
 
 | Profile | Effective cover | Visual target | Primary controls |
 |---|---:|---|---|
-| Clear | 0.06 ±0.22 | Open sky, from cloudless to a few fair-weather cumulus | Coverage bias -0.50; no fog/mist/obscuration; wind 2.6 m/s, waves 0.85, turbulence 0.05 |
+| Clear | 0.06 ±0.12 | Open sky, usually carrying a little cloud; fully cloudless on roughly one day in seven | Coverage bias -0.50; no fog/mist/obscuration; wind 2.6 m/s, waves 0.85, turbulence 0.05 |
 | Fair | 0.32 ±0.18 | Scattered fair-weather cumulus; the authored-deck identity Clear used to hold | Coverage bias -0.24; fog 0.02, mist 0.03; wind 4.4 m/s |
 | Fog | 0.59 ±0.10 | Calm, bright, ground-hugging murk with a low grey ceiling | Visibility 180 m, mist 1.0, scattering 0.95; wind 1.2 m/s, dim 0.10 |
 | Overcast | 0.79 ±0.08 | Soft continuous dry deck with long-distance visibility | Fog 0.05, mist 0.10; coverage and dimming carry the state |

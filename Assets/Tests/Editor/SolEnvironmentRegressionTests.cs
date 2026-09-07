@@ -1872,6 +1872,41 @@ namespace Sol.Tests.Editor
         }
 
         /// <summary>
+        /// A cloudless sky should be the exception rather than a third of the year. Samples
+        /// the real per-day draw instead of assuming it is uniform: the day-boundary
+        /// crossfade narrows the distribution, so the clamped share is noticeably smaller
+        /// than the variance on its own suggests.
+        /// </summary>
+        [Test]
+        public void ClearDays_AreMostlyLightlyCloudedRatherThanCloudless()
+        {
+            SolWeatherProfileAsset clear = LoadProfile("Clear");
+            float centre = clear.ResolveEffectiveCoverage(NominalAuthoredCoverage);
+
+            const int days = 512;
+            int cloudless = 0;
+            int carryingCloud = 0;
+            for (long day = 0; day < days; day++)
+            {
+                float offset = SolWeatherManager.EvaluateDailyCoverageOffset(day, 12f, 1427);
+                float cover = Mathf.Clamp01(centre + clear.cloudCoverageVariance * offset);
+                if (cover <= 1e-6f)
+                    cloudless++;
+                if (cover > 0.1f)
+                    carryingCloud++;
+            }
+
+            float cloudlessShare = cloudless / (float)days;
+            Assert.That(cloudlessShare, Is.GreaterThan(0.02f),
+                "Clear can no longer reach a genuinely cloudless day.");
+            Assert.That(cloudlessShare, Is.LessThan(0.22f),
+                $"Cloudless days are meant to be the exception, but {cloudlessShare:P0} of "
+                + "days reach one.");
+            Assert.That(carryingCloud, Is.GreaterThan(days / 8),
+                "Clear almost never carries cloud, so the state reads flat.");
+        }
+
+        /// <summary>
         /// Sorted by the cover they actually render, the shipped profiles must form one
         /// ladder with no hole in it. The set used to start at the authored deck and only
         /// climb, so there was no rung below 0.563 at all.

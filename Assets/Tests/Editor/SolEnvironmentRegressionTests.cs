@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -32,6 +33,10 @@ namespace Sol.Tests.Editor
         const string RendererPath = "Assets/Settings/Sol_Renderer.asset";
         const string AtmosphereShaderPath = "Assets/Earth-Sky-Water/Shaders/SolAtmosphere.shader";
         const string CloudShaderPath = "Assets/Earth-Sky-Water/Shaders/SolVolumetricClouds.shader";
+        const string CloudStateSourcePath =
+            "Assets/Earth-Sky-Water/Scripts/Management/SolCloudState.cs";
+        const string WeatherManagerSourcePath =
+            "Assets/Earth-Sky-Water/Scripts/Management/WeatherManager.cs";
         const string WeatherProfileFolder = "Assets/Earth-Sky-Water/Weather Profiles";
         const string WaterWaveIncludePath =
             "Assets/Earth-Sky-Water/Shaders/Water2/SolWaterWaves2.hlsl";
@@ -42,13 +47,10 @@ namespace Sol.Tests.Editor
         const string SkyboxShaderPath =
             "Assets/Earth-Sky-Water/TimeOfDay/CelestialBodies/Sol_Skybox.shader";
 
-        static readonly string[] WeatherSelectionAssetPaths =
-        {
-            "Assets/Scenes/Sc_Sols_FiniteBodies.unity",
-            "Assets/Scenes/Sc_Sols_Landscape.unity",
-            "Assets/Scenes/Sols_Water2_Demo.unity",
-            "Assets/Prefabs/Sols System Manager.prefab",
-        };
+        // One home for the four containers that serialize a weather selection list,
+        // shared with the migration and sync tools so they cannot drift apart.
+        static string[] WeatherSelectionAssetPaths
+            => SolWeatherProfileMigration.SerializedAssetPaths;
 
         /// <summary>
         /// The renderer feature addresses atmosphere passes by fixed numeric index. Keep
@@ -422,8 +424,8 @@ namespace Sol.Tests.Editor
         {
             string[] guids = AssetDatabase.FindAssets(
                 "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder });
-            Assert.AreEqual(6, guids.Length,
-                "The shipped weather library must contain exactly six profiles.");
+            Assert.AreEqual(9, guids.Length,
+                "The shipped weather library must contain exactly nine profiles.");
 
             var names = new string[guids.Length];
             for (int i = 0; i < guids.Length; i++)
@@ -441,7 +443,11 @@ namespace Sol.Tests.Editor
             }
 
             CollectionAssert.AreEquivalent(
-                new[] { "Clear", "Overcast", "Rain", "Storm", "Snow", "Blizzard" }, names);
+                new[]
+                {
+                    "Clear", "Fair", "Fog", "Overcast", "Drizzle",
+                    "Rain", "Snow", "Storm", "Blizzard",
+                }, names);
         }
 
         /// <summary>
@@ -504,11 +510,14 @@ namespace Sol.Tests.Editor
             }
         }
 
-        [TestCase("Clear", 2.8f)]
-        [TestCase("Overcast", 6f)]
-        [TestCase("Rain", 10.8f)]
+        [TestCase("Clear", 2.6f)]
+        [TestCase("Fair", 4.4f)]
+        [TestCase("Fog", 1.2f)]
+        [TestCase("Overcast", 6.4f)]
+        [TestCase("Drizzle", 7.6f)]
+        [TestCase("Rain", 11f)]
+        [TestCase("Snow", 5.2f)]
         [TestCase("Storm", 21.2f)]
-        [TestCase("Snow", 5f)]
         [TestCase("Blizzard", 22f)]
         public void WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(
             string profileName, float expectedMetresPerSecond)
@@ -809,6 +818,98 @@ namespace Sol.Tests.Editor
         /// Formation-specific density shaping has to run off a blended weight vector instead
         /// or the whole sky changes shape in one frame mid-transition.
         /// </summary>
+
+        static SolWeatherProfileAsset LoadProfile(string profileName)
+        {
+            SolWeatherProfileAsset profile =
+                AssetDatabase.LoadAssetAtPath<SolWeatherProfileAsset>(
+                    $"{WeatherProfileFolder}/{profileName}.asset");
+            Assert.IsNotNull(profile, $"Weather profile '{profileName}' was not found.");
+            return profile;
+        }
+
+        /// <summary>
+        /// The regression for the mid-transition sky snap. DominantFormation resolves with a
+        /// hard switch at t = 0.5, so deriving the shader's weight vector from that label put
+        /// most of a formation change into a single frame. The weights now ride inside the
+        /// state and move continuously; the label is kept only as a display value.
+        /// </summary>
+        [Test]
+        public void CloudFormationBlend_IsCarriedThroughTheWeatherBlend()
+        {
+            SolCloudState from = LoadProfile("Overcast").ResolveCloudState();
+            SolCloudState to = LoadProfile("Storm").ResolveCloudState();
+            Assert.Greater((from.FormationBlend - to.FormationBlend).sqrMagnitude, 0.5f,
+                "This pair must actually change formation or the test proves nothing.");
+
+            const int steps = 200;
+            Vector4 previous = from.FormationBlend;
+            for (int i = 1; i <= steps; i++)
+            {
+                Vector4 blend = SolCloudState.Lerp(from, to, i / (float)steps).FormationBlend;
+                Assert.AreEqual(1f, blend.x + blend.y + blend.z + blend.w, 1e-4f,
+                    "A formation blend left the weight vector unnormalised.");
+                Assert.Less((blend - previous).sqrMagnitude, 0.0025f,
+                    "The formation blend stepped discontinuously mid-transition.");
+                previous = blend;
+            }
+
+            Assert.Less((previous - to.FormationBlend).sqrMagnitude, 1e-6f,
+                "The blend must arrive exactly on the target formation.");
+        }
+
+        /// <summary>
+        /// ApplyWeather is the second blend in the chain -- authored sky toward weather by
+        /// coverage. It must carry the weights too, or the continuity above is discarded
+        /// before it reaches the renderer.
+        /// </summary>
+        [Test]
+        public void CloudFormationBlend_SurvivesApplyWeather()
+        {
+            SolCloudState authored = SolCloudState.FromCompatibility(0.45f, 0.3f);
+            SolCloudState storm = LoadProfile("Storm").ResolveCloudState();
+            SolCloudState halfway = SolCloudState.Lerp(
+                LoadProfile("Overcast").ResolveCloudState(), storm, 0.5f);
+
+            SolCloudState resolved = SolCloudState.ApplyWeather(authored, halfway);
+            Vector4 blend = resolved.FormationBlend;
+            Assert.AreEqual(1f, blend.x + blend.y + blend.z + blend.w, 1e-4f);
+            Assert.Greater(blend.y, 0.01f, "The stratus share was dropped by ApplyWeather.");
+            Assert.Greater(blend.w, 0.01f, "The cumulonimbus share was dropped by ApplyWeather.");
+
+            SolCloudState unchanged = SolCloudState.ApplyWeather(
+                authored, LoadProfile("Clear").ResolveCloudState());
+            Assert.Less((unchanged.FormationBlend - authored.FormationBlend).sqrMagnitude, 1e-6f,
+                "Zero-coverage weather must leave the authored formation alone.");
+        }
+
+        [Test]
+        public void CloudController_DoesNotRebuildFormationWeightsFromTheEnum()
+        {
+            Assert.That(File.ReadAllText(CloudStateSourcePath),
+                Does.Not.Contain("FormationWeights(weather.Clouds.DominantFormation)"),
+                "The controller is deriving shader weights from the snapped enum again.");
+        }
+
+        /// <summary>
+        /// Strike scheduling reads the blended peak, not the target profile's bool. Reading
+        /// the bool cut lightning off at master 0 while the lightning channel's own 0.4 delay
+        /// held the published intensity at its storm value, silencing a still-stormy sky.
+        /// </summary>
+        [Test]
+        public void LightningTapersWithTheBlendNotTheTargetProfile()
+        {
+            Assert.That(File.ReadAllText(WeatherManagerSourcePath),
+                Does.Not.Contain("&& targetProfile.lightning"),
+                "Lightning is gated on the target profile again instead of the blend.");
+
+            SolWeatherTransitionTimings timings = new();
+            Assert.Greater(timings.lightning.delay, 0f,
+                "The lightning channel must lag, or this fix has nothing to protect.");
+            Assert.AreEqual(0f, timings.lightning.Evaluate(timings.lightning.delay * 0.5f), 1e-5f,
+                "Lightning intensity must still be at its from-value early in the transition.");
+        }
+
         [Test]
         public void CloudFormationWeights_AreOneHotAndBlendContinuously()
         {
@@ -1012,8 +1113,14 @@ namespace Sol.Tests.Editor
             Assert.AreEqual(Mathf.Lerp(a.Thickness, b.Thickness, 0.49f), early.Thickness, 0.001f);
         }
 
+        /// <summary>
+        /// Zero cloudiness leaves the authored deck alone *when the profile adds no coverage
+        /// bias*. The shipped Clear deliberately does add one now -- it is the state that
+        /// clears the sky -- so this pins the influence semantics rather than that profile.
+        /// Fair is the profile that inherits the old preserve-the-authored-deck identity.
+        /// </summary>
         [Test]
-        public void ClearWeather_PreservesAuthoredCloudCover()
+        public void ZeroCloudinessPreservesAuthoredCoverWhenBiasIsZero()
         {
             SolCloudState authored = new(SolCloudFormation.Cumulus, 0.56f, 0.4f, 0.4f,
                 1080f, 3600f, 0.45f, 0f, 0.18f, Vector2.zero, Vector2.zero,
@@ -1541,6 +1648,615 @@ namespace Sol.Tests.Editor
                 "The controller must no longer drive rain from total precipitation.");
         }
 
+
+        [Test]
+        public void WeatherSequencer_IsSeededAndReproducible()
+        {
+            SolWeatherRandom a = SolWeatherRandom.FromSeed(1427, 0x5745415448UL);
+            SolWeatherRandom b = SolWeatherRandom.FromSeed(1427, 0x5745415448UL);
+            for (int i = 0; i < 1000; i++)
+            {
+                float left = a.NextFloat01();
+                Assert.AreEqual(left, b.NextFloat01(), 0f,
+                    "Two streams from the same seed diverged.");
+                Assert.That(left, Is.InRange(0f, 1f));
+            }
+
+            SolWeatherRandom other = SolWeatherRandom.FromSeed(1428, 0x5745415448UL);
+            SolWeatherRandom baseline = SolWeatherRandom.FromSeed(1427, 0x5745415448UL);
+            bool diverged = false;
+            for (int i = 0; i < 8 && !diverged; i++)
+                diverged = !Mathf.Approximately(other.NextFloat01(), baseline.NextFloat01());
+            Assert.IsTrue(diverged, "Two different seeds produced the same opening sequence.");
+        }
+
+        /// <summary>
+        /// The stream position is the whole point of capturing it: a restored save must
+        /// replay the identical future, not merely a same-looking one.
+        /// </summary>
+        [Test]
+        public void WeatherSequencer_ResumesExactlyFromACapturedState()
+        {
+            SolWeatherRandom live = SolWeatherRandom.FromSeed(99, 0x5745415448UL);
+            for (int i = 0; i < 37; i++)
+                live.NextFloat01();
+
+            ulong captured = live.State;
+            float[] expected = new float[20];
+            for (int i = 0; i < expected.Length; i++)
+                expected[i] = live.NextFloat01();
+
+            SolWeatherRandom restored = new() { State = captured };
+            for (int i = 0; i < expected.Length; i++)
+                Assert.AreEqual(expected[i], restored.NextFloat01(), 0f,
+                    $"Restored stream diverged at draw {i}.");
+        }
+
+        /// <summary>
+        /// The daily climate model was already deterministic while selection, hold duration
+        /// and lightning drew from the global generator, so weather could not be replayed and
+        /// any gameplay code seeding UnityEngine.Random perturbed the sky.
+        /// </summary>
+        [Test]
+        public void WeatherSequencer_DoesNotTouchUnityRandom()
+        {
+            Assert.That(File.ReadAllText(WeatherManagerSourcePath),
+                Does.Not.Contain("UnityEngine.Random"),
+                "The weather manager is drawing from the global generator again.");
+
+            // Comparing Random.state structs would be vacuous -- JsonUtility does not
+            // serialise its private fields -- so observe the generator's next draw instead.
+            UnityEngine.Random.State entry = UnityEngine.Random.state;
+            try
+            {
+                UnityEngine.Random.InitState(12345);
+                float undisturbed = UnityEngine.Random.value;
+
+                UnityEngine.Random.InitState(12345);
+                SolWeatherRandom sequencer = SolWeatherRandom.FromSeed(7, 0x5745415448UL);
+                for (int i = 0; i < 500; i++)
+                    sequencer.Range(0.1f, 0.3f);
+
+                Assert.AreEqual(undisturbed, UnityEngine.Random.value, 0f,
+                    "Driving the weather sequencer advanced the global Unity generator.");
+            }
+            finally
+            {
+                UnityEngine.Random.state = entry;
+            }
+        }
+
+        [Test]
+        public void WeatherSnapshot_RejectsAForeignVersion()
+        {
+            Assert.AreEqual(1, SolWeatherManager.SnapshotVersion);
+
+            string source = File.ReadAllText(WeatherManagerSourcePath);
+            Assert.That(source, Does.Contain("if (snapshot.Version != SnapshotVersion)"),
+                "RestoreSnapshot no longer gates on the contract version.");
+            Assert.That(source, Does.Contain("_sequencer = new SolWeatherRandom { State = snapshot.SequencerState };"),
+                "RestoreSnapshot no longer restores the sequencer position.");
+            Assert.That(source, Does.Contain("_previewActive ? _previewRestoreFrom : _from"),
+                "CaptureSnapshot can bake an editor A/B preview into a save again.");
+        }
+
+        /// <summary>
+        /// Round-trips the payload itself. The manager is not instantiated here on purpose:
+        /// this suite loads no scenes, and SolWeatherManager is [ExecuteAlways] with a
+        /// singleton and a coordinator registration, so building one would leave objects in
+        /// whichever scene the runner happens to have open.
+        /// </summary>
+        [Test]
+        public void WeatherSnapshot_CarriesEveryFieldItRestores()
+        {
+            SolWeatherChannels from = SolWeatherChannels.From(LoadProfile("Clear"));
+            SolWeatherChannels presented = SolWeatherChannels.From(LoadProfile("Storm"));
+            SolWeatherSnapshot snapshot = new(
+                SolWeatherManager.SnapshotVersion, "Storm", 3, from, presented,
+                0.42f, 7.5f, 128f, 63f, 2.25f, 0.18f, 4242L, 1427, 0xDEADBEEFCAFEUL);
+
+            Assert.AreEqual(SolWeatherManager.SnapshotVersion, snapshot.Version);
+            Assert.AreEqual("Storm", snapshot.TargetProfileName);
+            Assert.AreEqual(3, snapshot.TargetIndex);
+            Assert.AreEqual(0.42f, snapshot.Blend, 1e-6f);
+            Assert.AreEqual(7.5f, snapshot.HoursRemaining, 1e-6f);
+            Assert.AreEqual(128f, snapshot.WindAngleDegrees, 1e-6f);
+            Assert.AreEqual(63f, snapshot.WindNoiseTime, 1e-6f);
+            Assert.AreEqual(2.25f, snapshot.SecondsUntilStrike, 1e-6f);
+            Assert.AreEqual(0.18f, snapshot.DailyFog, 1e-6f);
+            Assert.AreEqual(4242L, snapshot.ClimateWorldDay);
+            Assert.AreEqual(1427, snapshot.ClimateSeed);
+            Assert.AreEqual(0xDEADBEEFCAFEUL, snapshot.SequencerState);
+            Assert.AreEqual(presented.dim, snapshot.Presented.dim, 1e-6f);
+            Assert.AreEqual(from.cloudiness, snapshot.From.cloudiness, 1e-6f);
+        }
+
+        /// <summary>
+        /// SolEnvironmentWorld.climateSeed was carried in its snapshot but fed no
+        /// computation, so a scene could report one seed while the climate model used
+        /// another. The manager owns it now.
+        /// </summary>
+        [Test]
+        public void WeatherSeed_IsOwnedByTheWeatherManager()
+        {
+            Assert.That(File.ReadAllText(
+                    "Assets/Earth-Sky-Water/Scripts/Core/SolEnvironmentWorld.cs"),
+                Does.Contain("weather != null ? weather.climateSeed : climateSeed"),
+                "The environment world is reporting its own unused seed again.");
+
+            foreach (string containerPath in WeatherSelectionAssetPaths)
+            {
+                string yaml = File.ReadAllText(containerPath);
+                var seeds = new System.Collections.Generic.HashSet<string>();
+                foreach (Match match in Regex.Matches(yaml, @"^\s*climateSeed:\s*(-?\d+)\s*$",
+                    RegexOptions.Multiline))
+                {
+                    seeds.Add(match.Groups[1].Value);
+                }
+                Assert.That(seeds.Count, Is.LessThanOrEqualTo(1),
+                    $"{containerPath} carries disagreeing climate seeds: "
+                    + string.Join(", ", seeds));
+            }
+        }
+
+
+        /// <summary>
+        /// The deck TimeOfDay authors, which every profile's cloudiness is an influence
+        /// toward overcast *from*. Nothing pinned this before, so retuning the authored sky
+        /// would have silently shifted the effective cover of all nine weather states.
+        /// </summary>
+        const float NominalAuthoredCoverage = SolWeatherAdjacency.NominalAuthoredCoverage;
+
+        [Test]
+        public void AuthoredCloudDeck_MatchesTheProfileTuningBaseline()
+        {
+            foreach (string containerPath in WeatherSelectionAssetPaths)
+            {
+                string yaml = File.ReadAllText(containerPath);
+                MatchCollection matches = Regex.Matches(
+                    yaml, @"^\s*cloudCoverageDay:\s*([0-9.]+)\s*$", RegexOptions.Multiline);
+                Assert.That(matches.Count, Is.GreaterThan(0),
+                    $"{containerPath} authors no TimeOfDay cloud deck.");
+
+                foreach (Match match in matches)
+                {
+                    float authoredDay = float.Parse(
+                        match.Groups[1].Value, CultureInfo.InvariantCulture);
+                    Assert.AreEqual(NominalAuthoredCoverage, 1f - authoredDay, 1e-3f,
+                        $"{containerPath} moved the authored deck the weather ladder is "
+                        + "tuned against. Retune the profiles or restore the deck.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// cloudCoverageBias is documented as independent of how far cloudiness overrides
+        /// the authored sky, and the shader adds it straight into coverage -- but it used to
+        /// be lerped by that same influence, so at cloudiness 0 it did nothing at all. That
+        /// is why no weather could produce a sky clearer than whatever TimeOfDay authored.
+        /// </summary>
+        [Test]
+        public void CoverageBias_AppliesIndependentlyOfCloudiness()
+        {
+            SolCloudState authored = SolCloudState.FromCompatibility(0.563f, 0.4f);
+            SolCloudState clearing = new(SolCloudFormation.Cumulus, 0f, 0.55f, 0.62f,
+                1700f, 2200f, 0.35f, 0f, 0.22f, 0.16f, 0.18f, -0.5f,
+                Vector2.zero, Vector2.zero, Vector2.zero, 0.55f);
+
+            SolCloudState resolved = SolCloudState.ApplyWeather(authored, clearing);
+            Assert.AreEqual(-0.5f, resolved.CoverageBias, 1e-4f,
+                "A zero-cloudiness profile still cannot thin the authored deck.");
+            Assert.AreEqual(authored.Coverage, resolved.Coverage, 1e-4f,
+                "The bias must nudge cover without also overriding the authored sky.");
+        }
+
+        [Test]
+        public void ClearProfile_ReachesATrulyCloudlessSky()
+        {
+            SolWeatherProfileAsset clear = LoadProfile("Clear");
+            float centre = clear.ResolveEffectiveCoverage(NominalAuthoredCoverage);
+            Assert.That(centre, Is.LessThan(0.12f),
+                "Clear must read as a clear sky, not as the authored half-deck.");
+
+            Assert.That(clear.cloudCoverageVariance, Is.GreaterThan(0.1f),
+                "Clear days must vary, or every clear day renders identically.");
+            Assert.That(centre - clear.cloudCoverageVariance, Is.LessThanOrEqualTo(0f),
+                "Clear must be able to reach a genuinely cloudless day.");
+            Assert.That(centre + clear.cloudCoverageVariance, Is.GreaterThan(0.15f),
+                "Clear must also be able to reach a partly clouded day.");
+
+            SolWeatherProfileAsset fair = LoadProfile("Fair");
+            Assert.That(fair.ResolveEffectiveCoverage(NominalAuthoredCoverage),
+                Is.GreaterThan(centre + 0.15f),
+                "Fair must stay a distinctly cloudier state than Clear.");
+        }
+
+        /// <summary>
+        /// Sorted by the cover they actually render, the shipped profiles must form one
+        /// ladder with no hole in it. The set used to start at the authored deck and only
+        /// climb, so there was no rung below 0.563 at all.
+        /// </summary>
+        [Test]
+        public void WeatherProfiles_FormOneMonotonicEffectiveCoverageLadder()
+        {
+            var ladder = new List<(string Name, float Coverage)>();
+            foreach (string guid in AssetDatabase.FindAssets(
+                "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder }))
+            {
+                SolWeatherProfileAsset profile =
+                    AssetDatabase.LoadAssetAtPath<SolWeatherProfileAsset>(
+                        AssetDatabase.GUIDToAssetPath(guid));
+                ladder.Add((profile.name,
+                    profile.ResolveEffectiveCoverage(NominalAuthoredCoverage)));
+            }
+            ladder.Sort((left, right) => left.Coverage.CompareTo(right.Coverage));
+
+            Assert.That(ladder[0].Coverage, Is.LessThan(0.12f),
+                "The set has no genuinely clear rung.");
+            Assert.That(ladder[ladder.Count - 1].Coverage, Is.GreaterThan(0.95f),
+                "The set has no fully overcast rung.");
+
+            for (int i = 1; i < ladder.Count; i++)
+            {
+                float gap = ladder[i].Coverage - ladder[i - 1].Coverage;
+                Assert.That(gap, Is.GreaterThanOrEqualTo(-1e-4f), "The ladder is not sorted.");
+                Assert.That(gap, Is.LessThanOrEqualTo(0.30f),
+                    $"{ladder[i - 1].Name} -> {ladder[i].Name} leaves a {gap:0.00} hole in "
+                    + "the coverage ladder; the set needs a rung between them.");
+            }
+        }
+
+        [Test]
+        public void DailyCoverage_VariesAcrossWorldDaysAndIsDeterministic()
+        {
+            float minimum = float.MaxValue;
+            float maximum = float.MinValue;
+            for (long day = 0; day < 64; day++)
+            {
+                float offset = SolWeatherManager.EvaluateDailyCoverageOffset(day, 12f, 1427);
+                Assert.That(offset, Is.InRange(-1f, 1f));
+                Assert.AreEqual(offset,
+                    SolWeatherManager.EvaluateDailyCoverageOffset(day, 12f, 1427), 0f,
+                    "The same world date produced two different coverage draws.");
+                minimum = Mathf.Min(minimum, offset);
+                maximum = Mathf.Max(maximum, offset);
+            }
+
+            Assert.That(maximum - minimum, Is.GreaterThan(1.2f),
+                "The daily coverage draw barely moves, so clear days would still look alike.");
+        }
+
+        /// <summary>
+        /// The draw crossfades into the next day's, the same way the baked cloud variation
+        /// does. Sampling one draw per day instead would step the whole sky at midnight.
+        /// </summary>
+        [Test]
+        public void DailyCoverage_IsContinuousAcrossTheDayBoundary()
+        {
+            float endOfDay = SolWeatherManager.EvaluateDailyCoverageOffset(10L, 23.999f, 1427);
+            float startOfNext = SolWeatherManager.EvaluateDailyCoverageOffset(11L, 0.001f, 1427);
+            Assert.AreEqual(endOfDay, startOfNext, 0.01f,
+                "Coverage steps at midnight instead of crossfading into the next day.");
+
+            // Exclusive of 24: hour 24 of day 10 is hour 0 of day 11, and sampling it as
+            // day 10 wraps the crossfade back to its start. The boundary itself is what the
+            // assertion above covers.
+            float previous = SolWeatherManager.EvaluateDailyCoverageOffset(10L, 0f, 1427);
+            for (float hour = 0.25f; hour < 24f; hour += 0.25f)
+            {
+                float value = SolWeatherManager.EvaluateDailyCoverageOffset(10L, hour, 1427);
+                Assert.That(Mathf.Abs(value - previous), Is.LessThan(0.06f),
+                    $"The coverage draw jumped at hour {hour}.");
+                previous = value;
+            }
+        }
+
+        /// <summary>
+        /// Unity writes no key for a field a hand-edited asset omits, and deserializes the
+        /// missing key as zero rather than as the C# initialiser. Overcast, Rain and Storm
+        /// all omitted the advanced shape block, so ticking overrideAdvancedCloudShape on
+        /// any of them produced a ten-metre-thick deck at one metre altitude.
+        /// </summary>
+        [Test]
+        public void WeatherProfiles_AuthorEveryFieldExplicitly()
+        {
+            string[] required =
+            {
+                "cloudFormation", "cloudiness", "cloudErosion", "overrideAdvancedCloudShape",
+                "cloudDensity", "cloudBaseHeight", "cloudThickness",
+                "cloudVerticalDevelopment", "cloudAnvilAmount", "cirrusAmount",
+                "cloudEdgeSoftness", "cloudBaseSoftness", "cloudCoverageBias",
+                "cloudShadowStrength", "cloudCoverageVariance", "rainIntensity", "snowBias",
+                "windSpeedMetresPerSecond", "fogBoost", "mistiness", "skyObscuration",
+                "visibilityMetres", "lightScattering", "dim", "waveSpeedMultiplier",
+                "waterTurbulence", "lightning", "lightningIntensity",
+            };
+
+            foreach (string guid in AssetDatabase.FindAssets(
+                "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                string yaml = File.ReadAllText(path);
+                foreach (string field in required)
+                {
+                    Assert.That(yaml, Does.Match($@"(?m)^\s*{field}:"),
+                        $"{path} omits '{field}', which deserializes as zero.");
+                }
+
+                SolWeatherProfileAsset profile =
+                    AssetDatabase.LoadAssetAtPath<SolWeatherProfileAsset>(path);
+                Assert.That(profile.cloudBaseHeight, Is.GreaterThanOrEqualTo(50f),
+                    $"{profile.name} has a collapsed cloud base.");
+                Assert.That(profile.cloudThickness, Is.GreaterThanOrEqualTo(400f),
+                    $"{profile.name} has a collapsed cloud layer.");
+                Assert.That(profile.cloudDensity, Is.GreaterThan(0.1f),
+                    $"{profile.name} has no cloud density authored.");
+            }
+        }
+
+        /// <summary>
+        /// A profile that does not override its shape renders its formation preset, so the
+        /// authored block is dead data unless it matches. Keeping the two in step makes
+        /// ticking the override a visible no-op instead of a trap.
+        /// </summary>
+        [Test]
+        public void WeatherProfiles_MatchTheirFormationPresetUnlessTheyOverrideIt()
+        {
+            foreach (string guid in AssetDatabase.FindAssets(
+                "t:SolWeatherProfileAsset", new[] { WeatherProfileFolder }))
+            {
+                SolWeatherProfileAsset profile =
+                    AssetDatabase.LoadAssetAtPath<SolWeatherProfileAsset>(
+                        AssetDatabase.GUIDToAssetPath(guid));
+                if (profile.overrideAdvancedCloudShape)
+                    continue;
+
+                SolCloudState preset = SolWeatherProfileAsset.FormationDefaults(
+                    profile.cloudFormation, profile.cloudiness, profile.cloudErosion);
+                string why = $"{profile.name} does not override its shape, so its authored "
+                    + "block must match the formation preset it actually renders.";
+                Assert.AreEqual(preset.Density, profile.cloudDensity, 1e-4f, why);
+                Assert.AreEqual(preset.BaseHeight, profile.cloudBaseHeight, 1e-3f, why);
+                Assert.AreEqual(preset.Thickness, profile.cloudThickness, 1e-3f, why);
+                Assert.AreEqual(preset.VerticalDevelopment,
+                    profile.cloudVerticalDevelopment, 1e-4f, why);
+                Assert.AreEqual(preset.AnvilAmount, profile.cloudAnvilAmount, 1e-4f, why);
+                Assert.AreEqual(preset.CirrusAmount, profile.cirrusAmount, 1e-4f, why);
+                Assert.AreEqual(preset.EdgeSoftness, profile.cloudEdgeSoftness, 1e-4f, why);
+                Assert.AreEqual(preset.BaseSoftness, profile.cloudBaseSoftness, 1e-4f, why);
+                Assert.AreEqual(preset.CoverageBias, profile.cloudCoverageBias, 1e-4f, why);
+                Assert.AreEqual(preset.ShadowStrength, profile.cloudShadowStrength, 1e-4f, why);
+            }
+        }
+
+        /// <summary>
+        /// The selection list is duplicated across three scenes and a prefab. Only a test
+        /// keeps those four copies in agreement.
+        /// </summary>
+        [Test]
+        public void WeatherSelectionLists_AreIdenticalAcrossEveryContainer()
+        {
+            string reference = null;
+            string referencePath = null;
+            foreach (string containerPath in WeatherSelectionAssetPaths)
+            {
+                string block = ExtractProfilesBlock(containerPath);
+                if (reference == null)
+                {
+                    reference = block;
+                    referencePath = containerPath;
+                    continue;
+                }
+
+                Assert.AreEqual(reference, block,
+                    $"{containerPath} and {referencePath} carry different weather "
+                    + "selection lists. Run Sol/Weather/Sync Selection Lists.");
+            }
+        }
+
+        static string ExtractProfilesBlock(string containerPath)
+        {
+            string[] lines = File.ReadAllText(containerPath)
+                .Replace("\r\n", "\n").Split('\n');
+            int start = System.Array.IndexOf(lines, "  profiles:");
+            Assert.That(start, Is.GreaterThanOrEqualTo(0),
+                $"{containerPath} has no weather selection list.");
+
+            var block = new List<string>();
+            for (int i = start + 1; i < lines.Length; i++)
+            {
+                if (!lines[i].StartsWith("  - ") && !lines[i].StartsWith("    "))
+                    break;
+                block.Add(lines[i]);
+            }
+            Assert.That(block.Count, Is.GreaterThan(0),
+                $"{containerPath} has an empty weather selection list.");
+            return string.Join("\n", block);
+        }
+
+
+        static readonly string[] ShippedProfileNames =
+        {
+            "Clear", "Fair", "Fog", "Overcast", "Drizzle",
+            "Rain", "Snow", "Storm", "Blizzard",
+        };
+
+        [Test]
+        public void WeatherAdjacency_IsSymmetricBoundedAndNeverZero()
+        {
+            foreach (string a in ShippedProfileNames)
+            {
+                foreach (string b in ShippedProfileNames)
+                {
+                    float forward = SolWeatherAdjacency.Affinity(LoadProfile(a), LoadProfile(b));
+                    float backward = SolWeatherAdjacency.Affinity(LoadProfile(b), LoadProfile(a));
+                    Assert.AreEqual(forward, backward, 1e-5f,
+                        $"{a} -> {b} is not symmetric with {b} -> {a}.");
+                    Assert.That(forward,
+                        Is.InRange(SolWeatherAdjacency.MinimumAffinity, 1f),
+                        $"{a} -> {b} left the affinity range.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Pins the ordering rather than the values, so Sigma stays a tuning knob. Selection
+        /// used to be memoryless, so Clear could hand straight over to Blizzard.
+        /// </summary>
+        [Test]
+        public void WeatherAdjacency_RanksPlausibleSuccessorsAboveImplausibleOnes()
+        {
+            float Affinity(string a, string b)
+                => SolWeatherAdjacency.Affinity(LoadProfile(a), LoadProfile(b));
+
+            Assert.That(Affinity("Clear", "Fair"), Is.GreaterThan(Affinity("Clear", "Overcast")));
+            Assert.That(Affinity("Clear", "Overcast"), Is.GreaterThan(Affinity("Clear", "Rain")));
+            Assert.That(Affinity("Clear", "Rain"), Is.GreaterThan(Affinity("Clear", "Storm")));
+            Assert.That(Affinity("Clear", "Fog"), Is.GreaterThan(Affinity("Clear", "Overcast")));
+            Assert.That(Affinity("Overcast", "Drizzle"), Is.GreaterThan(Affinity("Overcast", "Rain")));
+            Assert.That(Affinity("Drizzle", "Rain"), Is.GreaterThan(Affinity("Overcast", "Rain")));
+            Assert.That(Affinity("Rain", "Storm"), Is.GreaterThan(Affinity("Overcast", "Storm")));
+
+            Assert.That(Affinity("Clear", "Blizzard"),
+                Is.EqualTo(SolWeatherAdjacency.MinimumAffinity).Within(1e-6f),
+                "Clear must not be able to hand straight over to a blizzard.");
+        }
+
+        /// <summary>
+        /// Rain and Blizzard are both near-total cover with heavy precipitation and strong
+        /// wind; only the phase tells them apart. Without weighting that axis they would
+        /// read as neighbours.
+        /// </summary>
+        [Test]
+        public void WeatherAdjacency_KeepsFrozenAndLiquidPrecipitationApart()
+        {
+            float rainToBlizzard =
+                SolWeatherAdjacency.Affinity(LoadProfile("Rain"), LoadProfile("Blizzard"));
+            float snowToBlizzard =
+                SolWeatherAdjacency.Affinity(LoadProfile("Snow"), LoadProfile("Blizzard"));
+
+            Assert.AreEqual(SolWeatherAdjacency.MinimumAffinity, rainToBlizzard, 1e-6f,
+                "Rain must not be a plausible step into a blizzard.");
+            Assert.That(snowToBlizzard, Is.GreaterThan(3f * rainToBlizzard),
+                "Snow must be a far more plausible step into a blizzard than rain is.");
+        }
+
+        /// <summary>
+        /// snowBias decides nothing in a dry profile, so it must not cost anything there.
+        /// </summary>
+        [Test]
+        public void WeatherAdjacency_PhaseCostsNothingBetweenDryStates()
+        {
+            SolWeatherProfileAsset dryA = ScriptableObject.CreateInstance<SolWeatherProfileAsset>();
+            SolWeatherProfileAsset dryB = ScriptableObject.CreateInstance<SolWeatherProfileAsset>();
+            try
+            {
+                dryA.cloudiness = 0.2f;
+                dryB.cloudiness = 0.3f;
+                dryA.rainIntensity = 0f;
+                dryB.rainIntensity = 0f;
+
+                dryB.snowBias = 0f;
+                float withoutPhase = SolWeatherAdjacency.Distance(dryA, dryB);
+                dryB.snowBias = 1f;
+                float withPhase = SolWeatherAdjacency.Distance(dryA, dryB);
+
+                Assert.AreEqual(withoutPhase, withPhase, 1e-6f,
+                    "Phase separated two dry states, where it decides nothing.");
+
+                dryA.rainIntensity = 0.8f;
+                dryB.rainIntensity = 0.8f;
+                Assert.That(SolWeatherAdjacency.Distance(dryA, dryB),
+                    Is.GreaterThan(withPhase + 0.1f),
+                    "Phase must separate two wet states.");
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(dryA);
+                ScriptableObject.DestroyImmediate(dryB);
+            }
+        }
+
+        [Test]
+        public void WeatherAdjacency_LeavesEveryStateAWayOut()
+        {
+            foreach (string from in ShippedProfileNames)
+            {
+                float best = 0f;
+                string bestName = null;
+                foreach (string to in ShippedProfileNames)
+                {
+                    if (to == from)
+                        continue;
+                    float affinity =
+                        SolWeatherAdjacency.Affinity(LoadProfile(from), LoadProfile(to));
+                    if (affinity > best)
+                    {
+                        best = affinity;
+                        bestName = to;
+                    }
+                }
+
+                Assert.That(best, Is.GreaterThan(3f * SolWeatherAdjacency.MinimumAffinity),
+                    $"{from} has no plausible successor; its best was {bestName} at {best:0.00}.");
+            }
+        }
+
+        /// <summary>
+        /// Adjacency multiplies the seasonal weight, and Snow and Blizzard carry a summer
+        /// multiplier of zero. If the product could reach zero for every candidate the
+        /// cycle would fall back to a round-robin step, which is the one behaviour the
+        /// weighting exists to avoid.
+        /// </summary>
+        [Test]
+        public void WeatherSelection_HasNoDeadEndInAnySeason()
+        {
+            var weights = new Dictionary<string, float[]>
+            {
+                // base, spring, summer, autumn, winter -- mirrors the shipped containers.
+                { "Clear",    new[] { 4f,   1.05f, 1.45f, 0.85f, 0.65f } },
+                { "Overcast", new[] { 3f,   0.95f, 0.70f, 1.25f, 1.35f } },
+                { "Rain",     new[] { 2f,   1.35f, 0.75f, 1.05f, 1.25f } },
+                { "Storm",    new[] { 1f,   0.75f, 0.55f, 1.35f, 1.15f } },
+                { "Snow",     new[] { 2f,   0.35f, 0f,    0.30f, 2.60f } },
+                { "Blizzard", new[] { 1f,   0.05f, 0f,    0.05f, 1.40f } },
+                { "Fair",     new[] { 3.5f, 1.15f, 1.35f, 0.95f, 0.75f } },
+                { "Fog",      new[] { 1.5f, 1.30f, 0.40f, 1.90f, 1.10f } },
+                { "Drizzle",  new[] { 2f,   1.20f, 0.70f, 1.35f, 1.10f } },
+            };
+
+            for (int season = 0; season < 4; season++)
+            {
+                foreach (string current in ShippedProfileNames)
+                {
+                    float total = 0f;
+                    foreach (string candidate in ShippedProfileNames)
+                    {
+                        if (candidate == current)
+                            continue;
+                        float[] w = weights[candidate];
+                        total += w[0] * w[1 + season]
+                               * SolWeatherAdjacency.Affinity(
+                                   LoadProfile(current), LoadProfile(candidate));
+                    }
+
+                    Assert.That(total, Is.GreaterThan(0f),
+                        $"Season {(SolSeason)season} dead-ends on {current}.");
+                }
+            }
+        }
+
+        [Test]
+        public void WeatherSelection_MultipliesAdjacencyIntoTheSeasonalWeight()
+        {
+            string source = File.ReadAllText(WeatherManagerSourcePath);
+            Assert.That(source, Does.Contain("SolWeatherAdjacency.Affinity(current, GetProfile(index))"),
+                "Selection is no longer weighted by successor plausibility.");
+            Assert.That(Regex.Matches(source, @"SelectionWeight\(i, current, season\)").Count,
+                Is.EqualTo(2),
+                "The total pass and the roulette pass must use the identical expression.");
+        }
+
         [Test]
         public void WeatherChannelTiming_IsMonotonicAndCompletesAtMasterOne()
         {
@@ -1810,7 +2526,8 @@ namespace Sol.Tests.Editor
         /// the distance it names.
         /// </summary>
         [TestCase(55f)]
-        [TestCase(260f)]
+        [TestCase(180f)]
+        [TestCase(300f)]
         public void VisibilityDistance_HidesTheSceneWhereItSaysItDoes(float visibility)
         {
             float floor = -Mathf.Log(0.02f) / visibility;

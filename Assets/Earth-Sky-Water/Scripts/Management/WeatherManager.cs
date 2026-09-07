@@ -160,6 +160,14 @@ public class SolWeatherManager : MonoBehaviour
     /// <summary>Current dawn-biased time-of-day multiplier for daily fog.</summary>
     public float FogDiurnalFactor { get; private set; }
 
+    /// <summary>
+    /// Deterministic per-world-day coverage draw in [-1, 1], scaled by each profile's
+    /// cloudCoverageVariance. Interpolated between today's and tomorrow's draw across the
+    /// day so the sky does not step at midnight, the same way the baked cloud variation
+    /// already crossfades its daily keys.
+    /// </summary>
+    public float DailyCoverageOffset { get; private set; }
+
     /// <summary>Unity-scaled duration used to present climate changes.</summary>
     public float ClimateTransitionDurationSeconds
     {
@@ -168,97 +176,24 @@ public class SolWeatherManager : MonoBehaviour
     }
 
     // --- Private ------------------------------------------------------------
-    struct Snapshot
-    {
-        public SolCloudState clouds;
-        public float cloudiness, cloudErosion, rain, snowBias, windSpeedMetresPerSecond, fog,
-            mistiness, skyObscuration, fogDensityFloor,
-            scattering, dim, waveMul, turbulence, lightningIntensity;
-
-        public static Snapshot From(SolWeatherProfileAsset p)
-        {
-            if (p == null)
-                return new Snapshot { scattering = 1f, waveMul = 1f };
-
-            return new Snapshot
-            {
-                clouds = p.ResolveCloudState(),
-                cloudiness = p.cloudiness,
-                cloudErosion = p.cloudErosion,
-                rain = p.rainIntensity,
-                snowBias = p.snowBias,
-                windSpeedMetresPerSecond = p.windSpeedMetresPerSecond,
-                fog = p.fogBoost,
-                mistiness = p.mistiness,
-                skyObscuration = p.skyObscuration,
-                fogDensityFloor = p.ResolveFogDensityFloor(),
-                scattering = p.lightScattering,
-                dim = p.dim,
-                waveMul = p.waveSpeedMultiplier,
-                turbulence = p.waterTurbulence,
-                lightningIntensity = p.lightning ? p.lightningIntensity : 0f,
-            };
-        }
-
-        /// <summary>
-        /// Uniform blend, kept for callers that want every channel on one curve.
-        /// </summary>
-        public static Snapshot Lerp(in Snapshot a, in Snapshot b, float t)
-            => Lerp(a, b, null, t);
-
-        /// <summary>
-        /// Blends with per-channel lead/lag. A null timing table falls back to the uniform
-        /// curve, so a scene that has never been opened since this was added still behaves
-        /// exactly as it did before.
-        /// </summary>
-        public static Snapshot Lerp(
-            in Snapshot a, in Snapshot b, SolWeatherTransitionTimings timings, float master)
-        {
-            float t = Mathf.Clamp01(master);
-            float cloudT = timings != null ? timings.clouds.Evaluate(t) : t;
-            float windT = timings != null ? timings.wind.Evaluate(t) : t;
-            float fogT = timings != null ? timings.fog.Evaluate(t) : t;
-            float waterT = timings != null ? timings.water.Evaluate(t) : t;
-            float lightT = timings != null ? timings.light.Evaluate(t) : t;
-            float lightningT = timings != null ? timings.lightning.Evaluate(t) : t;
-            float precipitationT = timings != null ? timings.precipitation.Evaluate(t) : t;
-
-            if (timings != null)
-                precipitationT *= SolWeatherTransitionTimings.PrecipitationCoverGate(
-                    a.clouds.Coverage, b.clouds.Coverage, cloudT);
-
-            return new Snapshot
-            {
-                clouds = SolCloudState.Lerp(a.clouds, b.clouds, cloudT),
-                cloudiness = Mathf.Lerp(a.cloudiness, b.cloudiness, cloudT),
-                cloudErosion = Mathf.Lerp(a.cloudErosion, b.cloudErosion, cloudT),
-                rain = Mathf.Lerp(a.rain, b.rain, precipitationT),
-                snowBias = Mathf.Lerp(a.snowBias, b.snowBias, precipitationT),
-                windSpeedMetresPerSecond = Mathf.Lerp(
-                    a.windSpeedMetresPerSecond, b.windSpeedMetresPerSecond, windT),
-                fog = Mathf.Lerp(a.fog, b.fog, fogT),
-                mistiness = Mathf.Lerp(a.mistiness, b.mistiness, fogT),
-                skyObscuration = Mathf.Lerp(a.skyObscuration, b.skyObscuration, fogT),
-                fogDensityFloor = Mathf.Lerp(a.fogDensityFloor, b.fogDensityFloor, fogT),
-                scattering = Mathf.Lerp(a.scattering, b.scattering, lightT),
-                dim = Mathf.Lerp(a.dim, b.dim, lightT),
-                waveMul = Mathf.Lerp(a.waveMul, b.waveMul, waterT),
-                turbulence = Mathf.Lerp(a.turbulence, b.turbulence, waterT),
-                lightningIntensity = Mathf.Lerp(
-                    a.lightningIntensity, b.lightningIntensity, lightningT),
-            };
-        }
-    }
-
     int _targetIndex;
-    Snapshot _from;
-    Snapshot _presented;
+    SolWeatherChannels _from;
+    SolWeatherChannels _presented;
     float _blend = 1f;          // 1 = fully arrived at the target profile
     float _hoursRemaining;
     float _windAngleDeg;
     float _flash;
     float _secondsUntilStrike = -1f;
     float _windNoiseTime;
+    float _windLane;
+    SolWeatherRandom _sequencer;
+    /// <summary>Stream salt, so the sequencer and the daily climate hash never align on one seed.</summary>
+    const ulong SequencerSalt = 0x5745415448UL;
+    /// <summary>Keeps the coverage draw independent of the daily fog draw on the same seed.</summary>
+    const int CoverageSalt = 0x43565247;
+
+    /// <summary>Snapshot contract version for <see cref="CaptureSnapshot"/>.</summary>
+    public const int SnapshotVersion = 1;
     float _referenceRetryTimer;
     long _climateWorldDay = long.MinValue;
     bool _climateInitialized;
@@ -270,8 +205,8 @@ public class SolWeatherManager : MonoBehaviour
     // A/B blend into the scene or grow a second weather-blend implementation.
     bool _previewActive;
     int _previewRestoreTargetIndex;
-    Snapshot _previewRestoreFrom;
-    Snapshot _previewRestorePresented;
+    SolWeatherChannels _previewRestoreFrom;
+    SolWeatherChannels _previewRestorePresented;
     float _previewRestoreBlend;
     float _previewRestoreHoursRemaining;
     float _previewRestoreWindAngleDeg;
@@ -376,9 +311,12 @@ public class SolWeatherManager : MonoBehaviour
         _targetIndex = Mathf.Clamp(_targetIndex, 0, profiles.Length - 1);
         if (!_initialized)
         {
-            _presented = Snapshot.From(GetProfile(_targetIndex));
+            _presented = SolWeatherChannels.From(GetProfile(_targetIndex));
             _from = _presented;
             _blend = 1f;
+            // Seeded before the first draw, or the opening hold would come from an
+            // unseeded stream and no two runs of the same save would agree.
+            _sequencer = SolWeatherRandom.FromSeed(climateSeed, SequencerSalt);
             _hoursRemaining = NextWeatherDuration();
 
             if (waterManager != null && waterManager.windDirection.sqrMagnitude > 0.001f)
@@ -386,6 +324,8 @@ public class SolWeatherManager : MonoBehaviour
                               * Mathf.Rad2Deg;
             _initialized = true;
         }
+
+        _windLane = HashWorldDay(0L, climateSeed) * 64f;
 
         RefreshClimateTarget(force: true);
         AdvanceClimatePresentation(0f, instant: !_climateInitialized);
@@ -444,9 +384,9 @@ public class SolWeatherManager : MonoBehaviour
         if (!_hasOwnedWaterState)
             CaptureOwnedWaterState();
 
-        // Edit mode presents the authored target profile rather than cycling. PickNextIndex
-        // draws from UnityEngine.Random, so advancing the timeline outside play mode would
-        // change the scene's weather at random while the author is working on it.
+        // Edit mode presents the authored target profile rather than cycling. Advancing the
+        // timeline outside play mode would consume the sequencer and change the scene's
+        // weather while the author is working on it.
         float deltaHours = Application.isPlaying ? ComputeDeltaHours() : 0f;
         float worldDeltaSeconds = ComputeDeltaSeconds();
         float presentationDeltaSeconds = ComputePresentationDeltaSeconds();
@@ -474,7 +414,7 @@ public class SolWeatherManager : MonoBehaviour
         _targetIndex = index;
         _blend = instant ? 1f : 0f;
         if (instant)
-            _presented = Snapshot.From(GetProfile(_targetIndex));
+            _presented = SolWeatherChannels.From(GetProfile(_targetIndex));
         _hoursRemaining = NextWeatherDuration();
         PublishTargetState();
         WeatherChanged?.Invoke(GetProfile(_targetIndex));
@@ -524,11 +464,11 @@ public class SolWeatherManager : MonoBehaviour
             _previewActive = true;
         }
 
-        _from = Snapshot.From(GetProfile(indexA));
+        _from = SolWeatherChannels.From(GetProfile(indexA));
         _targetIndex = indexB;
         _blend = Mathf.Clamp01(t);
-        _presented = Snapshot.Lerp(
-            _from, Snapshot.From(GetProfile(indexB)), transitionTimings, _blend);
+        _presented = SolWeatherChannels.Lerp(
+            _from, SolWeatherChannels.From(GetProfile(indexB)), transitionTimings, _blend);
         RefreshClimateTarget();
         AdvanceClimatePresentation(0f);
         PublishTargetState();
@@ -647,22 +587,24 @@ public class SolWeatherManager : MonoBehaviour
                 ? Mathf.Max(0.1f, todManager.CycleDuration * 60f)
                 : 600f;
             float wanderDegreesPerSecond = windWanderDegPerHour * 24f / cycleSeconds;
-            _windAngleDeg += (Mathf.PerlinNoise(_windNoiseTime * 0.02f, 0.37f) - 0.5f)
+            // The lane was a literal, so every scene wandered its wind identically no
+            // matter what seed it carried.
+            _windAngleDeg += (Mathf.PerlinNoise(_windNoiseTime * 0.02f, _windLane) - 0.5f)
                            * 2f * wanderDegreesPerSecond * delta;
         }
         PublishTargetState();
 
         if (_blend >= 1f)
         {
-            _presented = Snapshot.From(GetProfile(_targetIndex));
+            _presented = SolWeatherChannels.From(GetProfile(_targetIndex));
             return;
         }
 
         _blend = Mathf.Min(1f, _blend + delta / Mathf.Max(transitionDurationSeconds, 0.01f));
         // Easing now lives inside each channel timing, so the master progress is passed
         // through raw. Easing it here as well would compound the two curves.
-        _presented = Snapshot.Lerp(
-            _from, Snapshot.From(GetProfile(_targetIndex)), transitionTimings, _blend);
+        _presented = SolWeatherChannels.Lerp(
+            _from, SolWeatherChannels.From(GetProfile(_targetIndex)), transitionTimings, _blend);
     }
 
     void RefreshClimateTarget(bool force = false)
@@ -692,6 +634,10 @@ public class SolWeatherManager : MonoBehaviour
         float sunriseHour = todManager != null ? todManager.SunriseClockHour : 6f;
         float dayFactor = todManager != null ? todManager.DayFactor : 1f;
         FogDiurnalFactor = EvaluateFogDiurnalFactor(clockHour, sunriseHour, dayFactor);
+
+        Calendar coverageCalendar = todManager != null ? todManager.Calendar : null;
+        long coverageDay = coverageCalendar != null ? coverageCalendar.WorldDayIndex : 0L;
+        DailyCoverageOffset = EvaluateDailyCoverageOffset(coverageDay, clockHour, climateSeed);
         float target = Mathf.Clamp01(DailyFogTarget * FogDiurnalFactor);
 
         if (instant || !_climateInitialized)
@@ -716,6 +662,21 @@ public class SolWeatherManager : MonoBehaviour
             Mathf.InverseLerp(0.75f, 3f, hoursFromDawn));
         float overnightFloor = Mathf.Lerp(0.15f, 0.35f, 1f - Mathf.Clamp01(dayFactor));
         return Mathf.Clamp01(Mathf.Max(overnightFloor, dawn));
+    }
+
+    /// <summary>
+    /// Crossfades the current and next world day's coverage draw with the same smoothstep
+    /// the baked cloud variation uses, so a day boundary is continuous rather than a step.
+    /// </summary>
+    public static float EvaluateDailyCoverageOffset(
+        long worldDayIndex, float clockHour, int seed)
+    {
+        int salted = seed ^ CoverageSalt;
+        float dayFraction = Mathf.Clamp01(Mathf.Repeat(clockHour, 24f) / 24f);
+        float blend = dayFraction * dayFraction * (3f - 2f * dayFraction);
+        float today = HashWorldDay(worldDayIndex, salted) * 2f - 1f;
+        float tomorrow = HashWorldDay(worldDayIndex + 1L, salted) * 2f - 1f;
+        return Mathf.Lerp(today, tomorrow, blend);
     }
 
     static float HashWorldDay(long worldDayIndex, int seed)
@@ -745,7 +706,12 @@ public class SolWeatherManager : MonoBehaviour
         if (!HasValidProfiles(out _))
             return;
 
-        Snapshot now = _presented;
+        SolWeatherChannels now = _presented;
+        // Applied after the blend, exactly like CurrentDailyFog: the variance is a property
+        // of the day rather than of the transition, so folding it into the channels would
+        // make SolWeatherChannels.From stop being a pure function of the profile asset.
+        SolCloudState clouds = now.clouds.WithCoverageBias(
+            now.clouds.CoverageBias + now.coverageVariance * DailyCoverageOffset);
         float combinedFog = Mathf.Max(0f, now.fog + CurrentDailyFog);
         float climateMist = Mathf.Clamp01(CurrentDailyFog * 0.75f);
         float combinedMist = 1f - (1f - Mathf.Clamp01(now.mistiness)) * (1f - climateMist);
@@ -757,7 +723,7 @@ public class SolWeatherManager : MonoBehaviour
         UpdateLightning(worldDeltaSeconds, presentationDeltaSeconds, now.lightningIntensity);
 
         SolWeatherState nextState = new(
-            now.clouds,
+            clouds,
             now.rain,
             now.snowBias,
             windDirection,
@@ -818,25 +784,37 @@ public class SolWeatherManager : MonoBehaviour
         SolSeason season = todManager != null && todManager.Calendar != null
             ? todManager.Calendar.CurrentSeason
             : SolSeason.Spring;
+        SolWeatherProfileAsset current = GetProfile(_targetIndex);
         float total = 0f;
         for (int i = 0; i < profiles.Length; i++)
         {
             if (avoidRepeat && i == _targetIndex && profiles.Length > 1) continue;
-            total += GetEffectiveWeight(profiles[i], season);
+            total += SelectionWeight(i, current, season);
         }
 
+        // Adjacency multiplies rather than replaces, and never reaches zero, so this stays
+        // reachable only when every candidate already had no seasonal weight -- exactly the
+        // condition it covered before adjacency existed.
         if (total <= 0f)
             return (_targetIndex + 1) % profiles.Length;
 
-        float roll = UnityEngine.Random.value * total;
+        float roll = _sequencer.NextFloat01() * total;
         for (int i = 0; i < profiles.Length; i++)
         {
             if (avoidRepeat && i == _targetIndex && profiles.Length > 1) continue;
-            roll -= GetEffectiveWeight(profiles[i], season);
+            roll -= SelectionWeight(i, current, season);
             if (roll <= 0f) return i;
         }
         return _targetIndex;
     }
+
+    /// <summary>
+    /// Seasonal policy times plausibility. Multiplicative on purpose: a season that zeroes
+    /// a profile still means never, and adjacency only reshapes what the season allows.
+    /// </summary>
+    float SelectionWeight(int index, SolWeatherProfileAsset current, SolSeason season)
+        => GetEffectiveWeight(profiles[index], season)
+         * SolWeatherAdjacency.Affinity(current, GetProfile(index));
 
     static float GetEffectiveWeight(SolWeatherSelection selection, SolSeason season)
     {
@@ -857,7 +835,7 @@ public class SolWeatherManager : MonoBehaviour
     {
         float min = Mathf.Max(0.01f, Mathf.Min(durationHoursRange.x, durationHoursRange.y));
         float max = Mathf.Max(min, Mathf.Max(durationHoursRange.x, durationHoursRange.y));
-        return UnityEngine.Random.Range(min, max);
+        return _sequencer.Range(min, max);
     }
 
     void PublishTargetState()
@@ -868,14 +846,15 @@ public class SolWeatherManager : MonoBehaviour
             return;
         }
 
-        Snapshot target = Snapshot.From(GetProfile(Mathf.Clamp(_targetIndex, 0, profiles.Length - 1)));
+        SolWeatherChannels target = SolWeatherChannels.From(GetProfile(Mathf.Clamp(_targetIndex, 0, profiles.Length - 1)));
         float targetClimateFog = Mathf.Clamp01(DailyFogTarget * FogDiurnalFactor);
         float targetMist = 1f - (1f - Mathf.Clamp01(target.mistiness))
                          * (1f - Mathf.Clamp01(targetClimateFog * 0.75f));
         float rad = _windAngleDeg * Mathf.Deg2Rad;
         Vector3 windDirection = new(Mathf.Cos(rad), 0f, Mathf.Sin(rad));
         TargetState = new SolWeatherState(
-            target.clouds,
+            target.clouds.WithCoverageBias(
+                target.clouds.CoverageBias + target.coverageVariance * DailyCoverageOffset),
             target.rain,
             target.snowBias,
             windDirection,
@@ -901,14 +880,15 @@ public class SolWeatherManager : MonoBehaviour
             _flash = 0f;
         _flash = Mathf.Min(_flash, peak);
 
-        SolWeatherProfileAsset targetProfile = GetProfile(_targetIndex);
-        bool active = worldDeltaSeconds > 0f
-                   && targetProfile != null
-                   && targetProfile.lightning
-                   && peak > 0.01f;
+        // Gated on the blended peak alone. Reading targetProfile.lightning here instead
+        // cut strikes off the instant the target changed, while the lightning channel's own
+        // 0.4 delay left the published intensity at its storm value for the first 40% of the
+        // transition -- so a still-stormy sky went silent. SolWeatherChannels.From already folds the
+        // bool into lightningIntensity, so the peak is the whole gate.
+        bool active = worldDeltaSeconds > 0f && peak > 0.01f;
         if (!active)
         {
-            if (targetProfile == null || !targetProfile.lightning)
+            if (peak <= 0.0001f)
                 _secondsUntilStrike = -1f;
             return;
         }
@@ -921,9 +901,9 @@ public class SolWeatherManager : MonoBehaviour
         {
             _flash = peak;
             LightningTriggered?.Invoke();
-            bool echo = UnityEngine.Random.value < doubleStrikeChance;
+            bool echo = _sequencer.NextFloat01() < doubleStrikeChance;
             float nextDelay = echo
-                ? UnityEngine.Random.Range(0.1f, 0.3f)
+                ? _sequencer.Range(0.1f, 0.3f)
                 : NextStrikeDelay();
 
             // Coalesce any number of strikes crossed by a time-lapse frame
@@ -938,7 +918,90 @@ public class SolWeatherManager : MonoBehaviour
     {
         float min = Mathf.Max(0.01f, Mathf.Min(strikeIntervalSeconds.x, strikeIntervalSeconds.y));
         float max = Mathf.Max(min, Mathf.Max(strikeIntervalSeconds.x, strikeIntervalSeconds.y));
-        return UnityEngine.Random.Range(min, max);
+        return _sequencer.Range(min, max);
+    }
+
+    /// <summary>
+    /// Captures everything a reload cannot reconstruct: which profile is targeted, how far
+    /// the blend has run, how long the hold has left, and the sequencer position, so the
+    /// restored world replays the identical future sequence rather than a fresh one.
+    ///
+    /// An active editor A/B preview is deliberately not captured. SetPreview borrows the
+    /// live presentation fields, so capturing them would bake a preview blend into a save.
+    /// </summary>
+    public SolWeatherSnapshot CaptureSnapshot()
+    {
+        int index = _previewActive ? _previewRestoreTargetIndex : _targetIndex;
+        SolWeatherProfileAsset profile = GetProfile(index);
+        return new SolWeatherSnapshot(
+            SnapshotVersion,
+            profile != null ? profile.name : null,
+            index,
+            _previewActive ? _previewRestoreFrom : _from,
+            _previewActive ? _previewRestorePresented : _presented,
+            _previewActive ? _previewRestoreBlend : _blend,
+            _previewActive ? _previewRestoreHoursRemaining : _hoursRemaining,
+            _previewActive ? _previewRestoreWindAngleDeg : _windAngleDeg,
+            _windNoiseTime,
+            _secondsUntilStrike,
+            CurrentDailyFog,
+            _climateWorldDay,
+            climateSeed,
+            _sequencer.State);
+    }
+
+    /// <summary>
+    /// Restores a captured sequencer state. Returns false and changes nothing when the
+    /// version does not match, matching SolEnvironmentWorld.RestoreSnapshot.
+    ///
+    /// The target is resolved by profile name first: a scene's selection list can be
+    /// reordered between save and load, which would silently retarget a stored index.
+    /// </summary>
+    public bool RestoreSnapshot(in SolWeatherSnapshot snapshot)
+    {
+        if (snapshot.Version != SnapshotVersion)
+            return false;
+        if (!HasValidProfiles(out _))
+            return false;
+
+        RestorePreviewState(apply: false);
+
+        int index = -1;
+        if (!string.IsNullOrEmpty(snapshot.TargetProfileName))
+        {
+            for (int i = 0; i < profiles.Length; i++)
+            {
+                SolWeatherProfileAsset profile = GetProfile(i);
+                if (profile != null && string.Equals(profile.name,
+                    snapshot.TargetProfileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    index = i;
+                    break;
+                }
+            }
+        }
+        if (index < 0)
+            index = Mathf.Clamp(snapshot.TargetIndex, 0, profiles.Length - 1);
+
+        climateSeed = snapshot.ClimateSeed;
+        _windLane = HashWorldDay(0L, climateSeed) * 64f;
+        _targetIndex = index;
+        _from = snapshot.From;
+        _presented = snapshot.Presented;
+        _blend = snapshot.Blend;
+        _hoursRemaining = snapshot.HoursRemaining;
+        _windAngleDeg = snapshot.WindAngleDegrees;
+        _windNoiseTime = snapshot.WindNoiseTime;
+        _secondsUntilStrike = snapshot.SecondsUntilStrike;
+        CurrentDailyFog = snapshot.DailyFog;
+        _climateWorldDay = snapshot.ClimateWorldDay;
+        _climateInitialized = true;
+        _initialized = true;
+        _sequencer = new SolWeatherRandom { State = snapshot.SequencerState };
+
+        PublishTargetState();
+        ApplyEffectiveState(0f, 0f);
+        return true;
     }
 
     void CaptureOwnedWaterState()

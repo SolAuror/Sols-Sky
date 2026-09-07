@@ -26,6 +26,7 @@ MonoBehaviour:
   cloudBaseSoftness: 0.9
   cloudCoverageBias: 0.08
   cloudShadowStrength: 0.88
+  cloudCoverageVariance: 0
   rainIntensity: 1
   snowBias: 1
   windSpeedMetresPerSecond: 22
@@ -33,8 +34,8 @@ MonoBehaviour:
   mistiness: 1
   skyObscuration: 1
   visibilityMetres: 55
-  lightScattering: 0.8
-  dim: 0.25
+  lightScattering: 0.9
+  dim: 0.24
   waveSpeedMultiplier: 1.6
   waterTurbulence: 0.85
   lightning: 0

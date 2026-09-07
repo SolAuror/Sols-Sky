@@ -10,33 +10,33 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3187298abffe58e4791224101ac4e1ac, type: 3}
-  m_Name: Clear
+  m_Name: Fair
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
   cloudFormation: 0
   cloudiness: 0
-  cloudErosion: 0.55
+  cloudErosion: 0.62
   overrideAdvancedCloudShape: 1
-  cloudDensity: 0.62
-  cloudBaseHeight: 1700
-  cloudThickness: 2200
-  cloudVerticalDevelopment: 0.35
+  cloudDensity: 0.7
+  cloudBaseHeight: 1550
+  cloudThickness: 2900
+  cloudVerticalDevelopment: 0.45
   cloudAnvilAmount: 0
-  cirrusAmount: 0.22
-  cloudEdgeSoftness: 0.16
-  cloudBaseSoftness: 0.18
-  cloudCoverageBias: -0.5
-  cloudShadowStrength: 0.55
-  cloudCoverageVariance: 0.22
+  cirrusAmount: 0.2
+  cloudEdgeSoftness: 0.18
+  cloudBaseSoftness: 0.2
+  cloudCoverageBias: -0.24
+  cloudShadowStrength: 0.62
+  cloudCoverageVariance: 0.18
   rainIntensity: 0
   snowBias: 0
-  windSpeedMetresPerSecond: 2.6
-  fogBoost: 0
-  mistiness: 0
-  skyObscuration: 0
+  windSpeedMetresPerSecond: 4.4
+  fogBoost: 0.02
+  mistiness: 0.03
+  skyObscuration: 0.02
   visibilityMetres: 0
-  lightScattering: 0.55
-  dim: 0
-  waveSpeedMultiplier: 0.85
-  waterTurbulence: 0.05
+  lightScattering: 0.48
+  dim: 0.06
+  waveSpeedMultiplier: 0.92
+  waterTurbulence: 0.12
   lightning: 0
   lightningIntensity: 0

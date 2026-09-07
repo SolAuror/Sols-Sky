@@ -79,6 +79,16 @@ Seasonal automatic-selection multipliers are Clear `1.05/1.45/0.85/0.65`, Overca
 
 Visual review should use the same camera and clock time for all four states. At minimum, capture noon and sunset comparisons before changing these values again; time-of-day lighting otherwise makes weather adjustments difficult to compare reliably.
 
+## Superseded
+
+- **TUNE-001** gave Clear an identity that preserved the authored cloud deck. Clear is now the
+  state that actively clears the sky, and the preserve-the-authored-deck identity moved to the
+  new Fair profile. The change was needed because `cloudCoverageBias` -- documented as
+  independent of `cloudiness` -- was being scaled by it, so at `cloudiness: 0` no profile could
+  thin the authored deck and no weather could produce a clear sky.
+- The **weather tuning reference** table above predates the nine-profile set, the metres-per-second
+  wind unit, and the effective-cover model. `Documentation/PublicAPI.md` carries the current table.
+
 ## Deferred
 
 - Full raymarched volumetric clouds.

@@ -10,33 +10,33 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3187298abffe58e4791224101ac4e1ac, type: 3}
-  m_Name: Rain
+  m_Name: Drizzle
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
-  cloudFormation: 2
-  cloudiness: 0.85
-  cloudErosion: 0.46
+  cloudFormation: 1
+  cloudiness: 0.7
+  cloudErosion: 0.34
   overrideAdvancedCloudShape: 0
-  cloudDensity: 1.05
-  cloudBaseHeight: 850
-  cloudThickness: 2600
-  cloudVerticalDevelopment: 0.3
+  cloudDensity: 0.82
+  cloudBaseHeight: 1100
+  cloudThickness: 1800
+  cloudVerticalDevelopment: 0.18
   cloudAnvilAmount: 0
-  cirrusAmount: 0.05
-  cloudEdgeSoftness: 0.7
-  cloudBaseSoftness: 0.85
-  cloudCoverageBias: 0.05
-  cloudShadowStrength: 0.82
-  cloudCoverageVariance: 0.05
-  rainIntensity: 0.62
+  cirrusAmount: 0.08
+  cloudEdgeSoftness: 0.82
+  cloudBaseSoftness: 0.7
+  cloudCoverageBias: 0
+  cloudShadowStrength: 0.72
+  cloudCoverageVariance: 0.06
+  rainIntensity: 0.22
   snowBias: 0
-  windSpeedMetresPerSecond: 11
-  fogBoost: 0.4
-  mistiness: 0.68
-  skyObscuration: 0.2
+  windSpeedMetresPerSecond: 7.6
+  fogBoost: 0.22
+  mistiness: 0.42
+  skyObscuration: 0.14
   visibilityMetres: 0
-  lightScattering: 0.26
-  dim: 0.46
-  waveSpeedMultiplier: 1.28
-  waterTurbulence: 0.5
+  lightScattering: 0.3
+  dim: 0.34
+  waveSpeedMultiplier: 1.08
+  waterTurbulence: 0.3
   lightning: 0
   lightningIntensity: 0

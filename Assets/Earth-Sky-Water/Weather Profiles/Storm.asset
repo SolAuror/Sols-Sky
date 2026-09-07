@@ -13,15 +13,28 @@ MonoBehaviour:
   m_Name: Storm
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
   cloudFormation: 3
-  cloudiness: 0.97
-  cloudErosion: 0.64
+  cloudiness: 0.96
+  cloudErosion: 0.66
   overrideAdvancedCloudShape: 0
+  cloudDensity: 1.2
+  cloudBaseHeight: 900
+  cloudThickness: 7200
+  cloudVerticalDevelopment: 0.95
+  cloudAnvilAmount: 0.72
+  cirrusAmount: 0.16
+  cloudEdgeSoftness: 0.24
+  cloudBaseSoftness: 0.6
+  cloudCoverageBias: 0.04
+  cloudShadowStrength: 0.92
+  cloudCoverageVariance: 0.03
   rainIntensity: 0.95
+  snowBias: 0
   windSpeedMetresPerSecond: 21.2
-  fogBoost: 0.3
+  fogBoost: 0.55
   mistiness: 0.82
-  skyObscuration: 0.36
-  lightScattering: 0.16
+  skyObscuration: 0.34
+  visibilityMetres: 0
+  lightScattering: 0.18
   dim: 0.78
   waveSpeedMultiplier: 1.85
   waterTurbulence: 1

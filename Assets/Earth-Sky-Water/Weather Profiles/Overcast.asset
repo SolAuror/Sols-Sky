@@ -13,16 +13,29 @@ MonoBehaviour:
   m_Name: Overcast
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
   cloudFormation: 1
-  cloudiness: 0.68
-  cloudErosion: 0.22
+  cloudiness: 0.52
+  cloudErosion: 0.24
   overrideAdvancedCloudShape: 0
+  cloudDensity: 0.82
+  cloudBaseHeight: 1100
+  cloudThickness: 1800
+  cloudVerticalDevelopment: 0.18
+  cloudAnvilAmount: 0
+  cirrusAmount: 0.08
+  cloudEdgeSoftness: 0.82
+  cloudBaseSoftness: 0.7
+  cloudCoverageBias: 0
+  cloudShadowStrength: 0.72
+  cloudCoverageVariance: 0.08
   rainIntensity: 0
-  windSpeedMetresPerSecond: 6
-  fogBoost: 0.03
-  mistiness: 0.06
-  skyObscuration: 0.04
-  lightScattering: 0.3
-  dim: 0.28
+  snowBias: 0
+  windSpeedMetresPerSecond: 6.4
+  fogBoost: 0.05
+  mistiness: 0.1
+  skyObscuration: 0.06
+  visibilityMetres: 0
+  lightScattering: 0.32
+  dim: 0.26
   waveSpeedMultiplier: 1
   waterTurbulence: 0.18
   lightning: 0

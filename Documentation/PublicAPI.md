@@ -240,6 +240,10 @@ Core API:
 | `CurrentDailyFog` | smoothed daily/diurnal contribution currently presented |
 | `FogDiurnalFactor` | dawn-biased time-of-day climate multiplier |
 | `ClimateTransitionDurationSeconds` | presentation-time smoothing duration, five seconds by default |
+| `DailyCoverageOffset` | deterministic date-specific cloud-cover draw in -1..1, scaled per profile by `cloudCoverageVariance` |
+| `CaptureSnapshot()` | serializable sequencer state: target, blend, hold, stream position |
+| `RestoreSnapshot(in SolWeatherSnapshot)` | restores one; returns false on a version mismatch |
+| `SnapshotVersion` | snapshot contract version |
 
 While enabled, `SolWeatherManager` writes to:
 
@@ -262,18 +266,47 @@ Positive `AdvanceHours` and forward day/sunrise/sunset skips advance weather chr
 
 `WeatherProfile.mistiness` moves atmosphere density toward the profile's low-mist height/falloff without independently adding density. `skyObscuration` controls sky-wide fog independently from surface/horizon extinction. `waterTurbulence` coordinates wave amplitude, detail, steepness, swell, foam, roughness, and drift. `lightningIntensity` is the profile peak used by the effective `LightningFlash`. These fields are included in `SolWeatherState` and share one weather transition progress.
 
-Daily climate is a stable hash of `Calendar.WorldDayIndex` and `climateSeed`. Its squared distribution favors low fog, then a dawn-biased curve and presentation-time smoothing are applied. Spring, Summer, Autumn, and Winter have separate min/max fog ranges. A restored or rewound date reproduces the same target, but stochastic weather-profile history is not rewound.
+Daily climate is a stable hash of `Calendar.WorldDayIndex` and `climateSeed`. Its squared
+distribution favors low fog, then a dawn-biased curve and presentation-time smoothing are
+applied. Spring, Summer, Autumn, and Winter have separate min/max fog ranges. A restored or
+rewound date reproduces the same target.
+
+Cloud cover carries the same treatment. `DailyCoverageOffset` is a second stable hash of the
+world date, crossfaded into the next day's draw so cover does not step at midnight, and each
+profile scales it by its own `cloudCoverageVariance`. This is what stops every Clear day from
+rendering identically: shipped Clear varies between a cloudless sky and a lightly clouded one.
+
+Weather selection is a seeded deterministic stream sharing `climateSeed` with the climate
+model, so two runs of the same save produce the same weather. It is a forward-only sequence
+rather than a function of the date, so a rewind does not un-advance it; capture the stream
+position with `CaptureSnapshot()` and a reload replays the identical future.
+
+Successor selection is weighted by plausibility as well as by season. `SolWeatherAdjacency`
+derives how close two profiles are from their own values -- effective cover, precipitation
+amount and phase, wind and dimming -- so fronts build and clear through intermediate states
+instead of stepping straight from Clear to Blizzard. The weighting is multiplicative and
+floored, so a seasonal weight of zero still means never and no state can dead-end.
 
 Each weather profile also has four seasonal weight multipliers. They affect automatic cycling and `NextWeather()` only; direct `SetWeather(...)` remains exact and no default season makes a profile impossible.
 
 The checked-in demo profiles are balanced around distinct responsibilities:
 
-| Profile | Visual target | Primary controls |
-|---|---|---|
-| Clear | Crisp fair-weather clouds, light date-driven haze, calm water | No profile fog/mist/obscuration; wind 0.35, wave speed 0.85, turbulence 0.05 |
-| Overcast | Soft continuous deck with long-distance visibility | Fog 0.03, mist 0.06; coverage and dimming carry the state |
-| Rain | Textured wet weather with low drifting mist | Fog 0.12, mist 0.65; stronger wind, waves, rain VFX, and turbulence 0.48 |
-| Storm | Dark, turbulent water and ground-hugging mist | Fog 0.30, mist 0.82; wind 2.65, wave speed 1.85, turbulence 1.0 |
+`cloudiness` is an influence toward overcast, not an absolute cover: 0 means "keep the sky
+TimeOfDay authored". Effective cover is therefore
+`lerp(authoredCover, 1, cloudiness) + cloudCoverageBias`, and it is the column to compare
+profiles on. The shipped decks author `cloudCoverageDay: 0.437`, so `authoredCover` is 0.563.
+
+| Profile | Effective cover | Visual target | Primary controls |
+|---|---:|---|---|
+| Clear | 0.06 ±0.22 | Open sky, from cloudless to a few fair-weather cumulus | Coverage bias -0.50; no fog/mist/obscuration; wind 2.6 m/s, waves 0.85, turbulence 0.05 |
+| Fair | 0.32 ±0.18 | Scattered fair-weather cumulus; the authored-deck identity Clear used to hold | Coverage bias -0.24; fog 0.02, mist 0.03; wind 4.4 m/s |
+| Fog | 0.59 ±0.10 | Calm, bright, ground-hugging murk with a low grey ceiling | Visibility 180 m, mist 1.0, scattering 0.95; wind 1.2 m/s, dim 0.10 |
+| Overcast | 0.79 ±0.08 | Soft continuous dry deck with long-distance visibility | Fog 0.05, mist 0.10; coverage and dimming carry the state |
+| Drizzle | 0.87 ±0.06 | Light continuous precipitation under a stratus deck | Rain 0.22, fog 0.22, mist 0.42; wind 7.6 m/s |
+| Snow | 0.95 ±0.05 | Bright, calm, heavy-falling snow | Snow bias 0.70, visibility 300 m, scattering 0.62; wind 5.2 m/s |
+| Rain | 0.98 ±0.05 | Textured wet weather with low drifting mist | Rain 0.62, fog 0.40, mist 0.68; wind 11 m/s, waves 1.28, turbulence 0.50 |
+| Storm | 1.00 ±0.03 | Dark, turbulent water and ground-hugging mist | Fog 0.55, mist 0.82; wind 21.2 m/s, waves 1.85, turbulence 1.0, lightning 0.28 |
+| Blizzard | 1.00 | Bright whiteout rather than a dark one | Snow bias 1.0, visibility 55 m, fog 2.0, obscuration 1.0, dim only 0.24; wind 22 m/s |
 
 For custom profiles, prefer increasing `dim`, wind, waves, and rain before pushing both `fogBoost` and `skyObscuration`. The latter combination obscures geometry and the sky simultaneously and is best treated as a deliberate whiteout effect.
 
@@ -548,7 +581,7 @@ For a basic save, store:
 - `Calendar.Year`
 - `Calendar.WorldDayIndex`
 - `Calendar.PlayerDaysElapsed`
-- current weather profile name or index, if weather should persist
+- `SolWeatherManager.CaptureSnapshot()`, if weather should persist
 - `SolWaterManager.waterLevel`, only if your game changes water level at runtime
 
 Restore time and date with:
@@ -562,8 +595,16 @@ timeOfDay.RestoreTimeSnapshot(
     savedWorldDayIndex,
     savedPlayerDaysElapsed,
     this);
-weather.SetWeather(savedWeatherName, instant: true);
+weather.RestoreSnapshot(savedWeatherSnapshot);
 ```
+
+`RestoreSnapshot` returns false without changing anything when the snapshot's
+`SnapshotVersion` does not match, and resolves its target by profile name so reordering a
+scene's selection list cannot silently retarget a save. It restores the sequencer position,
+so the restored world replays the same future weather rather than a fresh roll.
+
+`weather.SetWeather(savedWeatherName, instant: true)` remains as the lossy fallback: it puts
+the right weather on screen but starts a new random sequence from there.
 
 The legacy five-value restore overload remains only as an obsolete compatibility API. There is currently no project save system, so no legacy save migration is implemented by this sprint.
 

@@ -17,7 +17,11 @@ public static class SolWeatherProfileMigration
 {
     public const string ProfileFolder = "Assets/Earth-Sky-Water/Weather Profiles";
 
-    static readonly string[] SerializedAssetPaths =
+    /// <summary>
+    /// Every container that serializes a SolWeatherManager selection list. Shared with
+    /// SolWeatherSelectionSync and the regression suite so the four copies have one home.
+    /// </summary>
+    internal static readonly string[] SerializedAssetPaths =
     {
         "Assets/Scenes/Sc_Sols_FiniteBodies.unity",
         "Assets/Scenes/Sc_Sols_Landscape.unity",

@@ -40,6 +40,14 @@ public readonly struct SolCloudState : IEquatable<SolCloudState>
     public readonly Vector2 ShapeOffset;
     public readonly Vector2 DetailOffset;
     public readonly float ShadowStrength;
+    /// <summary>
+    /// Normalised per-formation weights this state represents. Carried rather than rebuilt
+    /// from <see cref="DominantFormation"/>, which Lerp resolves with a hard switch at the
+    /// midpoint: deriving a one-hot vector from that label put most of a formation change
+    /// into a single frame of _SolCloudFormationWeights. The shader has always expected a
+    /// continuous blend here.
+    /// </summary>
+    public readonly Vector4 FormationBlend;
 
     public SolCloudState(
         SolCloudFormation dominantFormation,
@@ -76,6 +84,33 @@ public readonly struct SolCloudState : IEquatable<SolCloudState>
         Vector2 shapeOffset,
         Vector2 detailOffset,
         float shadowStrength)
+        : this(dominantFormation, coverage, erosion, density, baseHeight, thickness,
+            verticalDevelopment, anvilAmount, cirrusAmount, edgeSoftness, baseSoftness,
+            coverageBias, weatherOffset, shapeOffset, detailOffset, shadowStrength,
+            SolCloudMath.FormationWeights(dominantFormation)) { }
+
+    /// <summary>
+    /// Full constructor carrying an explicit formation blend. Used by Lerp and ApplyWeather
+    /// so a transition between two formations stays continuous instead of snapping.
+    /// </summary>
+    public SolCloudState(
+        SolCloudFormation dominantFormation,
+        float coverage,
+        float erosion,
+        float density,
+        float baseHeight,
+        float thickness,
+        float verticalDevelopment,
+        float anvilAmount,
+        float cirrusAmount,
+        float edgeSoftness,
+        float baseSoftness,
+        float coverageBias,
+        Vector2 weatherOffset,
+        Vector2 shapeOffset,
+        Vector2 detailOffset,
+        float shadowStrength,
+        Vector4 formationBlend)
     {
         DominantFormation = dominantFormation;
         Coverage = Mathf.Clamp01(coverage);
@@ -93,12 +128,31 @@ public readonly struct SolCloudState : IEquatable<SolCloudState>
         ShapeOffset = shapeOffset;
         DetailOffset = detailOffset;
         ShadowStrength = Mathf.Clamp01(shadowStrength);
+        FormationBlend = NormaliseFormation(formationBlend, dominantFormation);
+    }
+
+    /// <summary>
+    /// Keeps the weight vector a partition of unity. A degenerate vector -- which is what
+    /// default(SolCloudState) holds -- falls back to the label's own one-hot rather than
+    /// dividing by zero.
+    /// </summary>
+    static Vector4 NormaliseFormation(Vector4 blend, SolCloudFormation fallback)
+    {
+        float sum = blend.x + blend.y + blend.z + blend.w;
+        return sum > 0.0001f ? blend / sum : SolCloudMath.FormationWeights(fallback);
     }
 
     public SolCloudState WithOffsets(Vector2 weather, Vector2 shape, Vector2 detail)
         => new(DominantFormation, Coverage, Erosion, Density, BaseHeight, Thickness,
             VerticalDevelopment, AnvilAmount, CirrusAmount, EdgeSoftness, BaseSoftness,
-            CoverageBias, weather, shape, detail, ShadowStrength);
+            CoverageBias, weather, shape, detail, ShadowStrength, FormationBlend);
+
+    /// <summary>Replaces the additive coverage nudge, keeping every other value.</summary>
+    public SolCloudState WithCoverageBias(float coverageBias)
+        => new(DominantFormation, Coverage, Erosion, Density, BaseHeight, Thickness,
+            VerticalDevelopment, AnvilAmount, CirrusAmount, EdgeSoftness, BaseSoftness,
+            coverageBias, WeatherOffset, ShapeOffset, DetailOffset, ShadowStrength,
+            FormationBlend);
 
     public static SolCloudState FromCompatibility(float cloudiness, float erosion)
         => new(SolCloudFormation.Cumulus, cloudiness, erosion, 0.72f, 1500f, 3200f,
@@ -123,7 +177,11 @@ public readonly struct SolCloudState : IEquatable<SolCloudState>
             Vector2.LerpUnclamped(a.WeatherOffset, b.WeatherOffset, t),
             Vector2.LerpUnclamped(a.ShapeOffset, b.ShapeOffset, t),
             Vector2.LerpUnclamped(a.DetailOffset, b.DetailOffset, t),
-            Mathf.Lerp(a.ShadowStrength, b.ShadowStrength, t));
+            Mathf.Lerp(a.ShadowStrength, b.ShadowStrength, t),
+            // The label above still switches at the midpoint, but the weights the shader
+            // actually shapes density from move continuously. A convex combination of two
+            // partitions of unity is itself one, so this needs no renormalisation.
+            Vector4.Lerp(a.FormationBlend, b.FormationBlend, t));
     }
 
     /// <summary>
@@ -140,8 +198,14 @@ public readonly struct SolCloudState : IEquatable<SolCloudState>
             weather.VerticalDevelopment, weather.AnvilAmount, weather.CirrusAmount,
             weather.EdgeSoftness, weather.BaseSoftness, weather.CoverageBias,
             weather.WeatherOffset, weather.ShapeOffset, weather.DetailOffset,
-            weather.ShadowStrength);
-        return Lerp(authored, overcastTarget, influence);
+            weather.ShadowStrength, weather.FormationBlend);
+        SolCloudState blended = Lerp(authored, overcastTarget, influence);
+        // CoverageBias is documented as independent of how far cloudiness overrides the
+        // authored sky, and the shader adds it straight into coverage. Lerping it by the
+        // influence made it vanish exactly where it was most useful: at cloudiness 0 a
+        // profile could not thin the authored deck at all, so no weather could produce a
+        // sky clearer than whatever TimeOfDay happened to author.
+        return blended.WithCoverageBias(authored.CoverageBias + weather.CoverageBias);
     }
 
     public bool Equals(SolCloudState other)
@@ -160,7 +224,8 @@ public readonly struct SolCloudState : IEquatable<SolCloudState>
         && (WeatherOffset - other.WeatherOffset).sqrMagnitude < 0.000001f
         && (ShapeOffset - other.ShapeOffset).sqrMagnitude < 0.000001f
         && (DetailOffset - other.DetailOffset).sqrMagnitude < 0.000001f
-        && Approximately(ShadowStrength, other.ShadowStrength);
+        && Approximately(ShadowStrength, other.ShadowStrength)
+        && (FormationBlend - other.FormationBlend).sqrMagnitude < 0.000001f;
 
     public override bool Equals(object obj) => obj is SolCloudState other && Equals(other);
     public override int GetHashCode() => HashCode.Combine(
@@ -168,7 +233,7 @@ public readonly struct SolCloudState : IEquatable<SolCloudState>
         HashCode.Combine(BaseHeight, Thickness, VerticalDevelopment, AnvilAmount),
         HashCode.Combine(CirrusAmount, WeatherOffset, ShapeOffset, DetailOffset),
         HashCode.Combine(EdgeSoftness, BaseSoftness, CoverageBias),
-        ShadowStrength);
+        HashCode.Combine(ShadowStrength, FormationBlend));
     public static bool operator ==(SolCloudState left, SolCloudState right) => left.Equals(right);
     public static bool operator !=(SolCloudState left, SolCloudState right) => !left.Equals(right);
     static bool Approximately(float a, float b) => Mathf.Abs(a - b) <= 0.0001f;
@@ -237,18 +302,16 @@ public sealed class SolCloudController
         SolCloudState authored = timeOfDay != null
             ? timeOfDay.LegacyCloudState
             : SolCloudState.FromCompatibility(0f, weather.CloudErosion);
-        Vector4 formationWeights = SolCloudMath.FormationWeights(authored.DominantFormation);
         if (SolWeatherManager.Instance != null && weather.Clouds.Thickness > 0f)
         {
-            // ApplyWeather blends the two states by the weather's coverage. Mirroring that
-            // blend on the formation weights is what keeps the shader's density shaping
-            // continuous through a transition instead of snapping when Lerp's t crosses 0.5.
-            formationWeights = Vector4.Lerp(formationWeights,
-                SolCloudMath.FormationWeights(weather.Clouds.DominantFormation),
-                Mathf.Clamp01(weather.Clouds.Coverage));
+            // ApplyWeather blends the two states by the weather's coverage, and the blend it
+            // produces already carries the formation weights. Rebuilding them here from
+            // DominantFormation instead is what used to snap the sky: that label resolves
+            // with a hard switch at Lerp's midpoint, and the weather's own coverage is high
+            // at both ends of most pairs, so nearly all of a one-hot jump landed in one frame.
             authored = SolCloudState.ApplyWeather(authored, weather.Clouds);
         }
-        FormationWeights = formationWeights;
+        FormationWeights = authored.FormationBlend;
 
         SolEnvironmentState environment = SolEnvironmentWorld.ResolveState();
         float deltaSeconds = (float)Math.Max(0d, SolEnvironmentWorld.Active != null
@@ -283,6 +346,10 @@ public sealed class SolCloudController
             SolCloudMath.WrapRotatedOffset(_detailOffset + dailyDetail, detailScale));
         if (_hasState)
         {
+            // FormationBlend is deliberately absent here. This detector exists to throw away
+            // temporal history across a genuine jump; the blend now moves continuously over
+            // the whole transition, so watching it would only discard history during the
+            // smooth motion it was made continuous for.
             bool discontinuity = Mathf.Abs(resolved.Coverage - _previousState.Coverage) > 0.2f
                 || Mathf.Abs(resolved.BaseHeight - _previousState.BaseHeight) > 500f
                 || Mathf.Abs(resolved.Thickness - _previousState.Thickness) > 1000f

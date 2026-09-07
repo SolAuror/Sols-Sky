@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
   cloudFormation: 2
   cloudiness: 0.85
-  cloudErosion: 0.25
+  cloudErosion: 0.26
   overrideAdvancedCloudShape: 1
   cloudDensity: 0.95
   cloudBaseHeight: 900
@@ -24,18 +24,19 @@ MonoBehaviour:
   cirrusAmount: 0.06
   cloudEdgeSoftness: 0.7
   cloudBaseSoftness: 0.8
-  cloudCoverageBias: 0.04
+  cloudCoverageBias: 0.02
   cloudShadowStrength: 0.8
+  cloudCoverageVariance: 0.05
   rainIntensity: 0.45
-  snowBias: 0.35
-  windSpeedMetresPerSecond: 5
-  fogBoost: 0.5
-  mistiness: 0.45
-  skyObscuration: 0.4
-  visibilityMetres: 260
-  lightScattering: 0.5
-  dim: 0.35
-  waveSpeedMultiplier: 0.9
+  snowBias: 0.7
+  windSpeedMetresPerSecond: 5.2
+  fogBoost: 0.6
+  mistiness: 0.5
+  skyObscuration: 0.44
+  visibilityMetres: 300
+  lightScattering: 0.62
+  dim: 0.34
+  waveSpeedMultiplier: 0.92
   waterTurbulence: 0.2
   lightning: 0
   lightningIntensity: 0

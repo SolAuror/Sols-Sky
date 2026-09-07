@@ -109,7 +109,13 @@ namespace Sol.Environment
         public double WorldDeltaSeconds { get; private set; }
         public bool Paused => paused;
         public float EnvironmentTimeScale => environmentTimeScale;
-        public int ClimateSeed => climateSeed;
+        /// <summary>
+        /// The weather manager owns the climate seed; this serialized field is only the
+        /// fallback for a world with no manager. Both shipped at 1427 in every scene, but
+        /// only the manager's copy ever fed a computation, so a scene that changed this one
+        /// would have reported a seed the climate model was not using.
+        /// </summary>
+        public int ClimateSeed => weather != null ? weather.climateSeed : climateSeed;
         public double FixedStepSeconds => 1d / Mathf.Max(1, simulationHz);
 
         double _accumulator;
@@ -260,6 +266,8 @@ namespace Sol.Environment
                 return false;
 
             climateSeed = snapshot.ClimateSeed;
+            if (weather != null)
+                weather.climateSeed = snapshot.ClimateSeed;
             paused = snapshot.Paused;
             environmentTimeScale = snapshot.TimeScale;
             _absoluteWorldSeconds = snapshot.State.AbsoluteWorldSeconds;

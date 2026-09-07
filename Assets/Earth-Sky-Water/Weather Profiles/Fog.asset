@@ -10,33 +10,33 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3187298abffe58e4791224101ac4e1ac, type: 3}
-  m_Name: Clear
+  m_Name: Fog
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherProfileAsset
-  cloudFormation: 0
-  cloudiness: 0
-  cloudErosion: 0.55
+  cloudFormation: 1
+  cloudiness: 0.1
+  cloudErosion: 0.3
   overrideAdvancedCloudShape: 1
-  cloudDensity: 0.62
-  cloudBaseHeight: 1700
-  cloudThickness: 2200
-  cloudVerticalDevelopment: 0.35
+  cloudDensity: 0.55
+  cloudBaseHeight: 60
+  cloudThickness: 420
+  cloudVerticalDevelopment: 0.05
   cloudAnvilAmount: 0
-  cirrusAmount: 0.22
-  cloudEdgeSoftness: 0.16
-  cloudBaseSoftness: 0.18
-  cloudCoverageBias: -0.5
-  cloudShadowStrength: 0.55
-  cloudCoverageVariance: 0.22
+  cirrusAmount: 0.02
+  cloudEdgeSoftness: 1
+  cloudBaseSoftness: 1
+  cloudCoverageBias: -0.02
+  cloudShadowStrength: 0.35
+  cloudCoverageVariance: 0.1
   rainIntensity: 0
   snowBias: 0
-  windSpeedMetresPerSecond: 2.6
-  fogBoost: 0
-  mistiness: 0
-  skyObscuration: 0
-  visibilityMetres: 0
-  lightScattering: 0.55
-  dim: 0
-  waveSpeedMultiplier: 0.85
-  waterTurbulence: 0.05
+  windSpeedMetresPerSecond: 1.2
+  fogBoost: 0.85
+  mistiness: 1
+  skyObscuration: 0.55
+  visibilityMetres: 180
+  lightScattering: 0.95
+  dim: 0.1
+  waveSpeedMultiplier: 0.8
+  waterTurbulence: 0.04
   lightning: 0
   lightningIntensity: 0

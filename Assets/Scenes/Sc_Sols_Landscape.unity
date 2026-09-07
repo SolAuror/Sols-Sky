@@ -2728,6 +2728,24 @@ MonoBehaviour:
     summerWeightMultiplier: 0
     autumnWeightMultiplier: 0.05
     winterWeightMultiplier: 1.4
+  - profile: {fileID: 11400000, guid: 5c1a7d0e4b3f4a2d9e6c8b1f7a4d2e42, type: 2}
+    weight: 3.5
+    springWeightMultiplier: 1.15
+    summerWeightMultiplier: 1.35
+    autumnWeightMultiplier: 0.95
+    winterWeightMultiplier: 0.75
+  - profile: {fileID: 11400000, guid: 5c1a7d0e4b3f4a2d9e6c8b1f7a4d2e43, type: 2}
+    weight: 1.5
+    springWeightMultiplier: 1.3
+    summerWeightMultiplier: 0.4
+    autumnWeightMultiplier: 1.9
+    winterWeightMultiplier: 1.1
+  - profile: {fileID: 11400000, guid: 5c1a7d0e4b3f4a2d9e6c8b1f7a4d2e44, type: 2}
+    weight: 2
+    springWeightMultiplier: 1.2
+    summerWeightMultiplier: 0.7
+    autumnWeightMultiplier: 1.35
+    winterWeightMultiplier: 1.1
   climateSeed: 1427
   springDailyFogRange: {x: 0.02, y: 0.3}
   summerDailyFogRange: {x: 0, y: 0.12}

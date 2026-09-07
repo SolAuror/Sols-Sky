@@ -24,7 +24,7 @@ public static class SolWeatherProfileMigration
     internal static readonly string[] SerializedAssetPaths =
     {
         "Assets/Scenes/Sc_Sols_FiniteBodies.unity",
-        "Assets/Scenes/Sc_Sols_Landscape.unity",
+        "Assets/Scenes/Sols_Lights.unity",
         "Assets/Scenes/Sols_Water2_Demo.unity",
         "Assets/Prefabs/Sols System Manager.prefab",
     };

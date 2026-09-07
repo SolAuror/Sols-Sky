@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using Sol.Lighting;
 
 namespace Sol.Environment.EditorTools
 {
@@ -24,6 +25,12 @@ namespace Sol.Environment.EditorTools
                 + $"  Full-res colour copies:{counters.FullResColorCopies}\n"
                 + $"  Environment updates:   {counters.EnvironmentUpdates}\n"
                 + $"  Atmosphere pushes:     {counters.AtmosphereGlobalPushes}\n"
+                + $"  Lighting tier:          {(counters.HasLightingDirector ? ((SolLightingQualityTier)counters.ActiveLightingTier).ToString() : "none")}\n"
+                + $"  Lights registered/active: {counters.RegisteredLights}/{counters.ActiveLights}\n"
+                + $"  Shadow slices:         {counters.ShadowSlices}\n"
+                + $"  Volumetric lights:     {counters.VolumetricLights}\n"
+                + $"  GI requests:           {counters.GiRequests}\n"
+                + $"  Probe requests/done:   {counters.ProbeRequests}/{counters.ProbeCompletions}\n"
                 + $"  Live camera contexts:  {counters.CameraContexts}\n"
                 + $"  SSR history:           {counters.SsrHistoryBytes / (1024f * 1024f):F1} MB");
         }

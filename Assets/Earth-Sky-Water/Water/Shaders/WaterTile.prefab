@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4443896925226870763}
   - component: {fileID: 534028316380572095}
+  - component: {fileID: 612345678901234567}
   m_Layer: 0
   m_Name: Reflection Probe
   m_TagString: Untagged
@@ -65,6 +66,24 @@ ReflectionProbe:
   m_UseOcclusionCulling: 1
   m_Importance: 1
   m_CustomBakedTexture: {fileID: 0}
+--- !u!114 &612345678901234567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1693297216098386986}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9aa286cb39d44f4a82fc48d151175a81, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Lighting.SolReflectionProbeAnchor
+  source: {fileID: 534028316380572095}
+  waterRelevance: 1
+  excludeWaterLayer: 1
+  additionalExcludedLayers:
+    serializedVersion: 2
+    m_Bits: 0
 --- !u!1 &2602803295479037039
 GameObject:
   m_ObjectHideFlags: 0

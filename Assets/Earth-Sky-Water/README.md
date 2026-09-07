@@ -38,6 +38,33 @@ SolWaterManager
 9. Enable Depth Texture and Opaque Texture on the URP asset.
 10. Tag the gameplay camera as `MainCamera`, or assign cameras explicitly on the relevant controllers.
 
+## Adaptive Probe Volumes
+
+The three shipped environment scenes share `Assets/Settings/SolEnvironmentAPV.asset`.
+It uses 2 m minimum probe spacing, three simplification levels, disk/GPU streaming,
+sky occlusion, and sky shading direction. Lighting scenarios are intentionally disabled:
+the live ambient probe follows the canonical Sol sky instead of blending separate day and
+night bakes.
+
+After finalizing static geometry, open `Window > Rendering > Lighting`, select the
+`SolEnvironmentAPV` baking set, and run **Bake Probe Volumes**. Only renderers marked
+**Contribute Global Illumination** should define placement and occlusion. Sun, moon, and
+settlement lights stay Realtime; `SolEnvironmentLight` enforces this while it owns a local
+light. If baked data is absent at runtime, the system warns once and retains trilight
+ambient as a deterministic fallback.
+
+Use Probe Adjustment Volumes around caves, enclosed buildings, and shoreline/interior
+transitions where automatic placement produces leaking or invalid probes. Keep these
+volumes local to the problem area rather than increasing global probe density.
+
+## Celestial Lighting Handoff
+
+The lighting frame publishes a continuous radiance-weighted blend of eligible sun and
+moon contributions. Atmosphere and clouds consume that same blend, so overlapping
+contributors crossfade naturally. If neither body is eligible around dawn or dusk,
+direct celestial lighting and cloud shadows fade to zero while ambient twilight remains;
+renderers must not substitute a synthetic white key light.
+
 ## Public API
 
 See `../../Documentation/PublicAPI.md` for code examples and the full scripting guide
@@ -48,6 +75,10 @@ Common entry points:
 |---|---|
 | `Sol.ToD.TimeOfDay` | world clock, sky authority, time skip/mutation events |
 | `Sol.ToD.Calendar` | day/month/year state and season events |
+| `SolLightingDirector` | unified sun, moon, ambient, shader-global, and quality authority |
+| `SolLightingQualityProfile` | deterministic Low/Medium/High lighting budgets |
+| `SolEnvironmentLight` | opt-in local-light activation, shadow, and volumetric budgeting |
+| `SolReflectionProbeAnchor` | ranked, time-sliced realtime environment-probe scheduling |
 | `SolWeatherManager` | weather profiles and transitions |
 | `SolWeatherState` | immutable effective cloud/rain/wind/fog/wave/lightning state |
 | `SolAtmosphereController` | analytic fog plus High-quality directional volumetric scattering and quality state |
@@ -73,15 +104,15 @@ Visual waves are defined in `Water/Shaders/SolWaterWaves.hlsl` and mirrored in `
 
 | Global | Set by | Meaning |
 |---|---|---|
-| `_Sol_SunDirection`, `_Sol_SunColor` | `SolWaterManager` | dominant water lighting |
-| `_Sol_DayFactor` | `SolWaterManager` | night-to-day blend |
-| `_Sol_EclipseFactor` | `SolWaterManager` | solar eclipse strength |
+| `_Sol_SunDirection`, `_Sol_SunColor` | `SolLightingDirector` | dominant water lighting compatibility feed |
+| `_Sol_DayFactor` | `SolLightingDirector` | night-to-day blend |
+| `_Sol_EclipseFactor` | `SolLightingDirector` | solar eclipse strength |
 | `_Sol_WindDirection`, `_Sol_WindStrength` | `SolWaterManager` | wave direction and amplitude bias |
 | `_Sol_WaveTime`, `_Sol_GlobalWaveSpeedMul` | `SolWaterManager` | shared water clock |
 | `_Sol_RainIntensity` | `SolWaterManager` | rain roughness, normals, reflections, droplets |
 | `_Sol_RainRoughnessBoost`, `_Sol_RainNormalBoost`, `_Sol_RainReflectionDampen` | `SolWaterManager` | configured rain response tuning |
 | `_Sol_GlobalWaterLevel` | `SolWaterManager` | global fallback water level |
-| `_Sol_LightningFlash` | `SolWaterManager` | reflection and surface strike illumination |
+| `_Sol_LightningFlash` | `SolLightingDirector` | reflection and surface strike illumination |
 | `_SolAtmosphere*` | `SolAtmosphereController` | analytic fog, noise, sun/moon scattering, High volumetric settings, quality, and lightning |
 | `_Sol_WaveFadeCenter` | `WaterTileGrid` | LOD and wave-fade origin |
 | `_Sol_Ripples*` | `WaterRippleManager` | analytic fallback ripples |
@@ -92,6 +123,11 @@ Visual waves are defined in `Water/Shaders/SolWaterWaves.hlsl` and mirrored in `
 ## Tuning
 
 - Time speed: `TimeOfDay.CycleDuration` and `TimeOfDay.TimeScale`.
+- Lighting quality: call `SolLightingDirector.SetTier` to switch the shared Low/Medium/High shadow, reflection-probe, cloud, atmosphere, and water budgets. The shipping default is the Medium `Sol_LightingQuality` resource profile.
+- Managed local lights: add `SolEnvironmentLight` beside a point or spot light. Choose night-only, always-on, or a custom day-factor curve, then set its priority, shadow eligibility, and volumetric scattering.
+- Dynamic probes: add `SolReflectionProbeAnchor` beside each realtime probe. Captures are ranked by camera visibility/distance, water relevance, and staleness; only one individual-face capture runs at once.
+- APV authoring: use `Tools > Sol Environment > Configure Adaptive Probe Volumes` after adding an environment scene, then add that scene to `SolApvSetupUtility.EnvironmentScenePaths` so membership remains testable.
+- Lighting diagnostics: open `Tools > Sol Environment > Environment Window` for the active tier, registered/selected lights, shadow slices, volumetric lights, GI requests, and reflection-probe requests/completions. The same values are available from `SolEnvironmentBudget` in editor and development builds.
 - Environment clocks: consume `WorldDeltaSeconds` for continuous motion, `WorldDeltaHours` for chronology, and `PresentationDeltaSeconds` only for bounded transitions/transient envelopes. All freeze when Sol time is not moving forward; presentation time deliberately ignores the 10x/100x Sol multiplier.
 - Day length: `TimeOfDay.DayRatio`; the four-season annual curve modifies `EffectiveDayRatio` and exposes `SunriseClockHour`/`SunsetClockHour`.
 - Climate: `SolWeatherManager` derives `DailyFogTarget` deterministically from `Calendar.WorldDayIndex`, applies dawn-biased `FogDiurnalFactor`, and smooths `CurrentDailyFog` using presentation time. Tune the seasonal fog ranges, `climateSeed`, and `ClimateTransitionDurationSeconds`.
@@ -116,5 +152,6 @@ Visual waves are defined in `Water/Shaders/SolWaterWaves.hlsl` and mirrored in `
 - `WaterTileGrid` is `[ExecuteAlways]` and creates helper children named `_Tiles` and `_WaterVolume`.
 - New materials may need to be selected once in the Inspector so Unity syncs shader keywords.
 - Environment shader globals are still scene-wide; true per-volume water state and per-camera underwater state are deferred.
+- APV placement is authored, but probe coefficients are not shipped until **Bake Probe Volumes** is run against final static geometry. The one-time runtime warning is expected before that bake.
 - The demo's generated water content is intentionally retained until an authored prefab/asset workflow is chosen.
 - Surface atmosphere and underwater rendering still use one active camera/global state. True multi-camera and local-volume scoping remain deferred.

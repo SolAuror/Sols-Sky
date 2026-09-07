@@ -14,10 +14,10 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 1
-  m_FogColor: {r: 0.68403894, g: 0.8601881, b: 0.92926, a: 1}
+  m_Fog: 0
+  m_FogColor: {r: 0.1659977, g: 0.10559807, b: 0.1981132, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.001252679
+  m_FogDensity: 0.0024411215
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.5532698, g: 0.7855212, b: 1.1475681, a: 1.2}
@@ -549,6 +549,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330810466}
   m_CullTransparentMesh: 1
+--- !u!1 &389612258
+GameObject:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 389612260}
+  - component: {fileID: 389612259}
+  m_Layer: 0
+  m_Name: ProbeVolumePerSceneData
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &389612259
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 389612258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a83d2f7ae04ab6f4f99b0d85377be998, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolumePerSceneData
+  serializedBakingSet: {fileID: 0}
+  sceneGUID: 2a325984f48171d4d8cc669a97ae59a5
+  obsoleteAsset: {fileID: 0}
+  obsoleteCellSharedDataAsset: {fileID: 0}
+  obsoleteCellSupportDataAsset: {fileID: 0}
+  obsoleteSerializedScenarios: []
+--- !u!4 &389612260
+Transform:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 389612258}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &468050941
 GameObject:
   m_ObjectHideFlags: 0
@@ -727,6 +777,82 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 667290668}
   m_CullTransparentMesh: 1
+--- !u!1 &764339124
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 764339126}
+  - component: {fileID: 764339125}
+  m_Layer: 0
+  m_Name: Sol APV Scene Volume
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &764339125
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 764339124}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cded085d155cde949b60f67a11dbc3bd, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolume
+  mode: 1
+  size: {x: 1006.01, y: 6.0102005, z: 1006.01}
+  overrideRendererFilters: 0
+  minRendererVolumeSize: 0.1
+  objectLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  lowestSubdivLevelOverride: 0
+  highestSubdivLevelOverride: 3
+  overridesSubdivLevels: 0
+  mightNeedRebaking: 0
+  cachedTransform:
+    e00: 0
+    e01: 0
+    e02: 0
+    e03: 0
+    e10: 0
+    e11: 0
+    e12: 0
+    e13: 0
+    e20: 0
+    e21: 0
+    e22: 0
+    e23: 0
+    e30: 0
+    e31: 0
+    e32: 0
+    e33: 0
+  cachedHashCode: 0
+  fillEmptySpaces: 0
+  version: 2
+  globalVolume: 0
+--- !u!4 &764339126
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 764339124}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -15, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &886318764
 GameObject:
   m_ObjectHideFlags: 0
@@ -1086,6 +1212,7 @@ MonoBehaviour:
   weatherManager: {fileID: 5836892427009264645}
   rainController: {fileID: 5135230030128566435}
   atmosphereController: {fileID: 5135230030128566432}
+  lightingDirector: {fileID: 0}
   normalSpeedFallback: 1
 --- !u!1 &1110005339
 GameObject:
@@ -2557,6 +2684,7 @@ GameObject:
   - component: {fileID: 8723318279177309096}
   - component: {fileID: 8723318279177309095}
   - component: {fileID: 8723318279177309097}
+  - component: {fileID: 8723318279177309098}
   m_Layer: 0
   m_Name: Sols System Manager 2
   m_TagString: Untagged
@@ -2595,7 +2723,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SolRainVfxController
   weatherManager: {fileID: 5836892427009264645}
   timeOfDay: {fileID: 7289805970471111700}
-  underwaterController: {fileID: 6629655432892147619}
   trackedCamera: {fileID: 100002}
   rainMaterial: {fileID: 0}
   radius: 18
@@ -2616,6 +2743,21 @@ MonoBehaviour:
   exposureFadeSpeed: 5
   enableMist: 1
   mistRatio: 0.18
+  snowMaterial: {fileID: 0}
+  blowingSnowMaterial: {fileID: 0}
+  snowFallSpeed: 1.6
+  maxSnowEmissionRate: 1800
+  maxSnowParticles: 7000
+  snowColor: {r: 0.92, g: 0.95, b: 1, a: 0.85}
+  snowFlutterStrength: 0.9
+  snowWindCarry: 0.95
+  enableBlowingSnow: 1
+  blowingWindThreshold: 9
+  blowingWindFull: 18
+  maxBlowingEmissionRate: 3600
+  maxBlowingParticles: 7000
+  blowingSpeedSpread: 0.45
+  snowMaxDriftRadii: 2
 --- !u!114 &5665088069232259140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2634,6 +2776,7 @@ MonoBehaviour:
   queryService: {fileID: 8723318279177309096}
   planarReflectionRenderer: {fileID: 8723318279177309095}
   wetness: {fileID: 8723318279177309097}
+  terrainShoreline: {fileID: 8723318279177309098}
 --- !u!114 &5665088069232259141
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2886,6 +3029,11 @@ MonoBehaviour:
   cloudScale: 2
   cloudBaseSpeed: 0.05
   cloudQuality: 1
+  cloudNoiseTexture: {fileID: 0}
+  cloudWeatherMap: {fileID: 0}
+  useProceduralCloudNoise: 0
+  cloudWeatherInfluence: 0.22
+  cloudTypeInfluence: 0.18
   cloudHeight: 0.119
   cloudCoverageDay: 0.437
   cloudCoverageNight: 0.563
@@ -2997,10 +3145,29 @@ MonoBehaviour:
   rainWetness: 1
   waterWetness: 1
   waterWetnessRange: 0.75
+  waterWetnessInlandRange: 6
   sandWetDarkening: 0.106
   wetSmoothness: 0.419
   wetnessTerrain: {fileID: 0}
   sandLayer: {fileID: 8574412962073106934, guid: dae36a1c7e280804d8a4651d620db995, type: 2}
+--- !u!114 &8723318279177309098
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4069933975666731442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52306a121e286744791c4bdcbde1a2ad, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolTerrainShoreline
+  terrains: []
+  trackTerrainEdits: 1
+  metresPerTexel: 1
+  maximumResolution: 2048
+  waterLevelTolerance: 0.05
+  minimumRebuildInterval: 0.25
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -3010,3 +3177,5 @@ SceneRoots:
   - {fileID: 468050945}
   - {fileID: 1311648030}
   - {fileID: 886318767}
+  - {fileID: 764339126}
+  - {fileID: 389612260}

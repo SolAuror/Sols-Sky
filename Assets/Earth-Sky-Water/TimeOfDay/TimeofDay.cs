@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System;
+using Sol.Lighting;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -489,6 +490,16 @@ public class TimeOfDay : MonoBehaviour
     float cachedDayFactor;
     Vector3 cachedSunDirection;
     Vector3 cachedMoonDirection;
+    Quaternion cachedSunRotation;
+    Quaternion cachedMoonRotation;
+    Color cachedSunLightColor;
+    Color cachedMoonLightColor;
+    float cachedSunLightIntensity;
+    float cachedMoonLightIntensity;
+    float cachedSunShadowStrength;
+    float cachedMoonShadowStrength;
+    bool cachedSunLightEnabled;
+    bool cachedMoonLightEnabled;
     float lunarPeriodDays;
     bool paused;
     bool calendarInitialized;
@@ -515,6 +526,27 @@ public class TimeOfDay : MonoBehaviour
 
     /// <summary>0 = night, 1 = zenith. Continuous day/night blend factor.</summary>
     public float DayFactor => cachedDayFactor;
+
+    internal SolDirectionalLightState SunLightingCandidate => new(
+        sunLight,
+        cachedSunDirection,
+        cachedSunLightColor,
+        cachedSunLightIntensity,
+        cachedSunShadowStrength,
+        cachedSunLightEnabled,
+        cachedSunRotation);
+
+    internal SolDirectionalLightState MoonLightingCandidate => new(
+        moonLight,
+        cachedMoonDirection,
+        cachedMoonLightColor,
+        cachedMoonLightIntensity,
+        cachedMoonShadowStrength,
+        cachedMoonLightEnabled,
+        cachedMoonRotation);
+
+    internal void SetDominantAtmosphereLight(Light value)
+        => dominantAtmosphereLight = value;
 
     Calendar calendar;
     #endregion
@@ -626,6 +658,10 @@ public class TimeOfDay : MonoBehaviour
     void OnDisable()
     {
         environmentUpdateGate.Invalidate();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.delayCall -= RefreshDeferredEditModePreview;
+#endif
+        SolLightingDirector.Release(this);
         DestroyEditPreviewSun();
 
         worldDeltaSeconds = 0f;
@@ -698,8 +734,24 @@ public class TimeOfDay : MonoBehaviour
         // Refresh the edit-mode preview immediately so the inspector slider
         // remains a functional time-of-day scrubber.
         if (!Application.isPlaying && isActiveAndEnabled)
+        {
+#if UNITY_EDITOR
+            // Adding or mutating components from OnValidate produces Unity SendMessage
+            // diagnostics. Defer the preview publication until validation has completed.
+            UnityEditor.EditorApplication.delayCall -= RefreshDeferredEditModePreview;
+            UnityEditor.EditorApplication.delayCall += RefreshDeferredEditModePreview;
+#endif
+        }
+    }
+
+#if UNITY_EDITOR
+    void RefreshDeferredEditModePreview()
+    {
+        UnityEditor.EditorApplication.delayCall -= RefreshDeferredEditModePreview;
+        if (this != null && !Application.isPlaying && isActiveAndEnabled)
             UpdateEditModePreview();
     }
+#endif
 
     void OnDestroy()
     {
@@ -733,7 +785,6 @@ public class TimeOfDay : MonoBehaviour
         editPreviewSunLight = previewObject.AddComponent<Light>();
         editPreviewSunLight.hideFlags = HideFlags.HideAndDontSave;
         editPreviewSunLight.type = LightType.Directional;
-        editPreviewSunLight.shadows = LightShadows.Soft;
         sunLight = editPreviewSunLight;
     }
 
@@ -756,7 +807,6 @@ public class TimeOfDay : MonoBehaviour
             sunInstance = Instantiate(sunPrefab, transform);
             sunInstance.name = "Sun";
             sunLight = sunInstance.GetComponentInChildren<Light>();
-            if (sunLight != null) sunLight.shadows = LightShadows.Soft;
             sunBody  = sunInstance.GetComponentInChildren<CelestialBody>();
             if (sunBody != null)
             {
@@ -844,9 +894,14 @@ public class TimeOfDay : MonoBehaviour
         UpdateSun(effectiveDayRatio);
         UpdateMoon(daysFraction);
         UpdateEclipses();
-        UpdateDominantAtmosphereLight();
         UpdateCelestialBodies();
         UpdateTertiaryPlanets(daysFraction);
+
+        // Weather publishes later in Update and requests the final environment refresh.
+        // Without a weather authority, publish here so SolEnvironmentWorld (-900) consumes
+        // this frame rather than waiting for the LateUpdate fallback.
+        if (SolWeatherManager.Instance == null)
+            UpdateEnvironment();
     }
 
     /// <summary>
@@ -878,7 +933,8 @@ public class TimeOfDay : MonoBehaviour
         UpdateSun(effectiveDayRatio);
         UpdateMoon(daysFraction);
         UpdateEclipses();
-        UpdateDominantAtmosphereLight();
+        if (SolWeatherManager.Instance == null)
+            UpdateEnvironment();
     }
 
     /// <summary>
@@ -1002,35 +1058,28 @@ public class TimeOfDay : MonoBehaviour
         // Cache for ambient/fog/eclipse (before eclipse modifies it)
         cachedDayFactor = elevation;
         cachedSunDirection = -sunForward;
+        cachedSunRotation = sunRot;
 
         bool sunAboveHorizon = dot > horizonThreshold;
+        cachedSunLightEnabled = sunAboveHorizon;
+        cachedSunLightIntensity = sunAboveHorizon
+            ? Mathf.Lerp(minIntensity, maxIntensity, elevation)
+            : 0f;
+        cachedSunShadowStrength = sunAboveHorizon
+            ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elevation / 0.15f))
+            : 0f;
 
-        // Drive the directional light if one exists on the prefab
-        if (sunLight != null)
+        if (sunAboveHorizon)
         {
-            sunLight.transform.rotation = sunRot;
-            sunLight.enabled = sunAboveHorizon;
+            bool isMorning = timeOfDay < 0.5f;
+            Color horizonColor = isMorning ? sunriseColor : sunsetColor;
 
-            if (sunAboveHorizon)
-            {
-                sunLight.intensity = Mathf.Lerp(minIntensity, maxIntensity, elevation);
-                sunLight.intensity *= 1f - Mathf.Clamp01(WeatherDim) * 0.75f;
-                sunLight.shadows = LightShadows.Soft;
-                sunLight.shadowStrength = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elevation / 0.15f));
-
-                bool isMorning = timeOfDay < 0.5f;
-                Color horizonColor = isMorning ? sunriseColor : sunsetColor;
-
-                Color sunColor;
-                if (elevation < 0.3f)
-                    sunColor = Color.Lerp(Color.black, horizonColor, elevation / 0.3f);
-                else if (elevation < 0.7f)
-                    sunColor = Color.Lerp(horizonColor, noonColor, (elevation - 0.3f) / 0.4f);
-                else
-                    sunColor = noonColor;
-
-                sunLight.color = sunColor;
-            }
+            if (elevation < 0.3f)
+                cachedSunLightColor = Color.Lerp(Color.black, horizonColor, elevation / 0.3f);
+            else if (elevation < 0.7f)
+                cachedSunLightColor = Color.Lerp(horizonColor, noonColor, (elevation - 0.3f) / 0.4f);
+            else
+                cachedSunLightColor = noonColor;
         }
     }
 
@@ -1071,6 +1120,7 @@ public class TimeOfDay : MonoBehaviour
         Vector3 moonForward = moonRot * Vector3.forward;
 
         cachedMoonDirection = -moonForward;
+        cachedMoonRotation = moonRot;
 
         float moonDot = Vector3.Dot(moonForward, Vector3.down);
 
@@ -1079,59 +1129,15 @@ public class TimeOfDay : MonoBehaviour
         float moonElevation = Mathf.InverseLerp(moonHorizonThreshold, 1f, moonDot);
 
         bool moonAboveHorizon = moonDot > moonHorizonThreshold;
-
-        // Drive the directional light if one exists on the prefab
-        if (moonLight != null)
-        {
-            moonLight.transform.rotation = moonRot;
-            moonLight.enabled = moonAboveHorizon;
-
-            if (moonAboveHorizon)
-            {
-                moonLight.color = moonColorNight;
-                moonLight.intensity = moonMaxIntensity * moonElevation * currentMoonIllumination;
-                moonLight.intensity *= 1f - Mathf.Clamp01(WeatherDim) * 0.75f;
-                moonLight.shadows = LightShadows.Soft;
-                moonLight.shadowStrength = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(moonElevation * currentMoonIllumination * 10f));
-            }
-        }
-    }
-
-    void UpdateDominantAtmosphereLight()
-    {
-        float sunScore = AtmosphereLightScore(sunLight);
-        float moonScore = AtmosphereLightScore(moonLight);
-        const float switchHysteresis = 1.1f;
-
-        if (dominantAtmosphereLight == sunLight)
-        {
-            if (moonScore > sunScore * switchHysteresis + 0.0001f)
-                dominantAtmosphereLight = moonLight;
-        }
-        else if (dominantAtmosphereLight == moonLight)
-        {
-            if (sunScore > moonScore * switchHysteresis + 0.0001f)
-                dominantAtmosphereLight = sunLight;
-        }
-        else
-        {
-            dominantAtmosphereLight = sunScore >= moonScore ? sunLight : moonLight;
-        }
-
-        if (AtmosphereLightScore(dominantAtmosphereLight) <= 0f)
-            dominantAtmosphereLight = null;
-
-        RenderSettings.sun = dominantAtmosphereLight;
-    }
-
-    static float AtmosphereLightScore(Light light)
-    {
-        if (light == null || !light.isActiveAndEnabled || light.type != LightType.Directional)
-            return 0f;
-
-        Color color = light.color;
-        float luminance = color.r * 0.2126f + color.g * 0.7152f + color.b * 0.0722f;
-        return Mathf.Max(0f, light.intensity) * Mathf.Max(0f, luminance);
+        cachedMoonLightEnabled = moonAboveHorizon;
+        cachedMoonLightColor = moonColorNight;
+        cachedMoonLightIntensity = moonAboveHorizon
+            ? moonMaxIntensity * moonElevation * currentMoonIllumination
+            : 0f;
+        cachedMoonShadowStrength = moonAboveHorizon
+            ? Mathf.SmoothStep(0f, 1f,
+                Mathf.Clamp01(moonElevation * currentMoonIllumination * 10f))
+            : 0f;
     }
 
     // ------------------------------------------------
@@ -1173,18 +1179,20 @@ public class TimeOfDay : MonoBehaviour
             lunarEclipseFactor *= Mathf.Pow(moonElev, eclipseApexBias);
         }
 
- // Apply solar eclipse - dim the sun and tint toward corona color
-        if (solarEclipseFactor > 0f && sunLight != null && sunLight.enabled)
+        // Apply eclipses to the solved candidates. SolLightingDirector is the only
+        // component that commits these values to Unity Light objects.
+        if (solarEclipseFactor > 0f && cachedSunLightEnabled)
         {
-            sunLight.intensity *= 1f - solarEclipseFactor * 0.95f;
-            sunLight.color = Color.Lerp(sunLight.color, solarEclipseLightColor, solarEclipseFactor);
+            cachedSunLightIntensity *= 1f - solarEclipseFactor * 0.95f;
+            cachedSunLightColor = Color.Lerp(
+                cachedSunLightColor, solarEclipseLightColor, solarEclipseFactor);
         }
 
- // Apply lunar eclipse - dim + tint the moon
-        if (lunarEclipseFactor > 0f && moonLight != null && moonLight.enabled)
+        if (lunarEclipseFactor > 0f && cachedMoonLightEnabled)
         {
-            moonLight.intensity *= 1f - lunarEclipseFactor * 0.7f;
-            moonLight.color = Color.Lerp(moonLight.color, lunarEclipseTint, lunarEclipseFactor);
+            cachedMoonLightIntensity *= 1f - lunarEclipseFactor * 0.7f;
+            cachedMoonLightColor = Color.Lerp(
+                cachedMoonLightColor, lunarEclipseTint, lunarEclipseFactor);
         }
 
         // Apply eclipse darkening to the cached dayFactor used by ambient/fog
@@ -1208,7 +1216,7 @@ public class TimeOfDay : MonoBehaviour
             sunBody.Direction     = cachedSunDirection;
             sunBody.EclipseFactor = solarEclipseFactor;
             // During eclipse, tint the sun sphere toward the corona glow color
-            Color baseSunColor = sunLight != null ? sunLight.color : noonColor;
+            Color baseSunColor = cachedSunLightColor;
             sunBody.ColorOverride = Color.Lerp(baseSunColor, solarEclipseLightColor, solarEclipseFactor);
             // Point SunDirection AWAY from the sun (toward camera) so the
  // shader lights the camera-facing hemisphere - the sun is self-luminous.
@@ -1289,6 +1297,11 @@ public class TimeOfDay : MonoBehaviour
         float weatherDim = Mathf.Clamp01(WeatherDim);
         float cloudiness = Mathf.Clamp01(WeatherCloudiness);
         float lightning  = Mathf.Clamp01(WeatherLightningFlash);
+        AmbientMode scheduledAmbientMode = RenderSettings.ambientMode;
+        bool applyAmbient = false;
+        Color presentedAmbientSky = RenderSettings.ambientSkyColor;
+        Color presentedAmbientEquator = RenderSettings.ambientEquatorColor;
+        Color presentedAmbientGround = RenderSettings.ambientGroundColor;
         Color scheduledAmbientSky = RenderSettings.ambientSkyColor;
         Color scheduledAmbientEquator = RenderSettings.ambientEquatorColor;
         Color scheduledAmbientGround = RenderSettings.ambientGroundColor;
@@ -1297,7 +1310,8 @@ public class TimeOfDay : MonoBehaviour
         // is derived from the computed sky colors inside the skybox block.
         if (controlAmbient && (!ambientFromSky || !controlSkybox))
         {
-            RenderSettings.ambientMode = AmbientMode.Flat;
+            scheduledAmbientMode = AmbientMode.Flat;
+            applyAmbient = true;
             Color ambient = Color.Lerp(ambientNightColor, ambientDayColor, cachedDayFactor);
             ambient *= 1f - weatherDim * 0.5f;
             if (eclipseEnv > 0f)
@@ -1305,7 +1319,7 @@ public class TimeOfDay : MonoBehaviour
             scheduledAmbientSky = scheduledAmbientEquator = scheduledAmbientGround = ambient;
             if (lightning > 0f)
                 ambient += Color.white * (lightning * 0.5f);
-            RenderSettings.ambientLight = ambient;
+            presentedAmbientSky = presentedAmbientEquator = presentedAmbientGround = ambient;
         }
 
         if (controlFog)
@@ -1378,10 +1392,11 @@ public class TimeOfDay : MonoBehaviour
                 // fog track the sky automatically.
                 if (controlAmbient && ambientFromSky)
                 {
-                    RenderSettings.ambientMode         = AmbientMode.Trilight;
-                    RenderSettings.ambientSkyColor     = zenith  * ambientSkyIntensity;
-                    RenderSettings.ambientEquatorColor = horizon * ambientSkyIntensity;
-                    RenderSettings.ambientGroundColor  = nadir   * (ambientSkyIntensity * 0.9f);
+                    scheduledAmbientMode = AmbientMode.Trilight;
+                    applyAmbient = true;
+                    presentedAmbientSky = zenith * ambientSkyIntensity;
+                    presentedAmbientEquator = horizon * ambientSkyIntensity;
+                    presentedAmbientGround = nadir * (ambientSkyIntensity * 0.9f);
                 }
                 if (controlFog && fogColorFromSky)
                 {
@@ -1440,7 +1455,7 @@ public class TimeOfDay : MonoBehaviour
 
                 // -- Sun disc --
                 sky.SetVector(_SunDirectionID,  cachedSunDirection);
-                Color sunDiscColor = (sunLight != null ? sunLight.color : noonColor) * sunDiscIntensity;
+                Color sunDiscColor = cachedSunLightColor * sunDiscIntensity;
                 sky.SetColor(_SunDiscColorID,   sunDiscColor);
                 sky.SetFloat(_SunDiscSizeID,    sunDiscSize);
                 sky.SetColor(_CoronaColorID,    coronaColor);
@@ -1471,8 +1486,15 @@ public class TimeOfDay : MonoBehaviour
             }
         }
 
-        SolSkyLightingScheduler.Tick(this, scheduledAmbientSky,
-            scheduledAmbientEquator, scheduledAmbientGround, cloudiness);
+        SolLightingDirector.PublishFromTimeOfDay(
+            this,
+            scheduledAmbientMode,
+            new SolTrilightAmbient(
+                presentedAmbientSky, presentedAmbientEquator, presentedAmbientGround),
+            new SolTrilightAmbient(
+                scheduledAmbientSky, scheduledAmbientEquator, scheduledAmbientGround),
+            applyAmbient,
+            cloudiness);
     }
 
     /// <summary>

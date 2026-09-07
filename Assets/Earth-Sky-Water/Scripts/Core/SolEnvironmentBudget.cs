@@ -40,6 +40,33 @@ namespace Sol.Environment
             /// <summary>Calls to the atmosphere controller's full shader-global push.</summary>
             public int AtmosphereGlobalPushes;
 
+            /// <summary>Opt-in environment lights currently registered.</summary>
+            public int RegisteredLights;
+
+            /// <summary>Registered lights selected by the active quality budget.</summary>
+            public int ActiveLights;
+
+            /// <summary>Shadow-atlas slices consumed by selected managed lights.</summary>
+            public int ShadowSlices;
+
+            /// <summary>Selected managed lights contributing to volumetric scattering.</summary>
+            public int VolumetricLights;
+
+            /// <summary>Whether a lighting director supplied the gauge values.</summary>
+            public bool HasLightingDirector;
+
+            /// <summary>Numeric SolLightingQualityTier when a director is active.</summary>
+            public int ActiveLightingTier;
+
+            /// <summary>Dynamic ambient-probe refreshes requested this frame.</summary>
+            public int GiRequests;
+
+            /// <summary>Realtime reflection-probe captures requested this frame.</summary>
+            public int ProbeRequests;
+
+            /// <summary>Realtime reflection-probe captures completed this frame.</summary>
+            public int ProbeCompletions;
+
             /// <summary>Live per-camera contexts held by the camera registry. A gauge, not a
             /// tally -- it is set rather than accumulated.</summary>
             public int CameraContexts;
@@ -105,6 +132,44 @@ namespace Sol.Environment
         {
             SyncFrame();
             _current.AtmosphereGlobalPushes++;
+        }
+
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        public static void SetLightingState(
+            int registeredLights,
+            int activeLights,
+            int shadowSlices,
+            int volumetricLights,
+            int activeTier)
+        {
+            SyncFrame();
+            _current.RegisteredLights = registeredLights;
+            _current.ActiveLights = activeLights;
+            _current.ShadowSlices = shadowSlices;
+            _current.VolumetricLights = volumetricLights;
+            _current.HasLightingDirector = activeTier >= 0;
+            _current.ActiveLightingTier = activeTier;
+        }
+
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        public static void AddGiRequest()
+        {
+            SyncFrame();
+            _current.GiRequests++;
+        }
+
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        public static void AddProbeRequest()
+        {
+            SyncFrame();
+            _current.ProbeRequests++;
+        }
+
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
+        public static void AddProbeCompletion()
+        {
+            SyncFrame();
+            _current.ProbeCompletions++;
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]

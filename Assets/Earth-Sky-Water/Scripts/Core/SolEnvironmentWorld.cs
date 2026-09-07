@@ -1,4 +1,5 @@
 using System;
+using Sol.Lighting;
 using Sol.ToD;
 using UnityEngine;
 
@@ -366,18 +367,35 @@ namespace Sol.Environment
             TimeOfDay tod = timeOfDay;
             SyncSnowBias();
 
-            Light dominant = tod != null ? tod.DominantAtmosphereLight : RenderSettings.sun;
-            Color lightColor = dominant != null ? dominant.color : Color.white;
-            float lightIntensity = dominant != null ? dominant.intensity : 1f;
+            SolLightingFrame lightingFrame = SolLightingDirector.ResolveFrame();
+            bool hasLightingFrame = lightingFrame.Revision > 0UL;
+            Light dominant = hasLightingFrame
+                ? lightingFrame.DominantLight
+                : tod != null ? tod.DominantAtmosphereLight : RenderSettings.sun;
+            SolDirectionalLightState dominantState = hasLightingFrame
+                ? lightingFrame.DominantState
+                : default;
+            Color lightColor = hasLightingFrame
+                ? dominantState.Color
+                : dominant != null ? dominant.color : Color.white;
+            float lightIntensity = hasLightingFrame
+                ? dominantState.Intensity
+                : dominant != null ? dominant.intensity : 1f;
 
             SolEnvironmentLightingState lighting = new(
-                tod != null ? tod.SunDirection : Vector3.up,
-                tod != null ? tod.MoonDirection : Vector3.down,
+                hasLightingFrame ? lightingFrame.Sun.Direction
+                    : tod != null ? tod.SunDirection : Vector3.up,
+                hasLightingFrame ? lightingFrame.Moon.Direction
+                    : tod != null ? tod.MoonDirection : Vector3.down,
                 lightColor,
                 lightIntensity,
-                tod != null ? tod.DayFactor : 1f,
+                hasLightingFrame ? lightingFrame.DayFactor
+                    : tod != null ? tod.DayFactor : 1f,
                 tod != null ? tod.MoonIllumination : 0f,
-                tod != null ? Mathf.Max(tod.SolarEclipseStrength, tod.LunarEclipseStrength) : 0f);
+                hasLightingFrame ? lightingFrame.Eclipse
+                    : tod != null
+                        ? Mathf.Max(tod.SolarEclipseStrength, tod.LunarEclipseStrength)
+                        : 0f);
 
             ResolveSourceWind(out Vector3 windDirection, out float windSpeed,
                 out float turbulence);

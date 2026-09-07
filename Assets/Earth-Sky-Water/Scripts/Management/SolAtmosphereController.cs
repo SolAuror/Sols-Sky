@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Sol.Lighting;
 using Sol.ToD;
 
 /// <summary>Combines authored atmosphere settings with current sky and weather state.</summary>
@@ -321,10 +323,15 @@ public sealed class SolAtmosphereController : MonoBehaviour
             Sol.Environment.SolEnvironmentWorld.ResolveState().Wind;
         Vector3 wind = environmentWind.FogAdvectionDirection;
         float day = timeOfDay != null ? timeOfDay.DayFactor : 1f;
-        CurrentDominantLight = timeOfDay != null ? timeOfDay.DominantAtmosphereLight : null;
-        Vector3 sunDirection = ResolveLightDirection(day);
+        SolLightingFrame lightingFrame = SolLightingDirector.ResolveFrame();
+        SolCelestialLightBlend celestial = SolLightingResolver.ResolveCelestialBlend(
+            lightingFrame.Sun, lightingFrame.Moon, lightingFrame.DayFactor);
+        CurrentDominantLight = lightingFrame.Revision > 0UL
+            ? lightingFrame.DominantLight
+            : timeOfDay != null ? timeOfDay.DominantAtmosphereLight : null;
+        Vector3 sunDirection = celestial.Direction;
         Color scatteringColor = Color.Lerp(SettingsNightColor, SettingsDayColor, day);
-        Color directionalColor = ResolveLightColor(scatteringColor);
+        Color directionalColor = ResolveLightColor(scatteringColor, celestial);
         float scattering = SettingsDirectionalScattering
                          * (weatherManager != null ? weather.LightScattering : 1f);
         CurrentDirectionalScattering = scattering;
@@ -429,23 +436,16 @@ public sealed class SolAtmosphereController : MonoBehaviour
     Color SettingsDayColor => profile != null ? profile.dayScatteringColor : new Color(1f, 0.75f, 0.48f, 1f);
     Color SettingsNightColor => profile != null ? profile.nightScatteringColor : new Color(0.22f, 0.34f, 0.62f, 1f);
 
-    Vector3 ResolveLightDirection(float day)
+    static Color ResolveLightColor(
+        Color authoredScatteringColor,
+        in SolCelestialLightBlend celestial)
     {
-        if (CurrentDominantLight != null)
-            return -CurrentDominantLight.transform.forward;
-        if (timeOfDay == null)
-            return Vector3.up;
-        return day >= 0.5f ? timeOfDay.SunDirection : timeOfDay.MoonDirection;
-    }
+        if (celestial.Intensity <= 0.000001f)
+            return Color.black;
 
-    Color ResolveLightColor(Color authoredScatteringColor)
-    {
-        if (CurrentDominantLight == null)
-            return authoredScatteringColor;
-
-        float intensity = Mathf.Max(0f, CurrentDominantLight.intensity);
-        Color lightColor = Color.Lerp(authoredScatteringColor, CurrentDominantLight.color, 0.5f);
-        return lightColor * intensity;
+        Color celestialColor = celestial.Radiance / celestial.Intensity;
+        return Color.Lerp(authoredScatteringColor, celestialColor, 0.5f)
+             * celestial.Intensity;
     }
 
     static void PushLocalVolumesAndLights()
@@ -482,31 +482,51 @@ public sealed class SolAtmosphereController : MonoBehaviour
         Shader.SetGlobalVectorArray(LocalVolumeData1ID, LocalVolumeData1);
 
         int lightCount = 0;
+        int lightLimit = SolLightingDirector.Active != null
+            ? Mathf.Min(LocalLightData0.Length,
+                SolLightingDirector.Active.ActiveQualitySettings.LocalVolumetricLightLimit)
+            : LocalLightData0.Length;
+        IReadOnlyList<SolEnvironmentLight> managedLights = SolEnvironmentLight.Registered;
+        for (int i = 0; i < managedLights.Count && lightCount < lightLimit; i++)
+        {
+            SolEnvironmentLight environmentLight = managedLights[i];
+            Light light = environmentLight != null ? environmentLight.Source : null;
+            if (light == null || !light.isActiveAndEnabled ||
+                !environmentLight.ContributesVolumetrics)
+                continue;
+            UploadLocalLight(light, environmentLight.VolumetricScattering, lightCount++);
+        }
+
         var lights = SolAtmosphereLocalRegistry.Lights;
-        for (int i = 0; i < lights.Count && lightCount < LocalLightData0.Length; i++)
+        for (int i = 0; i < lights.Count && lightCount < lightLimit; i++)
         {
             SolVolumetricLight volumetric = lights[i];
             Light light = volumetric != null ? volumetric.Source : null;
             if (light == null || !light.isActiveAndEnabled
-                || (light.type != LightType.Point && light.type != LightType.Spot))
+                || (light.type != LightType.Point && light.type != LightType.Spot)
+                || light.GetComponent<SolEnvironmentLight>() != null)
                 continue;
-            Transform lightTransform = light.transform;
-            Color color = light.color * (light.intensity * volumetric.ScatteringMultiplier);
-            LocalLightData0[lightCount] = new Vector4(
-                lightTransform.position.x, lightTransform.position.y, lightTransform.position.z,
-                Mathf.Max(0.01f, light.range));
-            LocalLightData1[lightCount] = new Vector4(
-                color.r, color.g, color.b, light.type == LightType.Spot ? 1f : 0f);
-            Vector3 direction = lightTransform.forward;
-            LocalLightData2[lightCount] = new Vector4(
-                direction.x, direction.y, direction.z,
-                Mathf.Cos(light.spotAngle * 0.5f * Mathf.Deg2Rad));
-            lightCount++;
+            UploadLocalLight(light, volumetric.ScatteringMultiplier, lightCount++);
         }
         Shader.SetGlobalInt(LocalLightCountID, lightCount);
         Shader.SetGlobalVectorArray(LocalLightData0ID, LocalLightData0);
         Shader.SetGlobalVectorArray(LocalLightData1ID, LocalLightData1);
         Shader.SetGlobalVectorArray(LocalLightData2ID, LocalLightData2);
+    }
+
+    static void UploadLocalLight(Light light, float scatteringMultiplier, int index)
+    {
+        Transform lightTransform = light.transform;
+        Color color = light.color * (light.intensity * scatteringMultiplier);
+        LocalLightData0[index] = new Vector4(
+            lightTransform.position.x, lightTransform.position.y, lightTransform.position.z,
+            Mathf.Max(0.01f, light.range));
+        LocalLightData1[index] = new Vector4(
+            color.r, color.g, color.b, light.type == LightType.Spot ? 1f : 0f);
+        Vector3 direction = lightTransform.forward;
+        LocalLightData2[index] = new Vector4(
+            direction.x, direction.y, direction.z,
+            Mathf.Cos(light.spotAngle * 0.5f * Mathf.Deg2Rad));
     }
 
     // CPU mirrors of the HLSL model keep the numerical edge cases testable.

@@ -1,3 +1,4 @@
+using Sol.Lighting;
 using Sol.ToD;
 using UnityEditor;
 using UnityEngine;
@@ -250,6 +251,16 @@ namespace Sol.Environment.EditorTools
                 DrawMetric("Full-res colour copies", counters.FullResColorCopies.ToString());
                 DrawMetric("Environment updates", counters.EnvironmentUpdates.ToString());
                 DrawMetric("Atmosphere pushes", counters.AtmosphereGlobalPushes.ToString());
+                DrawMetric("Lighting tier", counters.HasLightingDirector
+                    ? ((SolLightingQualityTier)counters.ActiveLightingTier).ToString()
+                    : "—");
+                DrawMetric("Lights registered / active",
+                    $"{counters.RegisteredLights} / {counters.ActiveLights}");
+                DrawMetric("Shadow slices", counters.ShadowSlices.ToString());
+                DrawMetric("Volumetric lights", counters.VolumetricLights.ToString());
+                DrawMetric("GI requests", counters.GiRequests.ToString());
+                DrawMetric("Probe requests / done",
+                    $"{counters.ProbeRequests} / {counters.ProbeCompletions}");
                 DrawMetric("Camera contexts", counters.CameraContexts.ToString());
                 DrawMetric("SSR history", $"{counters.SsrHistoryBytes / (1024f * 1024f):0.0} MB");
             }

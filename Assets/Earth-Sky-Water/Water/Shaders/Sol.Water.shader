@@ -214,12 +214,14 @@ Shader "Sol/Water"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fog
             #pragma shader_feature_local_fragment _SSR_ON
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "SolForwardPlusWaterLighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
             #include "SolWaterWaves.hlsl"
@@ -1031,27 +1033,13 @@ Shader "Sol/Water"
                     waterColor += sssColor;
                 }
 
-                // =====================================
-                //  ADDITIONAL LIGHTS
-                // =====================================
-                #if defined(_ADDITIONAL_LIGHTS)
-                {
-                    uint pixelLightCount = GetAdditionalLightsCount();
-                    LIGHT_LOOP_BEGIN(pixelLightCount)
-                        Light  addLight = GetAdditionalLight(lightIndex, IN.positionWS, half4(1,1,1,1));
-                        float3 addDir   = normalize(addLight.direction);
-                        float  addAtten = addLight.distanceAttenuation * addLight.shadowAttenuation;
-                        float  addNdotL = saturate(dot(finalNormal, addDir));
-                        // Diffuse
-                        waterColor += addLight.color * addNdotL * addAtten * shallowCol * 0.3;
-                        // Specular (GGX)
-                        float3 addHalf  = normalize(viewDirWS + addDir);
-                        float  addNdotH = saturate(dot(finalNormal, addHalf));
-                        float  addSpec  = DistributionGGX(addNdotH, roughness4) * addNdotL;
-                        waterColor += (half3)(addLight.color * addSpec * addAtten * _SpecIntensity * 0.1 * noise);
-                    LIGHT_LOOP_END
-                }
-                #endif
+                // Forward+ local lights affect only the surface specular response. They
+                // deliberately do not enter scattering, caustics, or refraction.
+                waterColor += SolWaterAdditionalSpecular(
+                    IN.positionWS, IN.positionCS, finalNormal, viewDirWS,
+                    rainRoughBoost, _SpecIntensity * 0.1 * noise, 64.0h)
+                    * (1.0 - SchlickFresnel(
+                        NdotV_detail, _FresnelBias, _FresnelPower));
 
                 // =====================================
                 //  SSR DEBUG OVERLAY (red = miss, green = hit confidence)

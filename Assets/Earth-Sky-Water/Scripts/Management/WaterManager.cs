@@ -166,10 +166,6 @@ public class SolWaterManager : MonoBehaviour
     float _waveTime;
 
     // Global property IDs
-    static readonly int _SolSunDirectionID           = Shader.PropertyToID("_Sol_SunDirection");
-    static readonly int _SolSunColorID               = Shader.PropertyToID("_Sol_SunColor");
-    static readonly int _SolDayFactorID              = Shader.PropertyToID("_Sol_DayFactor");
-    static readonly int _SolEclipseFactorID          = Shader.PropertyToID("_Sol_EclipseFactor");
     static readonly int _SolWindDirectionID          = Shader.PropertyToID("_Sol_WindDirection");
     static readonly int _SolWindStrengthID           = Shader.PropertyToID("_Sol_WindStrength");
     static readonly int _SolGlobalWaveSpeedMulID     = Shader.PropertyToID("_Sol_GlobalWaveSpeedMul");
@@ -184,7 +180,6 @@ public class SolWaterManager : MonoBehaviour
     static readonly int _SolTerrainSandMaskID        = Shader.PropertyToID("_Sol_TerrainSandMask");
     static readonly int _SolTerrainSandChannelID     = Shader.PropertyToID("_Sol_TerrainSandChannel");
     static readonly int _SolTerrainOriginInvSizeID   = Shader.PropertyToID("_Sol_TerrainOriginInvSize");
-    static readonly int _SolLightningFlashID         = Shader.PropertyToID("_Sol_LightningFlash");
     static readonly int _SolGlobalWaterLevelID       = Shader.PropertyToID("_Sol_GlobalWaterLevel");
     static readonly int _SolWaterDynamicsID          = Shader.PropertyToID("_Sol_WaterDynamics");
 
@@ -210,11 +205,6 @@ public class SolWaterManager : MonoBehaviour
     Texture _terrainSandMask;
     Vector4 _terrainSandChannel;
     Vector4 _terrainOriginInvSize;
-    float _lastLightningFlash = float.NaN;
-    Vector4 _lastLightDirection = new(float.NaN, float.NaN, float.NaN, float.NaN);
-    Color _lastSunColor = new(float.NaN, float.NaN, float.NaN, float.NaN);
-    float _lastDayFactor = float.NaN;
-    float _lastEclipseFactor = float.NaN;
     SolEnvironmentCoordinator _environmentCoordinator;
 
     // --- Unity Lifecycle -------------------------------------------------
@@ -267,8 +257,6 @@ public class SolWaterManager : MonoBehaviour
         ResolveTerrainSandMask(force: true);
         PushGlobalMotion();
         PushWeather();
-        if (todManager != null)
-            PushToD();
     }
 
     void Update()
@@ -288,10 +276,6 @@ public class SolWaterManager : MonoBehaviour
         PushGlobalMotion();
         PushWeather();
 
-        if (todManager != null)
-        {
-            PushToD();
-        }
     }
 
     // --- Global Motion Push ----------------------------------------------
@@ -312,11 +296,6 @@ public class SolWaterManager : MonoBehaviour
         _lastTerrainSandMask = null;
         _lastTerrainSandChannel = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
         _lastTerrainOriginInvSize = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
-        _lastLightningFlash = float.NaN;
-        _lastLightDirection = new Vector4(float.NaN, float.NaN, float.NaN, float.NaN);
-        _lastSunColor = new Color(float.NaN, float.NaN, float.NaN, float.NaN);
-        _lastDayFactor = float.NaN;
-        _lastEclipseFactor = float.NaN;
     }
 
     void PushGlobalMotion()
@@ -459,11 +438,6 @@ public class SolWaterManager : MonoBehaviour
             InvalidateSurfaceGlobalCache();
         }
 
-        if (!Mathf.Approximately(_lastLightningFlash, lightningFlash))
-        {
-            Shader.SetGlobalFloat(_SolLightningFlashID, lightningFlash);
-            _lastLightningFlash = lightningFlash;
-        }
     }
 
     void ResolveTerrainSandMask(bool force)
@@ -537,50 +511,6 @@ public class SolWaterManager : MonoBehaviour
         {
             Shader.SetGlobalVector(_SolTerrainOriginInvSizeID, _terrainOriginInvSize);
             _lastTerrainOriginInvSize = _terrainOriginInvSize;
-        }
-    }
-
-    // --- ToD ? Global Shader Push ----------------------------------------
-
-    void PushToD()
-    {
-        float tod = todManager.DayFactor;
-
-        // Dominant light direction: blend sun?moon across day/night
-        Vector3 sunDir  = todManager.SunDirection;
-        Vector3 moonDir = todManager.MoonDirection;
-        Vector3 lightDir = Vector3.Slerp(moonDir, sunDir, tod);
-
-        // At night TimeOfDay.SunColor holds the stale last-sunset color;
-        // blend to moonlight scaled by lunar phase so night water reads
-        // moonlit (and darker on new-moon nights).
-        Color moonlit = moonlightColor * (0.2f + 0.8f * todManager.MoonIllumination);
-        Color sunColor = Color.Lerp(moonlit, todManager.SunColor, tod);
-        float eclipse = todManager.SolarEclipseStrength;
-
-        Vector4 lightDir4 = new(lightDir.x, lightDir.y, lightDir.z, 0f);
-        if (_lastLightDirection != lightDir4)
-        {
-            Shader.SetGlobalVector(_SolSunDirectionID, lightDir4);
-            _lastLightDirection = lightDir4;
-        }
-
-        if (_lastSunColor != sunColor)
-        {
-            Shader.SetGlobalColor(_SolSunColorID, sunColor);
-            _lastSunColor = sunColor;
-        }
-
-        if (!Mathf.Approximately(_lastDayFactor, tod))
-        {
-            Shader.SetGlobalFloat(_SolDayFactorID, tod);
-            _lastDayFactor = tod;
-        }
-
-        if (!Mathf.Approximately(_lastEclipseFactor, eclipse))
-        {
-            Shader.SetGlobalFloat(_SolEclipseFactorID, eclipse);
-            _lastEclipseFactor = eclipse;
         }
     }
 

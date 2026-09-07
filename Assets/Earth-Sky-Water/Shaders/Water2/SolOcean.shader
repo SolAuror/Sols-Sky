@@ -10,6 +10,7 @@ Shader "Sol/Water2/Ocean"
         #pragma multi_compile_instancing
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+        #include "../../Water/Shaders/SolForwardPlusWaterLighting.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
         #include "SolWaterWaves2.hlsl"
         #include "SolWaterOptics.hlsl"
@@ -243,6 +244,13 @@ Shader "Sol/Water2/Ocean"
             int resolution = max(2, (int)round(patchData.y));
             int edgeMask = (int)round(patchData.z);
             float vertexStep = patchData.x / resolution;
+            // A negative level marks a horizon-ring instance: the flat annulus the clipmap
+            // appends outside its own extent so that extent is not a visible straight edge
+            // on the sea. Zeroing the edge mask is all the geometry setup it needs -- it
+            // suppresses the morph, and the skirt branch below collapses a skirt that no
+            // longer has a coarse neighbour to stitch to.
+            float horizonRing = patchData.w < -0.5 ? 1.0 : 0.0;
+            edgeMask = horizonRing > 0.5 ? 0 : edgeMask;
             // Skirt vertices are authored as their source perimeter vertex with +2 added
             // to the UV, so the offset has to come back off before deriving the grid
             // index. Without this, saturate() collapsed every skirt UV to 1.0 and each
@@ -324,13 +332,23 @@ Shader "Sol/Water2/Ocean"
             float3 finiteNormalWS = normalize(meshBitangentWS * wave.normal.x
                 + meshNormalWS * wave.normal.y + meshTangentWS * wave.normal.z);
             float3 positionWS = lerp(baseWS + wave.displacement, finitePositionWS, finiteGeometry);
+            // The ring carries no waves, no velocity and no foam. Handing over is safe at
+            // that range because both wave paths have already faded out well inside it: the
+            // vertex path through SolWaterGeometryVisibility against the coarse leaves' own
+            // vertex spacing, and the spectral cascades through their visible-distance fade,
+            // whose longest cascade reaches zero by roughly 1200 m. The surface the tree
+            // stops with is already flat, so the seam has nothing to disagree about.
+            positionWS = lerp(positionWS, baseWS, horizonRing);
             output.positionWS = positionWS;
-            output.normalWS = normalize(lerp(wave.normal, finiteNormalWS, finiteGeometry));
-            output.velocityWS = lerp(wave.velocity,
-                meshNormalWS * wave.velocity.y + _SolWaterBodyFlow.xyz, finiteGeometry);
+            output.normalWS = normalize(lerp(
+                lerp(wave.normal, finiteNormalWS, finiteGeometry),
+                float3(0.0, 1.0, 0.0), horizonRing));
+            output.velocityWS = lerp(lerp(wave.velocity,
+                meshNormalWS * wave.velocity.y + _SolWaterBodyFlow.xyz, finiteGeometry),
+                float3(0.0, 0.0, 0.0), horizonRing);
             output.positionCS = TransformWorldToHClip(positionWS);
             float authoredFoam = input.color.r * _SolWaterGeometryParams.z;
-            output.data = float4(max(wave.foam, authoredFoam),
+            output.data = float4(max(wave.foam, authoredFoam) * (1.0 - horizonRing),
                 -TransformWorldToView(positionWS).z, isSkirt, input.uv.y);
             output.surfaceUV = input.uv;
             return output;
@@ -408,6 +426,9 @@ Shader "Sol/Water2/Ocean"
             HLSLPROGRAM
             #pragma vertex WaterVertex
             #pragma fragment WaterForwardFragment
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
@@ -827,6 +848,11 @@ Shader "Sol/Water2/Ocean"
                     SolWaterNormalVariance(normalWS));
                 sunSpecular *= saturate((1.0 - foam) * sunFade);
                 sourceColor += sunSpecular;
+                sourceColor += SolWaterAdditionalSpecular(
+                    input.positionWS, input.positionCS, normalWS, viewDirection,
+                    sunRoughness, max(0.0, _SolWaterSunParams.x) * 0.08,
+                    max(0.0, _SolWaterSunParams.z))
+                    * saturate((1.0 - foam) * sunFade);
 
                 // Atmosphere is applied once, to the composed colour. The scene colour
                 // sampled for refraction was already fogged over camera-to-scene; this

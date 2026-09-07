@@ -1,4 +1,5 @@
 using Sol.Environment;
+using Sol.Lighting;
 using Sol.ToD;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -353,43 +354,24 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
             _material.SetVector(VariationWeightsId, SolCloudMath.DailyVariationWeights(
                 time != null ? time.WorldDayIndex : 0L,
                 time != null ? time.ClockHour : 0f));
-            Light dominant = time != null ? time.DominantAtmosphereLight : null;
-            Vector3 lightDirection = dominant != null
-                ? -dominant.transform.forward
-                : time != null && time.DayFactor >= 0.5f ? time.SunDirection : time != null ? time.MoonDirection : Vector3.up;
-            Color lightColor = dominant != null
-                ? dominant.color * Mathf.Min(4f, Mathf.Max(0f, dominant.intensity))
-                : Color.white;
+            SolLightingFrame lightingFrame = SolLightingDirector.ResolveFrame();
+            SolCelestialLightBlend celestial = SolLightingResolver.ResolveCelestialBlend(
+                lightingFrame.Sun, lightingFrame.Moon, lightingFrame.DayFactor);
             Color ambient = (RenderSettings.ambientSkyColor + RenderSettings.ambientEquatorColor) * 0.5f;
             _material.SetVector(LightDirectionId, new Vector4(
-                lightDirection.x, lightDirection.y, lightDirection.z, 0f));
-            _material.SetColor(LightColorId, lightColor);
+                celestial.Direction.x, celestial.Direction.y, celestial.Direction.z, 0f));
+            _material.SetColor(LightColorId, celestial.Radiance);
             _material.SetColor(AmbientColorId, ambient);
             // The ground half of the trilight term. Ambient mode may leave this at its
             // authored value rather than a probe-derived one, which is fine: it only needs to
             // be the colour bouncing back up under the deck.
             _material.SetColor(AmbientGroundId, RenderSettings.ambientGroundColor);
 
-            // A low-strength fill from whichever body is not currently dominant. Without it
-            // the deck goes flat through the sun/moon handover, when the dominant light is
-            // near the horizon and contributing almost nothing.
-            Light secondary = time != null && dominant != null
-                ? (dominant == time.SunLight ? time.MoonLight : time.SunLight)
-                : null;
-            Vector3 secondaryDirection = secondary != null
-                ? -secondary.transform.forward
-                : time != null
-                    ? (dominant == time.SunLight ? time.MoonDirection : time.SunDirection)
-                    : Vector3.up;
-            Color secondaryColor = secondary != null && secondary.enabled
-                ? secondary.color * Mathf.Min(4f, Mathf.Max(0f, secondary.intensity))
-                : Color.black;
-            secondaryDirection = secondaryDirection.sqrMagnitude > 0.000001f
-                ? secondaryDirection.normalized
-                : Vector3.up;
+            // Sun and moon have already been combined into one continuous key. Keeping the
+            // legacy secondary channel dark avoids double-counting either body at crossover.
             _material.SetVector(SecondaryLightDirectionId, new Vector4(
-                secondaryDirection.x, secondaryDirection.y, secondaryDirection.z, 0f));
-            _material.SetColor(SecondaryLightColorId, secondaryColor);
+                celestial.Direction.x, celestial.Direction.y, celestial.Direction.z, 0f));
+            _material.SetColor(SecondaryLightColorId, Color.black);
 
             _material.SetVector(FormationWeightsId, SolCloudController.Active.FormationWeights);
             _material.SetVector(SculptingId, new Vector4(
@@ -484,10 +466,16 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
             in SolCloudState state, SolCloudQuality quality, SolCloudController controller)
         {
             TimeOfDay time = TimeOfDay.ResolveInstance();
-            Light dominant = time != null ? time.DominantAtmosphereLight : null;
+            SolLightingFrame lightingFrame = SolLightingDirector.ResolveFrame();
+            SolCelestialLightBlend celestial = SolLightingResolver.ResolveCelestialBlend(
+                lightingFrame.Sun, lightingFrame.Moon, lightingFrame.DayFactor);
+            Light dominant = lightingFrame.Revision > 0UL
+                ? lightingFrame.DominantLight
+                : time != null ? time.DominantAtmosphereLight : null;
             bool enabled = (_profile == null || _profile.enableWorldCloudShadows)
                 && dominant != null
                 && dominant.type == LightType.Directional
+                && celestial.ShadowStrength > 0.0001f
                 && _material != null;
             if (!enabled)
             {
@@ -558,7 +546,9 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
                 || _shadowRevision != controller.HistoryRevision;
 
             float strength = Mathf.Clamp01(
-                (_profile != null ? _profile.worldShadowStrength : 0.85f) * state.ShadowStrength);
+                (_profile != null ? _profile.worldShadowStrength : 0.85f)
+                * state.ShadowStrength
+                * celestial.ShadowStrength);
 
             if (regenerate)
             {

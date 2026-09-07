@@ -44,6 +44,16 @@ namespace Sol.Water.Rendering
         /// </summary>
         const float PatchBoundsHeight = 10f;
 
+        /// <summary>
+        /// How far past the quadtree the horizon ring reaches, as a multiple of the root
+        /// size. The tree covers +/- rootSize about the camera -- 8192 m with the shipped
+        /// 8 km horizon distance -- and past that there is simply no ocean, which from
+        /// altitude, or in a scene view whose far plane reaches that far, reads as the sea
+        /// stopping along a straight line. Eight puts the outer edge near 65 km, past any
+        /// practical far plane, for four flat instanced quads.
+        /// </summary>
+        const float HorizonRingExtent = 8f;
+
         internal sealed class DrawSet
         {
             // Sized above MaximumLeaves so the ceiling, not the array, is what bounds the
@@ -166,9 +176,53 @@ namespace Sol.Water.Rendering
                     node.Size, quality.clipmapPatchResolution, edgeMask, node.Level);
             }
 
+            AppendHorizonRing(set, quality, anchorX, anchorZ, ocean.SurfaceLevel);
             PrepareProperties(set, ocean, skirtDepth);
             Prune();
             return set;
+        }
+
+        /// <summary>
+        /// Four flat quads forming an annulus immediately outside the quadtree, so the
+        /// clipmap's extent is not a visible edge. They are ordinary patch instances in the
+        /// same draw set, so they inherit the prepass, the forward pass and the depth-write
+        /// pass without a change at any draw site, and they resolve against the rest of the
+        /// water through the same nearest-surface prepass. A level of -1 marks them for
+        /// SolOcean.shader, which drops waves, edge morphing, foam and the skirt.
+        ///
+        /// The four rectangles tile the annulus exactly: north and south span the full outer
+        /// width, east and west fill only the inner height between them. No overlap, so the
+        /// prepass never has two coplanar water surfaces to choose between, and no gap.
+        /// </summary>
+        void AppendHorizonRing(DrawSet set, SolWaterQualityProfile quality,
+            float anchorX, float anchorZ, float surfaceLevel)
+        {
+            if (_rootSize <= 0f || set.Count + 4 > set.Matrices.Length)
+                return;
+            float inner = _rootSize;
+            float outer = inner * HorizonRingExtent;
+            float band = outer - inner;
+            float middle = (inner + outer) * 0.5f;
+            AddHorizonQuad(set, quality,
+                new Vector3(anchorX, surfaceLevel, anchorZ + middle), outer * 2f, band);
+            AddHorizonQuad(set, quality,
+                new Vector3(anchorX, surfaceLevel, anchorZ - middle), outer * 2f, band);
+            AddHorizonQuad(set, quality,
+                new Vector3(anchorX + middle, surfaceLevel, anchorZ), band, inner * 2f);
+            AddHorizonQuad(set, quality,
+                new Vector3(anchorX - middle, surfaceLevel, anchorZ), band, inner * 2f);
+        }
+
+        void AddHorizonQuad(DrawSet set, SolWaterQualityProfile quality,
+            Vector3 center, float sizeX, float sizeZ)
+        {
+            int instance = set.Count++;
+            set.Matrices[instance] = Matrix4x4.TRS(center, Quaternion.identity,
+                new Vector3(sizeX, 1f, sizeZ));
+            // Edge mask 0: a flat ring has no coarser neighbour to stitch to, and the shader
+            // reads that as "no morph, no skirt". Level -1 is the horizon marker itself.
+            set.PatchData[instance] = new Vector4(Mathf.Max(sizeX, sizeZ),
+                quality.clipmapPatchResolution, 0f, -1f);
         }
 
         void BuildQuadtree(float anchorX, float anchorZ, int maxDepth, float minimumSize,

@@ -172,38 +172,32 @@ MonoBehaviour:
     5: TerrainLayer_Sand'
   terrainDataGuid: f84f6a7ab8a3ff74e812806a2c749d38
   bakeFingerprints:
-  - formatVersion: 2
-    terrainLayerGuid: 8033c16da03aa20499177be34180b3f5
+  - terrainLayerGuid: 8033c16da03aa20499177be34180b3f5
     diffuseTextureGuid: 99d8fd3a3e5b5a343a1baffcf9a15553
     normalTextureGuid: 21f70b020d1f9b84b90e3bd4bac6f687
     maskTextureGuid: 97b4a5092b7298f409401470c4ff49c5
     dependencyHash: 9412b7db8320be064c82820585d3f920;fba23ffb56b2123da03a55cc1542f60b;d74a3ba1871e43771d6071c27648398b;bcb29763c210b967a8e55a5c43f140c1;
-  - formatVersion: 2
-    terrainLayerGuid: febad0385aafec84b8e67fb2bea5f899
+  - terrainLayerGuid: febad0385aafec84b8e67fb2bea5f899
     diffuseTextureGuid: b686e6ffdfe08f145ac128db17c736cd
     normalTextureGuid: 52c1982796b60d94c8ad87d5ad0996f9
     maskTextureGuid: 352e816c1d9db12439d3da5efdf01661
     dependencyHash: e961a8489e283264cab347c5fd41b09d;a2e0fff81a981c3cfd1c724a36999e8e;7a18c2605139cb2a8741c077fb818e4a;221c1d34051049444794cf77c56b87fe;
-  - formatVersion: 2
-    terrainLayerGuid: e2af33b475befff4bbe27d8aaa28bc06
+  - terrainLayerGuid: e2af33b475befff4bbe27d8aaa28bc06
     diffuseTextureGuid: 26538b861747e164c971ddd493f388fa
     normalTextureGuid: bf879aef3d7f5a34b8bef736dd793279
     maskTextureGuid: 894b58b83fabb2c44b328aab47193cff
     dependencyHash: 1b591aa662c88e91d3339e01a3bf31c2;9b96cc7dedacfcb98dd1ec052975afdd;9375b6473ae9d2c78d15a1d368258a34;06390f64551984f03a26ea757f164d2a;
-  - formatVersion: 2
-    terrainLayerGuid: 85d660bb8810e6a4fb18fe58151896a6
+  - terrainLayerGuid: 85d660bb8810e6a4fb18fe58151896a6
     diffuseTextureGuid: f2257262335fb9d4a8d0033a8752fa95
     normalTextureGuid: f44f108cab5a40c49be80976e195c12a
     maskTextureGuid: ca4891785ba14a0479d6924d640396d5
     dependencyHash: f58b83a0874c986d11424b7b7b80833e;4f5f0244f80da9732c7a07d2b9067546;b454a458a2f48308758740fd89bf91da;bf42fb0a145973116334c5d13b54327f;
-  - formatVersion: 2
-    terrainLayerGuid: ed3e382dd3266e44280159dfab3b4cc3
+  - terrainLayerGuid: ed3e382dd3266e44280159dfab3b4cc3
     diffuseTextureGuid: 10cde3e41ca396344aeb75f5f9923a53
     normalTextureGuid: 1f7139fc82c5f3c449ac169baa8c49fc
     maskTextureGuid: dd7c4fdd522a9c24f927839fa4c873e6
     dependencyHash: c3528bd9c7ceb54c23f1f26f5472a407;36bafe6829176a22be916823ec8c42a2;582483acfb40bb1b49200758a331d920;e27ece88d0fabe966f91466bf07c967d;
-  - formatVersion: 2
-    terrainLayerGuid: dae36a1c7e280804d8a4651d620db995
+  - terrainLayerGuid: dae36a1c7e280804d8a4651d620db995
     diffuseTextureGuid: 3721383f9a1cc554bb5b74a93034f311
     normalTextureGuid: b2e60aff63abba042a9649ca84d25303
     maskTextureGuid: 2876a04217e02d044b3a0b65126dd94b

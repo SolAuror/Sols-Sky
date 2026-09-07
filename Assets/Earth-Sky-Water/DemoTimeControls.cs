@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+using Sol.Lighting;
 using Sol.ToD;
 
 /// <summary>
@@ -22,6 +23,7 @@ public class DemoTimeControls : MonoBehaviour
     [SerializeField] SolWeatherManager weatherManager;
     [SerializeField] SolRainVfxController rainController;
     [SerializeField] SolAtmosphereController atmosphereController;
+    [SerializeField] SolLightingDirector lightingDirector;
     [SerializeField, Min(1f)] float normalSpeedFallback = 1f;
 
     static readonly Color ButtonColor = new(0.18f, 0.22f, 0.32f, 0.94f);
@@ -129,8 +131,16 @@ public class DemoTimeControls : MonoBehaviour
 
         BindButton(environmentRow, "Weather", NextWeather);
         BindButton(environmentRow, "Rain", CycleRainExposure);
-        BindButton(environmentRow, "Cloud", CycleCloudQuality);
-        BindButton(environmentRow, "Fog", CycleFogQuality);
+        Button qualityButton = BindButton(environmentRow, "Cloud", CycleLightingQuality);
+        TMP_Text qualityLabel = qualityButton != null
+            ? qualityButton.GetComponentInChildren<TMP_Text>()
+            : null;
+        if (qualityLabel != null)
+            qualityLabel.text = "Quality";
+
+        Button obsoleteFogButton = FindButton(environmentRow, "Fog");
+        if (obsoleteFogButton != null)
+            obsoleteFogButton.gameObject.SetActive(false);
         Button statusButton = FindButton(environmentRow, "EnvironmentStatus");
         environmentStatus = statusButton != null
             ? statusButton.GetComponentInChildren<TMP_Text>()
@@ -252,16 +262,20 @@ public class DemoTimeControls : MonoBehaviour
     {
         environmentReferenceRetryTimer -= Time.unscaledDeltaTime;
         if (environmentReferenceRetryTimer > 0f &&
-            (weatherManager == null || rainController == null || atmosphereController == null))
+            (weatherManager == null || rainController == null ||
+             atmosphereController == null || lightingDirector == null))
             return;
 
-        bool missingReference = weatherManager == null || rainController == null || atmosphereController == null;
+        bool missingReference = weatherManager == null || rainController == null ||
+                                atmosphereController == null || lightingDirector == null;
         weatherManager ??= SolWeatherManager.Instance;
         rainController ??= FindFirstObjectByType<SolRainVfxController>();
         atmosphereController ??= SolAtmosphereController.Active;
+        lightingDirector ??= SolLightingDirector.Resolve(timeOfDay, createIfMissing: timeOfDay != null);
 
         if (missingReference &&
-            (weatherManager == null || rainController == null || atmosphereController == null))
+            (weatherManager == null || rainController == null ||
+             atmosphereController == null || lightingDirector == null))
             environmentReferenceRetryTimer = 0.5f;
     }
 
@@ -280,17 +294,13 @@ public class DemoTimeControls : MonoBehaviour
         rainController.SetRainExposure(next);
     }
 
-    void CycleCloudQuality()
-    {
-        if (timeOfDay == null) return;
-        timeOfDay.CloudQuality = (SolCloudQuality)(((int)timeOfDay.CloudQuality + 1) % 3);
-    }
-
-    void CycleFogQuality()
+    void CycleLightingQuality()
     {
         ResolveEnvironmentReferences();
-        if (atmosphereController == null) return;
-        atmosphereController.SetQuality((SolAtmosphereQuality)(((int)atmosphereController.Quality + 1) % 3));
+        if (lightingDirector == null) return;
+        SolLightingQualityTier next =
+            (SolLightingQualityTier)(((int)lightingDirector.ActiveTier + 1) % 3);
+        lightingDirector.SetTier(next);
     }
 
     void RefreshEnvironmentStatus()
@@ -300,8 +310,9 @@ public class DemoTimeControls : MonoBehaviour
             ? weatherManager.TargetProfile.name
             : "None";
         float rain = rainController != null ? rainController.RainExposure : 0f;
-        string cloud = timeOfDay != null ? timeOfDay.CloudQuality.ToString()[0].ToString() : "-";
-        string fog = atmosphereController != null ? atmosphereController.Quality.ToString()[0].ToString() : "-";
+        string quality = lightingDirector != null
+            ? lightingDirector.ActiveTier.ToString()[0].ToString()
+            : "-";
         string season = timeOfDay != null && timeOfDay.Calendar != null
             ? timeOfDay.Calendar.CurrentSeason switch
             {
@@ -316,7 +327,7 @@ public class DemoTimeControls : MonoBehaviour
         float turbulence = weatherManager != null ? weatherManager.CurrentState.WaterTurbulence : 0f;
         float cloudWind = Sol.Environment.SolEnvironmentWorld.ResolveState().Wind.CloudSpeed;
         float lunarTide = timeOfDay != null ? timeOfDay.LunarTideFactor : 0f;
-        string status = $"{weather} {season} R:{rain:0.0} W:{cloudWind:0.0} F:{dailyFog:0.00} M:{mist:0.00} T:{turbulence:0.00} L:{lunarTide:0.00} C:{cloud}/{fog}";
+        string status = $"{weather} {season} Q:{quality} R:{rain:0.0} W:{cloudWind:0.0} F:{dailyFog:0.00} M:{mist:0.00} T:{turbulence:0.00} L:{lunarTide:0.00}";
         if (status == lastEnvironmentStatus)
             return;
 

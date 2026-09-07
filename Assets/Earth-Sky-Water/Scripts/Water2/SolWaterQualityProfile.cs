@@ -26,6 +26,17 @@ namespace Sol.Water
             + "the profile's authored Gerstner waves.")]
         public SolWaterQualityTier tier = SolWaterQualityTier.Medium;
 
+        [System.NonSerialized] SolWaterQualityTier? _runtimeTierOverride;
+
+        /// <summary>Effective tier after the lighting director's non-destructive override.</summary>
+        public SolWaterQualityTier ActiveTier => _runtimeTierOverride ?? tier;
+
+        public void SetTierOverride(SolWaterQualityTier value)
+            => _runtimeTierOverride = value;
+
+        public void ClearTierOverride()
+            => _runtimeTierOverride = null;
+
         [Header("Ocean Geometry")]
         [Tooltip("Vertices per side of one clipmap patch. Rounded up to an even number. "
             + "This is the single biggest ocean vertex cost.")]
@@ -114,7 +125,7 @@ namespace Sol.Water
         /// FFT texture resolution per cascade, or 0 when the tier has no spectrum and the
         /// surface is driven by the profile's authored Gerstner waves instead.
         /// </summary>
-        public int FftResolution => tier switch
+        public int FftResolution => ActiveTier switch
         {
             SolWaterQualityTier.Low => 0,
             SolWaterQualityTier.Medium => 128,
@@ -122,7 +133,7 @@ namespace Sol.Water
         };
 
         /// <summary>Spectral cascades simulated, or 0 on a tier with no spectrum.</summary>
-        public int FftCascadeCount => tier switch
+        public int FftCascadeCount => ActiveTier switch
         {
             SolWaterQualityTier.Low => 0,
             SolWaterQualityTier.Medium => 2,

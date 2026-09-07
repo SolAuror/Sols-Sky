@@ -202,7 +202,7 @@ namespace Sol.Water
                 // instead of a fixed tier constant: a steep, near-breaking wave is
                 // genuinely a less reliable sample than calm water.
                 Mathf.Min(
-                    qualityProfile != null && qualityProfile.tier != SolWaterQualityTier.Low
+                    qualityProfile != null && qualityProfile.ActiveTier != SolWaterQualityTier.Low
                         ? 0.9f : 1f,
                     SolWaterDisplacementInversion.ConfidenceFromResidual(inversionResidual)));
             // Keep the canonical frame construction in the query authority so gameplay

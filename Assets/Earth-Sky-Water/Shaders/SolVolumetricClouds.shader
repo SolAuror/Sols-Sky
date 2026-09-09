@@ -8,6 +8,7 @@ Shader "Hidden/Sol/VolumetricClouds"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
         #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+        #include "../Water/Shaders/SolCelestialLighting.hlsl"
 
         TEXTURE2D(_SolCloudShapeTexture);
         SAMPLER(sampler_SolCloudShapeTexture);
@@ -31,10 +32,9 @@ Shader "Hidden/Sol/VolumetricClouds"
         float4 _SolCloudPreviousOffsetDelta;
         float4 _SolCloudVariationWeights;
         float4 _SolCloudWind;            // direction xyz, cloud-layer speed m/s
+        float _SolCloudAdvectionSpeed;   // effective translated speed after profile multiplier
+        float _SolCloudRenderScale;
         float4 _SolCloudLightDirection;
-        float4 _SolCloudLightColor;
-        float4 _SolCloudSecondaryLightDirection;
-        float4 _SolCloudSecondaryLightColor;
         float4 _SolCloudAmbientColor;
         float4 _SolCloudAmbientGround;
         float4 _SolCloudOptics;          // forward g, backward g, backward weight, ambient
@@ -42,6 +42,7 @@ Shader "Hidden/Sol/VolumetricClouds"
         float4 _SolCloudFormationWeights; // cumulus, stratus, nimbostratus, cumulonimbus
         float4 _SolCloudSculpting;       // sculpting, base lobe, multi-scatter, inner glow
         float4 _SolCloudStructure;       // scale metres, influence, warp, surface gradient
+        float _SolCloudTileBreakup;      // decorrelated second shape-volume sample weight
         float4 _SolCloudDefinition;      // edge softness, base softness, coverage bias, curl
         float _SolCloudDistanceGain;     // extra density on distant banks
         float4 _SolCloudDetailDistance;  // micro fade start/end, max light march, gradient enabled
@@ -62,7 +63,6 @@ Shader "Hidden/Sol/VolumetricClouds"
         // near-horizon ray from stepping in kilometres, small enough that the far field
         // still reaches the end of the shell within the step budget.
         #define SOL_CLOUD_STEP_GROWTH 10.0
-        #define SOL_CLOUD_GOLDEN_RATIO 0.6180339887
         // The sun march only has to cross the optically relevant part of the deck. Bounding
         // it by layer thickness rather than by the shell exit keeps the stride short enough
         // that a handful of samples still describes a gradient: a grazing-sun shell exit is
@@ -74,6 +74,35 @@ Shader "Hidden/Sol/VolumetricClouds"
         // Erosion is invisible behind an almost opaque body, so the detail volume fetch is
         // dropped once the view ray is mostly absorbed.
         #define SOL_CLOUD_DETAIL_CUTOFF 0.5
+
+        // Integer avalanche hash. InterleavedGradientNoise is deliberately patterned; the
+        // cloud pass used to address it with full-resolution coordinates while rendering at
+        // half resolution, selecting every other hash cell and exposing its diagonal lattice.
+        // Hash the actual cloud pixel and march step instead so any residual undersampling is
+        // decorrelated noise that temporal accumulation can remove.
+        uint SolCloudHash(uint value)
+        {
+            value ^= value >> 16;
+            value *= 0x7feb352du;
+            value ^= value >> 15;
+            value *= 0x846ca68bu;
+            value ^= value >> 16;
+            return value;
+        }
+
+        float SolCloudStepJitter(uint2 pixel, uint stepIndex, uint frameIndex)
+        {
+            uint seed = pixel.x * 0x9e3779b9u
+                ^ pixel.y * 0x85ebca6bu
+                ^ stepIndex * 0xc2b2ae35u
+                ^ frameIndex * 0x27d4eb2fu;
+            return (SolCloudHash(seed) & 0x00ffffffu) * (1.0 / 16777216.0);
+        }
+
+        float2 SolCloudBufferSize()
+        {
+            return max(ceil(_ScaledScreenParams.xy * _SolCloudRenderScale), 1.0);
+        }
 
         float SolCloudRawDepthIsSky(float rawDepth)
         {
@@ -262,6 +291,32 @@ Shader "Hidden/Sol/VolumetricClouds"
                 float4 shapeVariants = SAMPLE_TEXTURE3D_LOD(_SolCloudShapeVolume,
                     sampler_SolCloudShapeVolume, volumeUVW,
                     min(sampleLod, 2.0));
+                // A single periodic 3D lookup exposes the baked volume's repeat in broad,
+                // side-lit masses. Re-sample it through a non-integer scale and a second
+                // rotation, with offsets driven by the packed 2D structure map. The two
+                // domains do not realign over a normal view range, and no new asset is needed.
+                if (_SolCloudTileBreakup > 0.001)
+                {
+                    float2 breakupWarp = float2(authoredWarp.y, -authoredWarp.x) * 1.7
+                        + float2(weather.g - 0.5, 0.5 - weather.r) * 0.23;
+                    float2 breakupHorizontal = float2(
+                        shapeUV.x * 0.75471 - shapeUV.y * 0.65606,
+                        shapeUV.x * 0.65606 + shapeUV.y * 0.75471);
+                    breakupHorizontal = breakupHorizontal * 0.731
+                        + breakupWarp + float2(0.173, 0.619);
+                    float breakupHeight = volumeHeight * 0.817
+                        + dot(authoredWarp, float2(0.43, -0.31)) + 0.347;
+                    float4 breakupVariants = SAMPLE_TEXTURE3D_LOD(_SolCloudShapeVolume,
+                        sampler_SolCloudShapeVolume,
+                        float3(breakupHorizontal.x, breakupHeight, breakupHorizontal.y),
+                        min(sampleLod + 0.2, 2.0));
+                    shapeVariants = lerp(shapeVariants, breakupVariants,
+                        _SolCloudTileBreakup);
+                    // Averaging independent fields narrows their range. Restore only that
+                    // lost contrast so the existing coverage thresholds retain their tuning.
+                    shapeVariants = saturate((shapeVariants - 0.5)
+                        * (1.0 + _SolCloudTileBreakup * 0.32) + 0.5);
+                }
                 baseShape = dot(shapeVariants, _SolCloudVariationWeights);
                 float meanShape = dot(shapeVariants, float4(0.25, 0.25, 0.25, 0.25));
                 float4 deviation = shapeVariants - meanShape;
@@ -414,11 +469,11 @@ Shader "Hidden/Sol/VolumetricClouds"
             return max(0.0, exitDistance);
         }
 
-        float SolCloudLightTransmittance(float3 positionWS, float sampleLod,
+        float SolCloudLightTransmittance(float3 positionWS, float3 lightDirection,
+            float sampleLod, int lightSteps,
             out float opticalDepth)
         {
             opticalDepth = 0.0;
-            int lightSteps = (int)_SolCloudLighting.z;
             if (lightSteps <= 0)
                 return 1.0;
 
@@ -426,7 +481,7 @@ Shader "Hidden/Sol/VolumetricClouds"
             // step-count times a fixed stride. A thirty-kilometre cap bounds grazing-sun
             // variance while still integrating the optically relevant part of the deck.
             float marchLength = min(min(SolCloudShellExitDistance(
-                positionWS, _SolCloudLightDirection.xyz), _SolCloudDetailDistance.z),
+                positionWS, lightDirection), _SolCloudDetailDistance.z),
                 _SolCloudLayer.y * SOL_CLOUD_LIGHT_MARCH_THICKNESS);
             if (marchLength <= 0.0)
                 return 1.0;
@@ -441,7 +496,7 @@ Shader "Hidden/Sol/VolumetricClouds"
             {
                 if (i >= lightSteps) break;
                 float3 samplePosition = positionWS
-                    + _SolCloudLightDirection.xyz
+                    + lightDirection
                     * (stepLength * (i + 0.5 + stratumJitter * 0.7));
                 // Keep macro and authored mesostructure in illumination. Only the finest
                 // erosion volume is skipped, aligning shadows with visible lobes.
@@ -494,34 +549,35 @@ Shader "Hidden/Sol/VolumetricClouds"
             // long tangent steps aliases the baked voxels into a distant checker/grid.
             // The footprint now changes per step, so the mip has to follow it.
             float shapeVoxelMetres = max(1.0, _SolCloudScales.x / 96.0);
-            float jitter = InterleavedGradientNoise(uv * _ScaledScreenParams.xy,
-                (uint)_SolCloudTemporalParams.z);
+            float2 cloudSize = SolCloudBufferSize();
+            uint2 cloudPixel = (uint2)min(floor(uv * cloudSize), cloudSize - 1.0);
+            uint temporalFrame = (uint)_SolCloudTemporalParams.z;
             float distanceAlongRay = startDistance;
             float transmittance = 1.0;
             float3 radiance = 0.0;
             float lightOpticalDepthAccumulation = 0.0;
             // Carried so a step that is too deeply buried to justify its own sun march can
             // reuse the last one that was worth paying for.
-            float previousLightTransmittance = 1.0;
-            float previousLightOpticalDepth = 0.0;
+            float previousLightTransmittance[SOL_MAX_CELESTIAL_LIGHTS];
+            float previousLightOpticalDepth[SOL_MAX_CELESTIAL_LIGHTS];
+            float phases[SOL_MAX_CELESTIAL_LIGHTS];
+            int celestialCount = min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS);
+            [loop] for (int body = 0; body < celestialCount; body++)
+            {
+                previousLightTransmittance[body] = 1.0;
+                previousLightOpticalDepth[body] = 0.0;
+                float cosine = dot(viewDirection, _SolCelestialDirections[body].xyz);
+                phases[body] = lerp(SolCloudPhase(cosine, _SolCloudOptics.x),
+                    SolCloudPhase(cosine, _SolCloudOptics.y), _SolCloudOptics.z);
+            }
             float3 debugStructure = 0.0;
             float debugWeight = 0.0;
-            float surfaceRelief = 1.0;
+            float3 outwardNormal = 0.0;
             bool gradientEvaluated = false;
-            float phaseCosine = dot(viewDirection, _SolCloudLightDirection.xyz);
-            float phase = lerp(SolCloudPhase(phaseCosine, _SolCloudOptics.x),
-                SolCloudPhase(phaseCosine, _SolCloudOptics.y), _SolCloudOptics.z);
 
             // Storm response is driven by the weather simulation's precipitation, not by any
             // cloud-state field: SolCloudState carries no precipitation term.
             float storm = saturate(_SolCloudStorm.x * _SolCloudStorm.y);
-            // The secondary body reuses the primary's transmittance rather than paying for a
-            // second light march. It is a low-strength handover fill, not a key light, so the
-            // shared occlusion is not visible.
-            float secondaryCosine = dot(viewDirection, _SolCloudSecondaryLightDirection.xyz);
-            float3 secondaryFill = _SolCloudSecondaryLightColor.rgb
-                * SolCloudPhase(secondaryCosine, _SolCloudOptics.x) * _SolCloudStorm.z;
-            float sunFacing = saturate(phaseCosine * 0.5 + 0.5);
             // Constant along the ray, so it is resolved once rather than per step.
             float flashFocus = saturate(dot(viewDirection,
                 _SolCloudLightning.xyz) * 0.5 + 0.5);
@@ -543,7 +599,8 @@ Shader "Hidden/Sol/VolumetricClouds"
                 // same set of shells, so the banding survives as a coherent pattern that
                 // temporal reprojection then happily preserves. Stratifying each step
                 // within its own segment turns the residue into noise the history resolves.
-                float stepJitter = frac(jitter + stepIndex * SOL_CLOUD_GOLDEN_RATIO);
+                float stepJitter = SolCloudStepJitter(
+                    cloudPixel, (uint)stepIndex, temporalFrame);
                 float3 positionWS = _WorldSpaceCameraPos
                     + viewDirection * (distanceAlongRay + stepLength * stepJitter);
                 float4 densityBreakdown;
@@ -560,20 +617,6 @@ Shader "Hidden/Sol/VolumetricClouds"
                     // density evaluations of its own, each costing three or four texture
                     // fetches. Once the view ray is this far absorbed the marched result is
                     // indistinguishable from the previous step's, so it is carried forward.
-                    float lightOpticalDepth;
-                    float lightTransmittance;
-                    if (transmittance > SOL_CLOUD_LIGHT_MARCH_CUTOFF)
-                    {
-                        lightTransmittance = SolCloudLightTransmittance(positionWS,
-                            sampleLod, lightOpticalDepth);
-                        previousLightTransmittance = lightTransmittance;
-                        previousLightOpticalDepth = lightOpticalDepth;
-                    }
-                    else
-                    {
-                        lightTransmittance = previousLightTransmittance;
-                        lightOpticalDepth = previousLightOpticalDepth;
-                    }
                     float powder = 1.0 - exp(-density * _SolCloudLighting.x * 2.0);
 
                     if (!gradientEvaluated && density > 0.035
@@ -584,25 +627,10 @@ Shader "Hidden/Sol/VolumetricClouds"
                         float gradientLength = length(macroGradient);
                         if (gradientLength > 0.000001)
                         {
-                            float3 outwardNormal = -macroGradient / gradientLength;
-                            float lightFacing = saturate(dot(outwardNormal,
-                                _SolCloudLightDirection.xyz) * 0.5 + 0.5);
-                            float sculptedFormation = saturate(dot(
-                                _SolCloudFormationWeights, float4(1.0, 0.08, 0.2, 1.0)));
-                            surfaceRelief = lerp(1.0,
-                                lerp(0.86, 1.18, lightFacing),
-                                _SolCloudStructure.w * sculptedFormation);
+                            outwardNormal = -macroGradient / gradientLength;
                         }
                         gradientEvaluated = true;
                     }
-
-                    // Two scattering octaves. The second runs at half the extinction and a
-                    // flatter phase, standing in for light that has already bounced inside
-                    // the body. Single scattering alone integrates dense cloud to near-black
-                    // instead of leaving it a lit interior.
-                    float scatter = phase * lightTransmittance;
-                    float secondPhase = lerp(phase, 0.25 / PI, 0.5);
-                    scatter += _SolCloudSculpting.z * secondPhase * sqrt(lightTransmittance);
 
                     // Ambient is not one colour through a cloud: sky above, near-darkness in
                     // the body, and a restrained ground bounce underneath. The single flat
@@ -625,23 +653,42 @@ Shader "Hidden/Sol/VolumetricClouds"
                     ambient *= _SolCloudOptics.w * lerp(1.0, 0.22,
                         saturate(ambientOcclusion * _SolCloudDevelopment.w));
 
-                    // Broad diffused illumination bleeding out of sun-facing transition
-                    // regions. It peaks where the light is half absorbed and falls to zero at
-                    // both ends, so it reads as the reference's soft under-deck glow rather
-                    // than a sharp universal silver lining.
-                    float transitionBand = saturate(
-                        lightTransmittance * (1.0 - lightTransmittance) * 4.0);
-                    float innerGlow = transitionBand * sunFacing * _SolCloudSculpting.w
-                        * saturate(1.0 - lightOpticalDepth * 0.08);
-
-                    float stormLightAbsorption = exp(-lightOpticalDepth
-                        * storm * _SolCloudStorm.x * 0.16);
-
-                    float3 lighting = _SolCloudLightColor.rgb
-                        * (scatter * (1.0 + powder) * surfaceRelief + innerGlow)
-                        * stormLightAbsorption
-                        + secondaryFill * lightTransmittance
-                        + ambient;
+                    float3 lighting = ambient;
+                    float lightOpticalDepth = columnAbove;
+                    [loop] for (int body = 0; body < celestialCount; body++)
+                    {
+                        float3 bodyDirection = _SolCelestialDirections[body].xyz;
+                        float bodyDepth = previousLightOpticalDepth[body];
+                        float bodyTransmittance = previousLightTransmittance[body];
+                        if (transmittance > SOL_CLOUD_LIGHT_MARCH_CUTOFF)
+                        {
+                            // Extra fantasy bodies use a two-tap occlusion march. Sun
+                            // and moon retain the authored quality budget independently.
+                            int taps = body < 2 ? (int)_SolCloudLighting.z
+                                : min(2, (int)_SolCloudLighting.z);
+                            bodyTransmittance = SolCloudLightTransmittance(positionWS,
+                                bodyDirection, sampleLod, taps, bodyDepth);
+                            previousLightTransmittance[body] = bodyTransmittance;
+                            previousLightOpticalDepth[body] = bodyDepth;
+                        }
+                        lightOpticalDepth = max(lightOpticalDepth, bodyDepth);
+                        float phase = phases[body];
+                        float scatter = phase * bodyTransmittance
+                            + _SolCloudSculpting.z * lerp(phase, 0.25 / PI, 0.5)
+                            * sqrt(bodyTransmittance);
+                        float lightFacing = saturate(dot(outwardNormal, bodyDirection) * 0.5 + 0.5);
+                        float sculptedFormation = saturate(dot(
+                            _SolCloudFormationWeights, float4(1.0, 0.08, 0.2, 1.0)));
+                        float surfaceRelief = lerp(1.0, lerp(0.86, 1.18, lightFacing),
+                            _SolCloudStructure.w * sculptedFormation * dot(outwardNormal, outwardNormal));
+                        float transitionBand = saturate(bodyTransmittance * (1.0 - bodyTransmittance) * 4.0);
+                        float bodyFacing = saturate(dot(viewDirection, bodyDirection) * 0.5 + 0.5);
+                        float innerGlow = transitionBand * bodyFacing * _SolCloudSculpting.w
+                            * saturate(1.0 - bodyDepth * 0.08);
+                        float absorption = exp(-bodyDepth * storm * _SolCloudStorm.x * 0.16);
+                        lighting += _SolCelestialColors[body].rgb
+                            * (scatter * (1.0 + powder) * surfaceRelief + innerGlow) * absorption;
+                    }
 
                     // Storm decks must go dark and grey without losing their lobes, so the
                     // residue is desaturated rather than only dimmed.
@@ -758,7 +805,7 @@ Shader "Hidden/Sol/VolumetricClouds"
                 maximumValue = max(maximumValue, max(max(tap0, tap1), max(tap2, tap3)));
                 float alphaNeighborhood = maximumValue.a - minimumValue.a;
                 float densityEdge = saturate(alphaNeighborhood * 4.0);
-                float motionResponse = saturate(_SolCloudWind.w / 30.0);
+                float motionResponse = saturate(_SolCloudAdvectionSpeed / 20.0);
                 // A flash changes the deck's internal lighting by far more than the
                 // neighbourhood clamp below can absorb, so reprojecting through one smears it
                 // across the following frames. Reject on the frame-to-frame change rather than
@@ -810,7 +857,7 @@ Shader "Hidden/Sol/VolumetricClouds"
             half4 FragComposite(Varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
-                float2 lowSize = max(ceil(_ScaledScreenParams.xy * 0.5), 1.0);
+                float2 lowSize = SolCloudBufferSize();
                 float2 lowPixel = uv * lowSize - 0.5;
                 float2 fraction = frac(lowPixel);
                 float2 basePixel = floor(lowPixel) + 0.5;

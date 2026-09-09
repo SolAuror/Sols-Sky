@@ -59,6 +59,17 @@ namespace Sol.Environment
 
         public static int Count => Contexts.Count;
 
+        /// <summary>Marks every screen-space history stale after a shared profile change.</summary>
+        public static void InvalidateAllHistories()
+        {
+            foreach (Context context in Contexts.Values)
+            {
+                context.CameraCut = true;
+                context.CloudHistorySignature = 0;
+                context.WaterReflectionSignature = 0;
+            }
+        }
+
         public static Context BeginCamera(Camera camera, Vector2Int pixelSize)
         {
             if (camera == null)
@@ -152,14 +163,14 @@ namespace Sol.Environment
             return context.AtmosphereHistory != null;
         }
 
-        /// <summary>Half-resolution radiance/transmittance history for volumetric clouds.</summary>
+        /// <summary>Quality-scaled radiance/transmittance history for volumetric clouds.</summary>
         public static bool EnsureCloudHistory(Context context,
-            RenderTextureDescriptor cameraDescriptor, int signature)
+            RenderTextureDescriptor cameraDescriptor, int width, int height, int signature)
         {
             if (context == null)
                 return false;
-            cameraDescriptor.width = Mathf.Max(1, (cameraDescriptor.width + 1) / 2);
-            cameraDescriptor.height = Mathf.Max(1, (cameraDescriptor.height + 1) / 2);
+            cameraDescriptor.width = Mathf.Max(1, width);
+            cameraDescriptor.height = Mathf.Max(1, height);
             cameraDescriptor.msaaSamples = 1;
             cameraDescriptor.depthBufferBits = 0;
             cameraDescriptor.depthStencilFormat = GraphicsFormat.None;

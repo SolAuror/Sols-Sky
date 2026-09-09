@@ -15,14 +15,14 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
   m_Fog: 0
-  m_FogColor: {r: 0.1659977, g: 0.10559807, b: 0.1981132, a: 1}
+  m_FogColor: {r: 0.66, g: 0.78, b: 0.92, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.0024411215
+  m_FogDensity: 0.0012205607
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.5532698, g: 0.7855212, b: 1.1475681, a: 1.2}
-  m_AmbientEquatorColor: {r: 0.82084674, g: 1.0322258, b: 1.1151121, a: 1.2}
-  m_AmbientGroundColor: {r: 0.52635866, g: 0.47349545, b: 0.42176902, a: 1.08}
+  m_AmbientSkyColor: {r: 0.1995, g: 0.4515, b: 0.86099994, a: 1}
+  m_AmbientEquatorColor: {r: 0.693, g: 0.81899995, b: 0.96599996, a: 1}
+  m_AmbientGroundColor: {r: 0.122849986, g: 0.189, b: 0.25515, a: 1}
   m_AmbientIntensity: 1
   m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.42, g: 0.48, b: 0.63, a: 1}
@@ -576,7 +576,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a83d2f7ae04ab6f4f99b0d85377be998, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolumePerSceneData
   serializedBakingSet: {fileID: 0}
   sceneGUID: 2a325984f48171d4d8cc669a97ae59a5
@@ -804,7 +804,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cded085d155cde949b60f67a11dbc3bd, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.ProbeVolume
   mode: 1
   size: {x: 1006.01, y: 6.0102005, z: 1006.01}
@@ -2975,6 +2975,7 @@ MonoBehaviour:
   minIntensity: 0.05
   moonColorNight: {r: 0.6, g: 0.7, b: 0.9, a: 1}
   moonMaxIntensity: 0.3
+  moonMinIntensity: 0.04
   lunarTiltDegrees: 5
   initialLunarPhase: 0.547
   initialNodalPhase: 0.3
@@ -3004,6 +3005,7 @@ MonoBehaviour:
   fogDayDensity: 0.0012
   fogNightDensity: 0.0024
   controlSkybox: 1
+  skyProfile: {fileID: 11400000, guid: d9ef5890999b4490a2b542925807658f, type: 2}
   skyZenithDay: {r: 0.47209862, g: 0.6711578, b: 0.9716981, a: 1}
   skyHorizonDay: {r: 0.69803923, g: 0.88058126, b: 0.9490196, a: 1}
   skyHorizonSunrise: {r: 1, g: 0.55, b: 0.2, a: 1}
@@ -3023,6 +3025,8 @@ MonoBehaviour:
   starIntensityNight: 20
   starPower: 50
   starHeight: 345
+  starTwinkleAmount: 0.65
+  starTwinkleSpeed: 1.25
   enableAurora: 1
   auroraNightChance: 0.3
   auroraIntensity: 1.2
@@ -3049,6 +3053,7 @@ MonoBehaviour:
   sunGlowFalloff: 4
   sunGlowIntensityDay: 1.4
   sunGlowIntensityNight: 0.1
+  sunGlowIntensityHorizon: 3
   coronaColor: {r: 1.5, g: 0.4, b: 0.15, a: 1}
   moonDiscSize: 0.9993
   moonLitColor: {r: 0.85, g: 0.9, b: 1, a: 1}
@@ -3056,6 +3061,17 @@ MonoBehaviour:
   moonTerminatorSharpness: 3
   hazeIntensityDay: 0.2
   hazeIntensityNight: 0.4
+  sunGlowWideWeight: 0.75
+  sunGlowWideFalloff: 0.6
+  sunAirMassExtinction: 0.35
+  horizonOcclusionLevel: 0
+  horizonOcclusionSoftness: 0.0035
+  horizonRefraction: 1
+  horizonFlatten: 0.45
+  horizonGlowRetention: 0.2
+  twilightBandIntensity: 1
+  earthShadowColor: {r: 0.45, g: 0.5, b: 0.7, a: 0.85}
+  beltOfVenusColor: {r: 0.55, g: 0.24, b: 0.26, a: 0.7}
   dayRatio: 0.6
   cycleDurationMinutes: 30
   timeScale: 1
@@ -3078,7 +3094,7 @@ MonoBehaviour:
   todManager: {fileID: 7289805970471111700}
   globalWaveSpeedMultiplier: 0.85
   windDirection: {x: 0.8944272, y: 0, z: 0.44721362}
-  windStrength: 0.35
+  windStrength: 0.325
   waterTurbulence: 0.05
   lunarResponseStrength: 0.12
   waterLevel: 0
@@ -3160,7 +3176,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 52306a121e286744791c4bdcbde1a2ad, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Water.SolTerrainShoreline
   terrains: []
   trackTerrainEdits: 1

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Sol.Environment;
+using Sol.ToD;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -663,6 +664,19 @@ namespace Sol.Water.Rendering
 
         internal static SolWaterSkyReflectionState Resolve()
         {
+            TimeOfDay timeOfDay = TimeOfDay.ResolveInstance();
+            SolSkyFrame frame = timeOfDay != null ? timeOfDay.CurrentSkyFrame : default;
+            if (frame.IsValid)
+            {
+                return new SolWaterSkyReflectionState(
+                    frame.Zenith, frame.Horizon, frame.Nadir,
+                    new Color(frame.Twilight.r, frame.Twilight.g, frame.Twilight.b,
+                        frame.TwilightFactor),
+                    frame.GradientParameters,
+                    new Vector4(frame.SunDirection.x, frame.SunDirection.y,
+                        frame.SunDirection.z, 1f));
+            }
+
             Color zenith = RenderSettings.ambientSkyColor;
             Color horizon = RenderSettings.ambientEquatorColor;
             Color nadir = RenderSettings.ambientGroundColor;

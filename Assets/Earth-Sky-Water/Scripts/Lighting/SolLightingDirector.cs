@@ -42,7 +42,9 @@ namespace Sol.Lighting
         [SerializeField] SolLightingQualityTier fallbackTier = SolLightingQualityTier.Medium;
 
         ulong _revision;
-        SolDominantLightKind _previousDominant;
+        readonly List<SolDirectionalLightState> _additionalCelestials = new(6);
+        readonly List<DirectionalLightSnapshot> _additionalSnapshots = new(6);
+        readonly SolCelestialLighting _celestialLighting = new();
         DirectionalLightSnapshot _sunSnapshot;
         DirectionalLightSnapshot _moonSnapshot;
         AmbientSnapshot _ambientSnapshot;
@@ -213,12 +215,19 @@ namespace Sol.Lighting
         {
             Restore(ref _sunSnapshot);
             Restore(ref _moonSnapshot);
+            for (int i = 0; i < _additionalSnapshots.Count; i++)
+            {
+                DirectionalLightSnapshot snapshot = _additionalSnapshots[i];
+                Restore(ref snapshot);
+            }
+            _additionalSnapshots.Clear();
+            _additionalCelestials.Clear();
+            SolCelestialLighting.Clear();
             _ambientSnapshot.Restore();
             if (timeOfDay != null)
                 timeOfDay.SetDominantAtmosphereLight(null);
             timeOfDay = null;
             CurrentFrame = default;
-            _previousDominant = SolDominantLightKind.None;
             RestoreManagedLights();
         }
 
@@ -257,8 +266,17 @@ namespace Sol.Lighting
                     source.SunLightingCandidate, attenuation);
                 SolDirectionalLightState moon = SolLightingResolver.ResolveDirectional(
                     source.MoonLightingCandidate, attenuation);
-                SolDominantLightKind dominant = SolLightingResolver.ResolveDominant(
-                    sun, moon, _previousDominant);
+                _additionalCelestials.Clear();
+                for (int i = 0; i < source.TertiaryPlanetCount; i++)
+                    _additionalCelestials.Add(SolLightingResolver.ResolveDirectional(
+                        source.GetTertiaryLightingCandidate(i), attenuation));
+                SolDirectionalLightState dominantState = SolLightingResolver.ResolveDominantState(
+                    sun, moon, _additionalCelestials, CurrentFrame.DominantLight);
+                SolDominantLightKind dominant = dominantState.Source == null
+                    ? SolDominantLightKind.None
+                    : dominantState.Source == sun.Source ? SolDominantLightKind.Sun
+                    : dominantState.Source == moon.Source ? SolDominantLightKind.Moon
+                    : SolDominantLightKind.AdditionalCelestial;
 
                 CurrentFrame = new SolLightingFrame(
                     ++_revision,
@@ -271,14 +289,16 @@ namespace Sol.Lighting
                     SolLightingResolver.ResolveCloudShadowStrength(cloudiness, weatherDim),
                     source.DayFactor,
                     Mathf.Max(source.SolarEclipseStrength, source.LunarEclipseStrength),
-                    lightning);
-                _previousDominant = dominant;
+                    lightning, dominantState);
             }
 
             using (ApplyMarker.Auto())
             {
                 ApplyFrame(source, CurrentFrame, ambientMode, applyAmbient);
-                ApplyCompatibilityGlobals(source, CurrentFrame);
+                ApplyAdditionalCelestials();
+                ApplyMainShadowTransition();
+                _celestialLighting.Publish(CurrentFrame, _additionalCelestials);
+                ApplyCompatibilityGlobals(source, CurrentFrame, _additionalCelestials);
             }
 
             using (SelectionMarker.Auto())
@@ -558,7 +578,7 @@ namespace Sol.Lighting
             light.color = state.Color;
             light.intensity = state.Intensity;
             light.lightmapBakeType = LightmapBakeType.Realtime;
-            light.shadows = LightShadows.Soft;
+            light.shadows = state.ShadowStrength > 0f ? LightShadows.Soft : LightShadows.None;
             light.shadowStrength = state.ShadowStrength;
             light.enabled = state.Enabled;
         }
@@ -575,6 +595,38 @@ namespace Sol.Lighting
             snapshot = DirectionalLightSnapshot.Capture(light);
         }
 
+        void ApplyAdditionalCelestials()
+        {
+            for (int i = 0; i < Mathf.Max(_additionalCelestials.Count, _additionalSnapshots.Count); i++)
+            {
+                DirectionalLightSnapshot snapshot = i < _additionalSnapshots.Count
+                    ? _additionalSnapshots[i] : default;
+                SolDirectionalLightState state = i < _additionalCelestials.Count
+                    ? _additionalCelestials[i] : default;
+                EnsureCaptured(ref snapshot, state.Source);
+                ApplyDirectional(state);
+                if (i < _additionalSnapshots.Count) _additionalSnapshots[i] = snapshot;
+                else _additionalSnapshots.Add(snapshot);
+            }
+            if (_additionalSnapshots.Count > _additionalCelestials.Count)
+                _additionalSnapshots.RemoveRange(_additionalCelestials.Count,
+                    _additionalSnapshots.Count - _additionalCelestials.Count);
+        }
+
+        void ApplyMainShadowTransition()
+        {
+            SolDirectionalLightState main = CurrentFrame.DominantState;
+            if (main.Source == null) return;
+            float competitor = 0f;
+            if (CurrentFrame.Sun.Source != main.Source) competitor = CurrentFrame.Sun.Score;
+            if (CurrentFrame.Moon.Source != main.Source) competitor = Mathf.Max(competitor, CurrentFrame.Moon.Score);
+            for (int i = 0; i < _additionalCelestials.Count; i++)
+                if (_additionalCelestials[i].Source != main.Source)
+                    competitor = Mathf.Max(competitor, _additionalCelestials[i].Score);
+            main.Source.shadowStrength = main.ShadowStrength
+                * SolLightingResolver.MainShadowVisibility(main.Score, competitor);
+        }
+
         static void Restore(ref DirectionalLightSnapshot snapshot)
         {
             if (snapshot.Captured && snapshot.Light != null)
@@ -582,19 +634,17 @@ namespace Sol.Lighting
             snapshot = default;
         }
 
-        static void ApplyCompatibilityGlobals(TimeOfDay source, in SolLightingFrame frame)
+        static void ApplyCompatibilityGlobals(TimeOfDay source, in SolLightingFrame frame,
+            IReadOnlyList<SolDirectionalLightState> additional)
         {
-            // Preserve the legacy water transition while Water 1 and Water 2 move to the
-            // explicit sun/moon frame. Once those shaders consume the shared clustered
-            // helper, these compatibility globals can map directly to DominantState.
+            // Compatibility consumers receive a real light direction. Direct water
+            // highlights use URP's independent main and additional directional lights.
             float day = frame.DayFactor;
-            Vector3 direction = Vector3.Slerp(frame.Moon.Direction, frame.Sun.Direction, day);
-            SolWaterManager water = SolWaterManager.Instance;
-            Color moonTint = water != null
-                ? water.moonlightColor
-                : new Color(0.45f, 0.55f, 0.75f);
-            Color moonlit = moonTint * (0.2f + 0.8f * source.MoonIllumination);
-            Color color = Color.Lerp(moonlit, frame.Sun.Color, day);
+            Vector3 direction = frame.DominantState.Direction;
+            Color color = (frame.Sun.Enabled ? frame.Sun.Radiance : Color.black)
+                + (frame.Moon.Enabled ? frame.Moon.Radiance : Color.black);
+            for (int i = 0; i < additional.Count; i++)
+                if (additional[i].Enabled) color += additional[i].Radiance;
 
             Shader.SetGlobalVector(SunDirectionId,
                 new Vector4(direction.x, direction.y, direction.z, 0f));

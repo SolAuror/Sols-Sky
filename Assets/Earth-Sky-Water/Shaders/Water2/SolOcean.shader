@@ -768,6 +768,19 @@ Shader "Sol/Water2/Ocean"
                     mainLight.color, mainLight.direction,
                     mainLight.shadowAttenuation * cloudShadow,
                     _SolWaterOptics.z);
+                if (_SolCelestialLightingActive > 0.5)
+                {
+                    float3 volumeLight = 0.5 * SolWaterDynamicSky(float3(0, 1, 0));
+                    [loop] for (int body = 0; body < min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS); body++)
+                    {
+                        float shadow = lerp(1.0, mainLight.shadowAttenuation * cloudShadow,
+                            _SolCelestialDirections[body].w);
+                        volumeLight += _SolCelestialColors[body].rgb
+                            * SolWaterSunElevationPhase(_SolCelestialDirections[body].xyz) * shadow;
+                    }
+                    scattering = 0.5 * _SolWaterShallowColor.rgb * saturate(volumeLight)
+                        * max(0.0, _SolWaterOptics.z);
+                }
                 // Volumetric scattering, when available, replaces the analytic term with
                 // a shadowed and caustic-modulated one. The analytic value stays as the
                 // floor so disabling the pass changes the detail, not the water colour.
@@ -815,6 +828,17 @@ Shader "Sol/Water2/Ocean"
                 float3 foamLighting = SolWaterDynamicSky(normalWS) * 0.55
                     + mainLight.color * lerp(0.15, 1.0, foamNdotL)
                     * mainLight.shadowAttenuation * cloudShadow;
+                if (_SolCelestialLightingActive > 0.5)
+                {
+                    foamLighting = SolWaterDynamicSky(normalWS) * 0.55;
+                    [loop] for (int body = 0; body < min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS); body++)
+                    {
+                        float bodyNdotL = saturate(dot(normalWS, _SolCelestialDirections[body].xyz));
+                        float shadow = lerp(1.0, mainLight.shadowAttenuation * cloudShadow,
+                            _SolCelestialDirections[body].w);
+                        foamLighting += _SolCelestialColors[body].rgb * lerp(0.15, 1.0, bodyNdotL) * shadow;
+                    }
+                }
                 // Ceiling only. A lower clamp made foam self-illuminate in shadow.
                 foamLighting = min(foamLighting, 1.15);
                 float3 litFoam = _SolWaterFoamColor.rgb * foamLighting
@@ -846,6 +870,20 @@ Shader "Sol/Water2/Ocean"
                     input.data.y, sunRoughness,
                     max(0.0, _SolWaterSunParams.x), max(0.0, _SolWaterSunParams.z),
                     SolWaterNormalVariance(normalWS));
+                if (_SolCelestialLightingActive > 0.5)
+                {
+                    sunSpecular = 0.0;
+                    float normalVariance = SolWaterNormalVariance(normalWS);
+                    [loop] for (int body = 0; body < min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS); body++)
+                    {
+                        float shadow = lerp(1.0, mainLight.shadowAttenuation * cloudShadow,
+                            _SolCelestialDirections[body].w);
+                        sunSpecular += SolWaterSunSpecular(normalWS, viewDirection,
+                            _SolCelestialDirections[body].xyz, _SolCelestialColors[body].rgb,
+                            shadow * lightning, input.data.y, sunRoughness,
+                            max(0.0, _SolWaterSunParams.x), max(0.0, _SolWaterSunParams.z), normalVariance);
+                    }
+                }
                 sunSpecular *= saturate((1.0 - foam) * sunFade);
                 sourceColor += sunSpecular;
                 sourceColor += SolWaterAdditionalSpecular(

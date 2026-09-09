@@ -287,7 +287,13 @@ public sealed class SolCloudController
         _historyRevision++;
     }
 
-    internal void InvalidateHistory() => _historyRevision++;
+    /// <summary>
+    /// Discard the temporal reconstruction. Public rather than internal because editor
+    /// tooling has to be able to call it: step counts, scales and history weights all
+    /// describe the accumulation itself, so an edit that kept the old history would blend
+    /// two different reconstructions of the deck together.
+    /// </summary>
+    public void InvalidateHistory() => _historyRevision++;
 
     internal SolCloudState Evaluate(SolCloudRenderingProfile profile)
     {
@@ -319,7 +325,7 @@ public sealed class SolCloudController
             : Time.deltaTime);
         Vector3 velocity = environment.Wind.CloudDirection * environment.Wind.CloudSpeed;
         float advectionMultiplier = profile != null
-            ? profile.cloudAdvectionMultiplier : 2f;
+            ? profile.cloudAdvectionMultiplier : 4f;
         Vector2 planarVelocity = new(velocity.x, velocity.z);
 
         long worldDay = timeOfDay != null ? timeOfDay.WorldDayIndex : 0L;

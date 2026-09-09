@@ -6,7 +6,7 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Sols_Water2_Demo.unity
+    path: Assets/Scenes/Elementa_Demo.unity
     guid: 970a509cd52153449bdbc3e7b5fe1ae1
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

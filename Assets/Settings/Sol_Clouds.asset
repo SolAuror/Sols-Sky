@@ -24,12 +24,13 @@ MonoBehaviour:
   weatherScaleMetres: 85000
   structureScaleMetres: 8000
   structureInfluence: 0.38
+  volumeTilingSuppression: 0.38
   curlWarpStrength: 0.6
   distanceDensityGain: 0.45
   structureWarpStrength: 0.12
   microDetailFadeStartMetres: 25000
   microDetailFadeEndMetres: 45000
-  cloudAdvectionMultiplier: 2
+  cloudAdvectionMultiplier: 4
   temporalRejectStartMetres: 35000
   temporalRejectEndMetres: 85000
   extinctionPerKilometre: 2.5
@@ -56,6 +57,9 @@ MonoBehaviour:
   mediumShadowFootprintMetres: 24000
   highShadowFootprintMetres: 32000
   worldShadowStrength: 0.85
+  lowRenderScale: 0.5
+  mediumRenderScale: 0.6
+  highRenderScale: 0.75
   lowViewSteps: 6
   mediumViewSteps: 48
   highViewSteps: 64

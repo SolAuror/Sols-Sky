@@ -17,8 +17,9 @@
         _StarIntensity ("Star Intensity", Float) = 50
         _StarPower     ("Star Power",     Float) = 30
         _StarRotation  ("Star Rotation (radians, driven by ToD)", Float) = 0
-        _StarTwinkleSpeed  ("Star Twinkle Speed",  Range(0, 10)) = 2
-        _StarTwinkleAmount ("Star Twinkle Amount", Range(0, 1))  = 0.35
+        _StarTwinkleSpeed  ("Star Twinkle Speed (cycles per second)",  Range(0, 5)) = 1.25
+        _StarTwinkleAmount ("Star Twinkle Amount", Range(0, 1))  = 0.65
+        [HideInInspector] _StarTime ("Star Presentation Time", Float) = 0
 
         [Header(Milky Way)]
         _GalaxyIntensity ("Milky Way Intensity", Range(0, 3)) = 0.6
@@ -33,8 +34,13 @@
         _SunDiscSize     ("Sun Disc Size",    Range(0.990, 0.9999)) = 0.9995
         _SunGlowFalloff  ("Sun Glow Falloff", Float)  = 8
         _SunGlowIntensity("Sun Glow Intensity", Float) = 1.5
+        _SunLimbDarkening("Sun Limb Darkening", Range(0, 1)) = 0.12
+        _CoronaPower("Corona Power", Range(1, 96)) = 24
         [HDR]
         _CoronaColor     ("Eclipse Corona Color", Color) = (1.5, 0.4, 0.15, 1)
+        _SunGlowWideWeight ("Wide Aureole Weight",   Range(0, 4)) = 0.75
+        _SunGlowWideFalloff("Wide Aureole Falloff",  Range(0.05, 4)) = 0.6
+        _SunExtinction     ("Air Mass Extinction",   Range(0, 1)) = 0.35
 
         [Header(Moon)]
         _MoonDirection   ("Moon Direction",   Vector) = (0, -1, 0, 0)
@@ -42,11 +48,25 @@
         _MoonDarkColor   ("Moon Dark Color",  Color)  = (0.01, 0.01, 0.02, 1)
         _MoonDiscSize    ("Moon Disc Size",   Range(0.990, 0.9999)) = 0.9993
         _MoonSharpness   ("Terminator Sharpness", Range(1, 10)) = 3
+        [NoScaleOffset] _MoonSurfaceTex ("Moon Surface", 2D) = "white" {}
+        _MoonSurfaceRotation ("Moon Surface Rotation", Range(0, 360)) = 0
 
         [Header(Eclipses)]
         _SolarEclipseFactor ("Solar Eclipse", Range(0, 1)) = 0
         _LunarEclipseFactor ("Lunar Eclipse", Range(0, 1)) = 0
         _EclipseTint        ("Lunar Eclipse Tint", Color)  = (0.6, 0.15, 0.1, 1)
+
+        [Header(Horizon)]
+        _HorizonLevel      ("Horizon Occlusion Level",      Range(-0.25, 0.25)) = 0
+        _HorizonSoftness   ("Horizon Occlusion Softness",   Range(0.0005, 0.05)) = 0.0035
+        _HorizonRefraction ("Refraction Strength",          Range(0, 4)) = 1
+        _HorizonFlatten    ("Low Body Flattening",          Range(0, 1)) = 0.45
+        _HorizonGlowFloor  ("Below Horizon Glow Retention", Range(0, 1)) = 0.2
+
+        [Header(Twilight)]
+        _EarthShadowColor  ("Earth Shadow Tint (A = strength)", Color) = (0.45, 0.5, 0.7, 0.85)
+        _BeltOfVenusColor  ("Belt of Venus (A = strength)",     Color) = (0.55, 0.24, 0.26, 0.7)
+        _TwilightIntensity ("Twilight Band Intensity", Range(0, 2)) = 1
 
         [Header(Clouds)]
         _CloudScale       ("Cloud Scale",       Float)          = 5
@@ -75,6 +95,7 @@
         _AuroraIntensity ("Aurora Intensity (driven by ToD)", Range(0, 3)) = 0
         _AuroraColor1    ("Aurora Low Color",  Color) = (0.1, 0.9, 0.45, 1)
         _AuroraColor2    ("Aurora High Color", Color) = (0.4, 0.2, 0.8, 1)
+        _AuroraElevation ("Aurora Elevation (min max softness)", Vector) = (0.08, 0.62, 0.08, 0)
 
         [Header(Atmosphere)]
         _HazeIntensity    ("Haze Intensity",    Range(0, 1))    = 0.15
@@ -102,6 +123,7 @@
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Hashes.hlsl"
+            #include "../../Water/Shaders/SolSkyCommon.hlsl"
 
             // ────────────────────────────────────────
             // OkLab perceptual color space
@@ -157,6 +179,7 @@
                 float  _StarRotation;
                 float  _StarTwinkleSpeed;
                 float  _StarTwinkleAmount;
+                float  _StarTime;
                 // Milky way
                 float  _GalaxyIntensity;
                 float4 _GalaxyColor1;
@@ -168,26 +191,50 @@
                 float  _SunDiscSize;
                 float  _SunGlowFalloff;
                 float  _SunGlowIntensity;
+                float  _SunLimbDarkening;
+                float  _CoronaPower;
                 float4 _CoronaColor;
+                float  _SunGlowWideWeight;
+                float  _SunGlowWideFalloff;
+                float  _SunExtinction;
                 // Moon
                 float4 _MoonDirection;
                 float4 _MoonColor;
                 float4 _MoonDarkColor;
                 float  _MoonDiscSize;
                 float  _MoonSharpness;
+                float  _MoonSurfaceRotation;
                 // Eclipses
                 float  _SolarEclipseFactor;
                 float  _LunarEclipseFactor;
                 float4 _EclipseTint;
-                // Shared animation clock (star twinkle and aurora).
+                // Cloud-derived aurora animation clock; stars use _StarTime.
                 float  _CloudTime;
                 // Aurora
                 float  _AuroraIntensity;
                 float4 _AuroraColor1;
                 float4 _AuroraColor2;
+                float4 _AuroraElevation;
                 // Atmosphere
                 float  _HazeIntensity;
+                // Horizon
+                float  _HorizonLevel;
+                float  _HorizonSoftness;
+                float  _HorizonRefraction;
+                float  _HorizonFlatten;
+                float  _HorizonGlowFloor;
+                // Twilight
+                float4 _EarthShadowColor;
+                float4 _BeltOfVenusColor;
+                float  _TwilightIntensity;
             CBUFFER_END
+
+            TEXTURE2D(_MoonSurfaceTex);
+            SAMPLER(sampler_MoonSurfaceTex);
+            TEXTURECUBE(_SolSkyStellarBackdrop);
+            SAMPLER(sampler_SolSkyStellarBackdrop);
+            float _SolSkyStellarBackdropActive;
+            float4 _SolSkyStellarParams; // milky way intensity, twinkle amount, reserved
 
             // ────────────────────────────────────────
             // Star gradient (HDR, linear RGB)
@@ -250,6 +297,14 @@
                 return OklabToLinear(col);
             }
 
+            float SolStarTwinkle(float phase)
+            {
+                float angle = _StarTime * _StarTwinkleSpeed * TWO_PI
+                            * lerp(0.75, 1.3, phase) + phase * TWO_PI;
+                float pulse = 0.65 * sin(angle) + 0.35 * sin(angle * 1.73 + phase * 9.0);
+                return 1.0 + pulse * _StarTwinkleAmount;
+            }
+
             // Point-star field on a 3D cell grid over the star dome.
             // Each cell may hold one star, jittered away from cell borders
             // so stars never clip at boundaries and only the containing
@@ -257,7 +312,10 @@
             // Returns chroma-normalized star color * brightness.
             float3 StarField(float3 sdir)
             {
-                float3 p = sdir * (_StarHeight * 0.3);
+                // Profiles authored with the former elevation-like default (-0.08)
+                // must still have visible stars when their cubemap is unavailable.
+                float gridScale = _StarHeight >= 1.0 ? _StarHeight : 100.0;
+                float3 p = sdir * (gridScale * 0.3);
                 float3 cellId = floor(p);
                 float3 f = frac(p);
 
@@ -279,8 +337,7 @@
                 float star    = pow(core, falloff);
 
                 // Per-star twinkle phase and speed.
-                float tw = 1.0 - _StarTwinkleAmount * (0.5 + 0.5 *
-                    sin((_CloudTime * 20.0) * (_StarTwinkleSpeed * (0.5 + h3)) + h1 * 40.0));
+                float tw = SolStarTwinkle(h3);
 
                 float brightness = star * (0.25 + 0.75 * h2 * h2) * tw;
 
@@ -292,35 +349,93 @@
             }
 
             // ────────────────────────────────────────
+            // Atmospheric optics
+            // ────────────────────────────────────────
+
+            // Zenith optical depth per channel: Rayleigh (0.008735 * lambda^-4.08 at
+            // 650/550/450 nm) plus a modest Angstrom aerosol term. Scaling this by the
+            // relative air mass is what turns a high white sun into a low red one
+            // without any authored colour ramp having to describe the transition.
+            static const float3 SOL_ZENITH_OPTICAL_DEPTH = float3(0.1385, 0.2101, 0.3702);
+
+            // Kasten-Young relative optical air mass for an apparent altitude, in
+            // degrees. 1 at the zenith, ~38 at the horizon. Altitudes below the horizon
+            // are clamped: the body is occluded there anyway, and letting the fit run
+            // past its domain inverts it.
+            float SolAirMass(float altitudeDegrees)
+            {
+                float h = max(altitudeDegrees, 0.0);
+                return 1.0 / (sin(radians(h)) + 0.50572 * pow(h + 6.07995, -1.6364));
+            }
+
+            // Extinction relative to a zenith body, so the authored disc colour keeps
+            // its meaning overhead and only the approach to the horizon changes it.
+            float3 SolAirMassExtinction(float altitudeDegrees, float strength)
+            {
+                float airMass = SolAirMass(altitudeDegrees);
+                return exp(-SOL_ZENITH_OPTICAL_DEPTH * strength * (airMass - 1.0));
+            }
+
+            // Bennett's astronomical refraction, in degrees, for a geometric altitude
+            // in degrees: 0.575 deg at the horizon, under 0.03 deg above 30 deg.
+            float SolRefractionDegrees(float altitudeDegrees)
+            {
+                float h = max(altitudeDegrees, -1.0);
+                return max(1.0 / tan(radians(h + 7.31 / (h + 4.4))), 0.0) / 60.0;
+            }
+
+            // ────────────────────────────────────────
             // Celestial disc helpers
             // ────────────────────────────────────────
 
-            // Smooth disc mask: 1 inside the disc, 0 outside, anti-aliased edge.
-            // `cosAngle` = dot(viewDir, bodyDir), `cosRadius` = disc size threshold.
-            float DiscMask(float cosAngle, float cosRadius)
+            // Horizon-aligned tangent frame around a body direction: `right` is
+            // horizontal, so the vertical axis of a disc built on this frame lines up
+            // with the horizon and can be squashed against it.
+            void SolBodyFrame(float3 bodyDir, out float3 right, out float3 up)
             {
-                float edge = fwidth(cosAngle) * 1.5;
-                return smoothstep(cosRadius - edge, cosRadius + edge, cosAngle);
+                float3 reference = abs(bodyDir.y) < 0.999 ? float3(0, 1, 0) : float3(1, 0, 0);
+                right = normalize(cross(reference, bodyDir));
+                up    = cross(bodyDir, right);
             }
 
-            // Reconstruct a sphere normal for a point on the disc.
-            // Returns a tangent-space normal (Z = toward viewer).
-            float3 DiscSphereNormal(float3 viewDir, float3 bodyDir, float cosAngle, float cosRadius)
+            // Lifts a body toward the zenith by the refraction its altitude earns, and
+            // reports how much its disc should be squashed vertically. The squash is
+            // the visible half of the same effect: the lower limb is refracted further
+            // than the upper, so a setting body reads as an oval rather than a circle.
+            float3 SolApparentBodyDirection(float3 bodyDir, float refractionStrength,
+                float flattenStrength, out float flatten)
             {
-                // Build tangent frame around bodyDir
-                float3 up    = abs(bodyDir.y) < 0.999 ? float3(0, 1, 0) : float3(1, 0, 0);
-                float3 right = normalize(cross(up, bodyDir));
-                up = cross(bodyDir, right);
+                float altitude = degrees(asin(clamp(bodyDir.y, -1.0, 1.0)));
+                flatten = flattenStrength * saturate(1.0 - altitude / 6.0);
 
-                // Project viewDir into the disc's tangent plane
-                float2 offset = float2(dot(viewDir, right), dot(viewDir, up));
-                // Normalize by angular radius of the disc
-                float angularRadius = sqrt(max(1.0 - cosRadius * cosRadius, 1e-6));
-                offset /= angularRadius;
+                float lift = radians(SolRefractionDegrees(altitude) * refractionStrength);
+                float3 vertical = float3(0.0, 1.0, 0.0) - bodyDir * bodyDir.y;
+                float verticalLength = length(vertical);
+                if (verticalLength < 1e-4)
+                    return bodyDir;
+                return normalize(bodyDir + (vertical / verticalLength) * lift);
+            }
 
-                float r2 = dot(offset, offset);
-                float z  = sqrt(max(1.0 - r2, 0.0));
-                return float3(offset.x, offset.y, z);
+            // View-direction offset from a disc centre, in units of the disc's angular
+            // radius, with the vertical axis compressed by `flatten`.
+            float2 SolDiscOffset(float3 viewDir, float3 right, float3 up,
+                float cosRadius, float flatten)
+            {
+                float angularRadius = sqrt(max(1.0 - cosRadius * cosRadius, 1e-8));
+                float2 offset = float2(dot(viewDir, right), dot(viewDir, up)) / angularRadius;
+                offset.y *= 1.0 + flatten;
+                return offset;
+            }
+
+            // Anti-aliased coverage of a disc `radius` angular radii across, from an
+            // offset produced by SolDiscOffset. `alignment` is dot(viewDir, bodyDir):
+            // the tangent-plane offset projects a body and its antipode onto the same
+            // point, so without it a second sun appears opposite the real one.
+            float SolDiscCoverage(float2 offset, float radius, float alignment)
+            {
+                float d = length(offset) / max(radius, 1e-4);
+                float edge = max(fwidth(d), 1e-5);
+                return (1.0 - smoothstep(1.0 - edge, 1.0 + edge, d)) * step(0.0, alignment);
             }
 
             // ────────────────────────────────────────
@@ -357,8 +472,6 @@
 
                 float3 sunDir  = normalize(_SunDirection.xyz);
                 float3 moonDir = normalize(_MoonDirection.xyz);
-                float  sunDot  = dot(dir, sunDir);
-                float  moonDot = dot(dir, moonDir);
 
                 // ── Sky gradient ──────────────────────
                 float zenithMask  = smoothstep(0.0, _ZenithBlend,  y);
@@ -376,9 +489,43 @@
                 float  warmth = pow(azAlign, _HorizonWarmthFalloff) * _HorizonWarmColor.a;
                 float3 horizonCol = lerp(_HorizonColor.rgb, _HorizonWarmColor.rgb, warmth);
 
-                float3 sky = saturate(_ZenithColor.rgb  * zenithMask
-                                    + horizonCol        * horizonMask
-                                    + _NadirColor.rgb   * nadirMask);
+                float3 legacySky = max(_ZenithColor.rgb * zenithMask
+                                     + horizonCol       * horizonMask
+                                     + _NadirColor.rgb  * nadirMask, 0.0);
+                float3 sky = _SolSkyFrameActive > 0.5
+                    ? SolEvaluateResolvedSkyRadiance(dir)
+                    : legacySky;
+
+                // ── Twilight: Earth's shadow and the Belt of Venus ──
+                // Once the sun is down, the planet's own shadow rises out of the
+                // anti-solar horizon as a blue-grey wedge, capped by the pink band of
+                // sunlight still grazing the upper atmosphere. Both are anchored to the
+                // anti-solar point, whose elevation is exactly the negative of the
+                // sun's, so the pair climbs the eastern sky as the sun sinks in the west.
+                float twilight = _TwilightIntensity
+                               * smoothstep(0.14, 0.02, sunDir.y)   // in as the sun sets
+                               * smoothstep(-0.16, -0.05, sunDir.y); // out as night falls
+                if (_SolSkyFrameActive < 0.5 && twilight > 0.001)
+                {
+                    // 1 opposite the sun, 0 toward it. This is the same azimuth
+                    // alignment the horizon warmth uses, mirrored.
+                    float antiAlign = saturate(0.5 - 0.5 * (dot(dirAz, sunAz) / azNorm));
+                    float shadowTop = -sunDir.y;
+                    const float bandWidth = 0.055;
+
+                    // Above the horizon only: below it the viewer is looking at ground
+                    // or sea, and a band there would read as a floating stripe.
+                    float aboveGround = saturate(y * 14.0);
+                    float beltT = (y - shadowTop) / bandWidth;
+                    float belt = exp(-beltT * beltT) * aboveGround;
+                    float shadowBand = smoothstep(shadowTop + bandWidth * 0.35,
+                                                  shadowTop - bandWidth * 0.9, y) * aboveGround;
+
+                    float twilightMask = twilight * antiAlign;
+                    sky = lerp(sky, sky * _EarthShadowColor.rgb,
+                               saturate(shadowBand * twilightMask * _EarthShadowColor.a));
+                    sky += _BeltOfVenusColor.rgb * (belt * twilightMask * _BeltOfVenusColor.a);
+                }
 
                 // ── Stars ─────────────────────────────
                 // Rotate the star dome around world X (the sun's path axis,
@@ -392,9 +539,23 @@
                 // dome direction, so there is no projection singularity to
                 // hide as the dome turns. Twinkle is per-star inside
                 // StarField.
-                float3 stars = StarField(sdir)
-                             * (_StarIntensity * 0.06)
-                             * zenithMask;
+                float3 stars;
+                float packedGalaxy = 0.0;
+                if (_SolSkyStellarBackdropActive > 0.5)
+                {
+                    float4 packedStars = SAMPLE_TEXTURECUBE_LOD(
+                        _SolSkyStellarBackdrop, sampler_SolSkyStellarBackdrop, sdir, 0);
+                    float3 warmStar = float3(1.0, 0.58, 0.32);
+                    float3 coolStar = float3(0.58, 0.72, 1.0);
+                    float3 starColor = lerp(warmStar, coolStar, packedStars.g);
+                    float twinkle = SolStarTwinkle(packedStars.b);
+                    stars = starColor * packedStars.r * twinkle * _StarIntensity * zenithMask;
+                    packedGalaxy = packedStars.a;
+                }
+                else
+                {
+                    stars = StarField(sdir) * (_StarIntensity * 0.06) * zenithMask;
+                }
 
                 // ── Milky way ─────────────────────────
                 // Nebula band around a great circle of the dome; rotates
@@ -404,6 +565,9 @@
                 float neb = CloudFBM(sdir.xz * 4.0 + sdir.y * 2.0);
                 float3 galaxy = lerp(_GalaxyColor2.rgb, _GalaxyColor1.rgb, neb)
                               * (bandMask * neb * neb * _GalaxyIntensity * _NightFactor);
+                if (_SolSkyStellarBackdropActive > 0.5)
+                    galaxy = _GalaxyColor1.rgb * packedGalaxy
+                           * _SolSkyStellarParams.x * _NightFactor;
                 stars += galaxy * zenithMask;
 
                 // ── Aurora ────────────────────────────
@@ -412,8 +576,12 @@
                 // by TimeOfDay (aurora nights only, storm-suppressed).
                 if (_AuroraIntensity > 0.001)
                 {
-                    float auroraBand = smoothstep(0.05, 0.3, y)
-                                     * (1.0 - smoothstep(0.5, 0.85, y));
+                    float auroraBand = smoothstep(
+                        _AuroraElevation.x - _AuroraElevation.z,
+                        _AuroraElevation.x + _AuroraElevation.z, y)
+                        * (1.0 - smoothstep(
+                            _AuroraElevation.y - _AuroraElevation.z,
+                            _AuroraElevation.y + _AuroraElevation.z, y));
                     float2 aUV  = dir.xz / (y + 0.8);
                     float warpA = CloudFBM(aUV * 1.3 + (_CloudTime * 20.0) * 0.015);
                     float rays  = CloudFBM(float2(aUV.x * 2.6 + warpA * 1.4, aUV.y * 0.6)
@@ -425,61 +593,126 @@
                     stars += aurCol * (rays * auroraBand * flicker * _AuroraIntensity);
                 }
 
-                // ── Sun disc & glow ───────────────────
-                float sunMask = DiscMask(sunDot, _SunDiscSize);
+                // ── Horizon occlusion ─────────────────
+                // The sky dome is drawn in every direction, including below the
+                // horizon, where the world's geometry runs out before the view ray
+                // does. Nothing celestial may be drawn there: a body that has set is
+                // behind the planet, not behind whatever happens to be modelled. This
+                // is a view-direction test rather than a body-direction one, so a body
+                // straddling the horizon is clipped along it and genuinely sets.
+                float horizonVisibility = smoothstep(_HorizonLevel - _HorizonSoftness,
+                                                     _HorizonLevel + _HorizonSoftness, y);
 
-                // During solar eclipse, the moon overlaps the sun — carve it out.
-                // The occluder disc is slightly larger to create a clean silhouette.
-                // Disc size is a cosine threshold, so a LARGER disc needs a
-                // SMALLER threshold: scale the (1 - cos) angular term instead.
-                float occluderCos = 1.0 - (1.0 - _SunDiscSize) * 1.2;
-                float moonOverSun = DiscMask(moonDot, occluderCos);
-                float occluder    = moonOverSun * _SolarEclipseFactor;
+                // ── Apparent (refracted) body directions ──
+                // Refraction lifts a low body toward the zenith, which is what keeps a
+                // sunset going for a few minutes after the sun is geometrically down,
+                // and squashes its disc into the oval every photograph of one shows.
+                float sunFlatten, moonFlatten;
+                float3 sunApparent  = SolApparentBodyDirection(sunDir,
+                    _HorizonRefraction, _HorizonFlatten, sunFlatten);
+                float3 moonApparent = SolApparentBodyDirection(moonDir,
+                    _HorizonRefraction, _HorizonFlatten, moonFlatten);
+
+                float3 sunRight, sunUp, moonRight, moonUp;
+                SolBodyFrame(sunApparent,  sunRight,  sunUp);
+                SolBodyFrame(moonApparent, moonRight, moonUp);
+
+                float2 sunOffset  = SolDiscOffset(dir, sunRight,  sunUp,
+                    _SunDiscSize,  sunFlatten);
+                float2 moonOffset = SolDiscOffset(dir, moonRight, moonUp,
+                    _MoonDiscSize, moonFlatten);
+                float sunAlignment  = dot(dir, sunApparent);
+                float moonAlignment = dot(dir, moonApparent);
+
+                // Air-mass reddening. The disc and the aureole around it share one
+                // transmittance, so the sun and the sky it lights redden together
+                // instead of drifting apart on separate authored ramps.
+                float sunAltitude = degrees(asin(clamp(sunApparent.y, -1.0, 1.0)));
+                float3 sunExtinction = SolAirMassExtinction(sunAltitude, _SunExtinction);
+                float moonAltitude = degrees(asin(clamp(moonApparent.y, -1.0, 1.0)));
+                float3 moonExtinction = SolAirMassExtinction(moonAltitude, _SunExtinction);
+
+                // ── Sun disc & glow ───────────────────
+                float sunCoverage = SolDiscCoverage(sunOffset, 1.0, sunAlignment);
+                float moonCoverage = SolDiscCoverage(moonOffset, 1.0, moonAlignment);
+                // The opaque moon is always closer. Use its actual refracted,
+                // flattened silhouette even at first contact, independent of the
+                // aggregate eclipse fraction used for environment lighting.
+                float visibleSun = sunCoverage * (1.0 - moonCoverage) * horizonVisibility;
+                float visibleMoon = moonCoverage * horizonVisibility;
 
                 // Corona: soft halo around the sun, several disc radii wide,
                 // minus the occluder — leaves a glowing ring at the moon's limb.
-                float coronaHaloCos = 1.0 - (1.0 - _SunDiscSize) * 8.0;
-                float halo = smoothstep(coronaHaloCos, 1.0, sunDot);
-                float coronaRing = saturate(halo - moonOverSun) * _SolarEclipseFactor;
+                float halo = (1.0 - smoothstep(0.0, 3.0, length(sunOffset)))
+                           * step(0.0, sunAlignment);
+                float coronaRing = pow(saturate(halo - moonCoverage),
+                                       max(1.0, _CoronaPower * 0.08))
+                                 * _SolarEclipseFactor * horizonVisibility;
                 float3 corona = _CoronaColor.rgb * coronaRing;
 
-                // The visible sun = disc minus occluder, plus corona.
-                float visibleSun = saturate(sunMask - occluder);
-                float3 sunDisc   = _SunDiscColor.rgb * visibleSun + corona;
+                float sunRadius = saturate(length(sunOffset));
+                float limb = lerp(1.0, sqrt(saturate(1.0 - sunRadius * sunRadius)),
+                                  _SunLimbDarkening);
+                float3 sunDisc = _SunDiscColor.rgb * sunExtinction
+                               * visibleSun * limb + corona;
 
-                // Atmospheric glow: Mie-like forward scatter around the sun.
-                // Dims during eclipse (the sky darkens).
-                float glowFade = 1.0 - _SolarEclipseFactor * 0.9;
-                float glow     = pow(saturate(sunDot), _SunGlowFalloff)
-                               * _SunGlowIntensity * glowFade;
+                // Atmospheric glow: Mie forward scatter around the sun, in two lobes.
+                // The tight one is the aureole hugging the disc; the broad one is the
+                // whole-quadrant wash that makes a low sun light up half the sky. A
+                // single lobe can be one or the other but never both, which is why
+                // dawn and dusk read as a bright dot on a flat gradient without it.
+                float glowFade = 1.0 - _SolarEclipseFactor;
+                float forward  = saturate(dot(dir, sunApparent));
+                float glowTight = pow(forward, _SunGlowFalloff);
+                float glowWide  = pow(forward, _SunGlowWideFalloff) * _SunGlowWideWeight;
+                // The wash is an atmospheric effect: it belongs to a sun whose light is
+                // crossing the most atmosphere to arrive, and to no other. Left standing
+                // at noon it would flood the entire sun-facing half of the sky, so it is
+                // gated off above roughly 20 degrees.
+                float lowSun    = saturate(1.0 - sunApparent.y * 3.0);
+                float glow      = (glowTight + glowWide * lowSun)
+                                * _SunGlowIntensity * glowFade;
+
+                // Scattered light still reaches a view ray aimed just under the
+                // horizon, but the surface there is lit, not the sky. Fading rather
+                // than clipping keeps the waterline free of a hard bright edge.
+                float glowHorizon = lerp(_HorizonGlowFloor, 1.0,
+                    smoothstep(_HorizonLevel - 0.06, _HorizonLevel + 0.005, y));
+                glow *= glowHorizon;
 
                 // ── Moon disc with phase ──────────────
-                float moonMask = DiscMask(moonDot, _MoonDiscSize);
-
-                // Don't draw the moon when it's behind the sun disc (new-moon transit).
-                float moonBehindSun = DiscMask(sunDot, _MoonDiscSize);
-                float moonOcclusion = moonBehindSun * (1.0 - _SolarEclipseFactor);
-                float visibleMoon   = saturate(moonMask - moonOcclusion);
-
-                // Phase lighting: reconstruct a sphere normal and light it.
-                float3 moonN   = DiscSphereNormal(dir, moonDir, moonDot, _MoonDiscSize);
+                // Phase lighting: reconstruct a sphere normal and light it. The normal
+                // comes from the unflattened offset so refraction squashes the disc's
+                // silhouette without also bending its terminator.
+                float2 moonRoundOffset = SolDiscOffset(dir, moonRight, moonUp,
+                    _MoonDiscSize, 0.0);
+                float3 moonN = float3(moonRoundOffset,
+                    sqrt(max(1.0 - dot(moonRoundOffset, moonRoundOffset), 0.0)));
                 // Transform sun direction into the moon's tangent frame for lighting.
-                float3 moonUp    = abs(moonDir.y) < 0.999 ? float3(0, 1, 0) : float3(1, 0, 0);
-                float3 moonRight = normalize(cross(moonUp, moonDir));
-                moonUp = cross(moonDir, moonRight);
                 float3 sunInMoon = float3(dot(sunDir, moonRight),
                                           dot(sunDir, moonUp),
-                                          dot(sunDir, moonDir));
+                                          -dot(sunDir, moonApparent));
                 float phaseLit = saturate(dot(moonN, normalize(sunInMoon))
                                * _MoonSharpness * 0.5 + 0.5);
 
-                float3 moonBase = lerp(_MoonDarkColor.rgb, _MoonColor.rgb, phaseLit);
+                // Equirectangular LROC colour map. Surface rotation advances lunar
+                // longitude while the geometric normal continues to drive the phase.
+                float longitude = atan2(moonN.x, moonN.z) / TWO_PI + 0.5
+                                + _MoonSurfaceRotation / 360.0;
+                float latitude = asin(clamp(moonN.y, -1.0, 1.0)) / PI + 0.5;
+                float2 moonUV = float2(frac(longitude), saturate(latitude));
+                float3 lunarAlbedo = SAMPLE_TEXTURE2D(
+                    _MoonSurfaceTex, sampler_MoonSurfaceTex, moonUV).rgb;
+                float lunarLuminance = dot(lunarAlbedo, float3(0.299, 0.587, 0.114));
+                float3 moonBase = lerp(_MoonDarkColor.rgb * lerp(1.0, lunarLuminance, 0.35),
+                    _MoonColor.rgb * lunarAlbedo, phaseLit);
 
                 // Lunar eclipse: tint the lit portion red.
                 moonBase = lerp(moonBase, moonBase * _EclipseTint.rgb, _LunarEclipseFactor);
                 moonBase *= 1.0 - _LunarEclipseFactor * 0.5;
 
-                float3 moonDisc = moonBase * visibleMoon;
+                // A low moon reddens for the same reason a low sun does.
+                float3 moonDisc = moonBase * moonExtinction * visibleMoon;
 
                 // ── Atmosphere ─────────────────────────
                 float haze = pow(1.0 - abs(y), 4.0) * _HazeIntensity;
@@ -490,13 +723,19 @@
                 // transmittance and depth ordering.
 
                 // Celestial bodies — block stars behind them.
-                float bodyMask = saturate(visibleSun + visibleMoon + occluder);
+                float bodyMask = saturate(visibleSun + visibleMoon);
                 float3 bodies  = sunDisc + moonDisc;
+
+                // The aureole is sunlight scattered toward the viewer, so it carries the
+                // sun's own reddening. The haze band is ambient horizon scatter and
+                // keeps the sky's colour.
+                float3 aureoleCol = horizonCol * lerp(1.0, sunExtinction, 0.75);
 
                 float3 color = sky;
                 color += stars * (1.0 - bodyMask);   // stars & aurora behind bodies
                 color += bodies;                      // sun & moon on top of sky
-                color += horizonCol * (glow + haze); // atmospheric scatter (warm near sun)
+                if (_SolSkyFrameActive < 0.5)
+                    color += aureoleCol * glow + horizonCol * haze;
 
                 return float4(color, 1.0);
             }

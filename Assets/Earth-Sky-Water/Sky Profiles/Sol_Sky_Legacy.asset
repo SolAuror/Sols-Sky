@@ -1,0 +1,122 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d55e544bfe94194847dc04c6c9c2201, type: 3}
+  m_Name: Sol_Sky_Legacy
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.ToD.SolSkyProfile
+  dayZenith: {r: 0.47209862, g: 0.6711578, b: 0.9716981, a: 1}
+  dayHorizon: {r: 0.69803923, g: 0.88058126, b: 0.9490196, a: 1}
+  dayNadir: {r: 0.5, g: 0.45, b: 0.4, a: 1}
+  nightZenith: {r: 0.02, g: 0.02, b: 0.06, a: 1}
+  nightHorizon: {r: 0.03, g: 0.03, b: 0.06, a: 1}
+  nightNadir: {r: 0.02, g: 0.01, b: 0.04, a: 1}
+  sunriseHorizon: {r: 1, g: 0.55, b: 0.2, a: 1}
+  sunsetHorizon: {r: 1, g: 0.405, b: 0.325, a: 1}
+  antiSolarHorizon: {r: 0.45, g: 0.5, b: 0.7, a: 1}
+  eclipseZenith: {r: 0.04, g: 0.03, b: 0.06, a: 1}
+  eclipseHorizon: {r: 0.12, g: 0.1, b: 0.15, a: 1}
+  zenithBlend: 0.3
+  nadirBlend: 0.15
+  horizonPower: 1
+  twilightAzimuthPower: 4
+  twilightIntensity: 1
+  solarAureoleIntensity: 1.5
+  solarAureolePower: 8
+  aerialViewHeight: 12000
+  aerialZenithDarkening: 0.2
+  aerialHorizonExtinctionReduction: 0.35
+  horizonOcclusionLevel: 0
+  horizonOcclusionSoftness: 0.0035
+  horizonRefraction: 1
+  horizonFlatten: 0.45
+  horizonGlowRetention: 0.2
+  airMassExtinction: 0.35
+  weatherSkyDimming: 0.35
+  weatherHorizonNeutrality: 0.65
+  lightningSkyIntensity: 0.8
+  lightningAmbientIntensity: 0.5
+  ambientIntensity: 1.2
+  fogDayColor: {r: 0.66215736, g: 0.7839089, b: 0.9056604, a: 1}
+  fogNightColor: {r: 0.078431375, g: 0.0943508, b: 0.14117648, a: 1}
+  fogDayDensity: 0.0012
+  fogNightDensity: 0.0024
+  enableNightFog: 1
+  atmosphereDensityMultiplier: 1
+  atmosphereStartDistance: 5
+  atmosphereMaxDistance: 500
+  atmosphereMaxOpacity: 0.92
+  atmosphereBaseHeight: 12
+  atmosphereHeightFalloff: 0.035
+  atmosphereMistBaseHeight: 1.5
+  atmosphereMistHeightFalloff: 0.12
+  atmosphereNoiseIntensity: 0.1
+  atmosphereNoiseScale: 0.0035
+  atmosphereNoiseSpeed: 0.08
+  skyFogStrength: 1
+  zenithFogStrength: 0.12
+  horizonFogStrength: 1
+  phaseAnisotropy: 0.55
+  directionalScatteringIntensity: 0.65
+  shadowedScatteringStrength: 0.85
+  fogSaturation: 0.35
+  ambientScatteringIntensity: 0.65
+  maxScatteringLuminance: 1.5
+  lightningScatteringIntensity: 0.08
+  dayScatteringColor: {r: 1, g: 0.75, b: 0.48, a: 1}
+  nightScatteringColor: {r: 0.22, g: 0.34, b: 0.62, a: 1}
+  atmosphereRaymarchDistance: 500
+  atmosphereRaymarchStepCount: 32
+  atmosphereRaymarchJitter: 0.15
+  atmosphereBilateralDepthThreshold: 2
+  atmosphereSpatialFilterStrength: 0.75
+  atmosphereQuality: 1
+  sunAngularDiameter: 3.62
+  sunColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  sunIntensity: 10
+  sunLimbDarkening: 0.05
+  coronaColor: {r: 1.5, g: 0.4, b: 0.15, a: 1}
+  coronaIntensity: 1
+  coronaPower: 18
+  moonAngularDiameter: 4.29
+  moonLitColor: {r: 0.85, g: 0.9, b: 1, a: 1}
+  moonDarkColor: {r: 0.01, g: 0.01, b: 0.02, a: 1}
+  lunarEclipseTint: {r: 0.6, g: 0.15, b: 0.1, a: 1}
+  moonTerminatorSharpness: 3
+  moonSurfaceRotation: 0
+  lunarSurface: {fileID: 2800000, guid: 5280588d5f5c4b50be108b419780e203, type: 3}
+  stellarBackdrop: {fileID: 8900000, guid: 7867930df98172c4ebf187fa638b6266, type: 2}
+  starIntensity: 50
+  starPower: 30
+  starHeight: 100
+  milkyWayIntensity: 0.6
+  milkyWayColor: {r: 0.55, g: 0.45, b: 0.75, a: 1}
+  twinkleAmount: 0.35
+  twinkleSpeed: 1.25
+  enableAurora: 1
+  auroraNightChance: 0.12
+  auroraIntensity: 0.7
+  auroraLowColor: {r: 0.1, g: 0.9, b: 0.45, a: 1}
+  auroraHighColor: {r: 0.4, g: 0.2, b: 0.8, a: 1}
+  auroraMinElevation: 0.05
+  auroraMaxElevation: 0.8
+  auroraEdgeSoftness: 0.08
+  cloudFormation: 0
+  cloudCoverage: 0.5
+  cloudErosion: 0.35
+  cloudDensity: 0.8
+  cloudBaseHeight: 1500
+  cloudThickness: 3200
+  cloudVerticalDevelopment: 0.45
+  cloudAnvilAmount: 0
+  cloudCirrusAmount: 0.18
+  cloudEdgeSoftness: 0.5
+  cloudBaseSoftness: 0.5
+  cloudShadowStrength: 0.65

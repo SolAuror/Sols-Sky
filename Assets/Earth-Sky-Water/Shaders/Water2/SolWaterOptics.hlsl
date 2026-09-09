@@ -1,6 +1,8 @@
 #ifndef SOL_WATER_OPTICS_INCLUDED
 #define SOL_WATER_OPTICS_INCLUDED
 
+#include "../../Water/Shaders/SolSkyCommon.hlsl"
+
 // Shared water volume optics for the surface (SolOcean) and the submerged
 // composition (SolUnderwater). Both views must agree or the waterline pops, so
 // the absorption curve and the scattering lighting live here rather than being
@@ -22,6 +24,8 @@ float4 _SolWaterReflectionSunDirection; // xyz direction, w Sol gradient valid
 float3 SolWaterDynamicSky(float3 directionWS)
 {
     directionWS = SafeNormalize(directionWS);
+    if (_SolSkyFrameActive > 0.5)
+        return SolEvaluateResolvedSkyRadiance(directionWS);
     float y = directionWS.y;
     float zenithMask = smoothstep(0.0, max(0.0001, _SolWaterReflectionSkyParams.x), y);
     float nadirMask = smoothstep(0.0, max(0.0001, _SolWaterReflectionSkyParams.y), -y);

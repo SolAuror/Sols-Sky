@@ -1,6 +1,8 @@
 #ifndef SOL_ATMOSPHERE_INCLUDED
 #define SOL_ATMOSPHERE_INCLUDED
 
+#include "SolSkyCommon.hlsl"
+
 float _SolAtmosphereActive;
 float4 _SolAtmosphereFogColor;
 float4 _SolAtmosphereParams0; // density, start distance, max distance, max opacity
@@ -176,6 +178,8 @@ float3 SolAtmosphereClampLuminance(float3 color)
     return luminance > maximum ? color * (maximum / luminance) : color;
 }
 
+#include "SolCelestialLighting.hlsl"
+
 float3 SolAtmosphereLighting(float3 viewDirection, float shadowAttenuation)
 {
     float lightDot = dot(viewDirection, normalize(_SolAtmosphereSunDirection.xyz));
@@ -185,8 +189,22 @@ float3 SolAtmosphereLighting(float3 viewDirection, float shadowAttenuation)
                             * (1.0 - saturate(_SolAtmosphereLightingParams.y) * 0.15);
     float directVisibility = (1.0 - saturate(_SolAtmosphereLightingParams.y) * 0.85)
                            * (1.0 - saturate(_SolAtmosphereLightingParams.z) * 0.65);
+    float3 directional = _SolAtmosphereSunColor.rgb * phase * shadow;
+    if (_SolCelestialLightingActive > 0.5)
+    {
+        directional = 0.0;
+        [loop] for (int i = 0; i < min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS); i++)
+        {
+            float bodyPhase = SolAtmosphereCornetteShanks(
+                dot(viewDirection, _SolCelestialDirections[i].xyz), _SolAtmosphereParams2.y);
+            // URP supplies one directional shadow map. Never apply the sun's map
+            // to light arriving from the moon or another celestial direction.
+            float bodyShadow = lerp(1.0, shadow, _SolCelestialDirections[i].w);
+            directional += _SolCelestialColors[i].rgb * bodyPhase * bodyShadow;
+        }
+    }
     float3 lighting = SolAtmosphereAmbientColor() * ambientVisibility
-        + _SolAtmosphereSunColor.rgb * phase * _SolAtmosphereParams2.x * shadow * directVisibility
+        + directional * _SolAtmosphereParams2.x * directVisibility
         + _SolAtmosphereLightning.xxx * max(0.0, _SolAtmosphereLightningScattering);
     return SolAtmosphereClampLuminance(lighting);
 }
@@ -256,7 +274,13 @@ float4 SolResolveAtmosphereShadowed(float3 cameraWS, float3 positionWS,
 
     float amount = SolAtmosphereAmount(cameraWS, positionWS, viewDirection, isSky);
     float transmittance = 1.0 - amount;
-    float3 inScattering = SolAtmosphereLighting(viewDirection, shadowAttenuation) * amount;
+    // Sky pixels converge toward the exact same radiance the skybox started with.
+    // This makes the operator idempotent for untouched sky while naturally
+    // attenuating clouds and celestial additions toward the shared background.
+    float3 targetRadiance = _SolSkyFrameActive > 0.5 && isSky > 0.5
+        ? SolEvaluateResolvedSkyRadiance(viewDirection)
+        : SolAtmosphereLighting(viewDirection, shadowAttenuation);
+    float3 inScattering = targetRadiance * amount;
     return float4(inScattering, transmittance);
 }
 

@@ -64,6 +64,10 @@ namespace Sol.ToD
         /// <summary>The active config (if any).</summary>
         public CelestialBodyConfig Config => config;
 
+        public float AuthoredOrbitDistance => config != null ? config.orbitDistance : orbitDistance;
+        internal float? OrbitDistanceOverride { get; set; }
+        public float EffectiveOrbitDistance => OrbitDistanceOverride ?? Mathf.Max(.01f, AuthoredOrbitDistance);
+
         // -- Internals --
 
         Renderer rend;
@@ -95,7 +99,18 @@ namespace Sol.ToD
         }
 
         /// <summary>Assign a config at runtime (called by TimeofDay after instantiation).</summary>
-        public void Initialize(CelestialBodyConfig cfg) => config = cfg;
+        public void Initialize(CelestialBodyConfig cfg)
+        {
+            config = cfg;
+            if (config != null && config.hasLight && AttachedLight == null)
+            {
+                var emitter = new GameObject("Celestial Light");
+                emitter.transform.SetParent(transform, false);
+                AttachedLight = emitter.AddComponent<Light>();
+                AttachedLight.type = LightType.Directional;
+                AttachedLight.enabled = false;
+            }
+        }
 
         /// <summary>
         /// Keeps the body object, light, transform, and API alive while its primary visual
@@ -123,7 +138,7 @@ namespace Sol.ToD
             if (!visible) return;
 
             // Resolve values: config wins if present, else use inspector fields
-            float dist      = config != null ? config.orbitDistance         : orbitDistance;
+            float dist      = EffectiveOrbitDistance;
             Color litCol    = ColorOverride ?? (config != null ? config.baseColor : baseColor);
             Color darkCol   = config != null ? config.darkSideColor        : darkSideColor;
             Color emit      = config != null ? config.emissionColor        : emissionColor;

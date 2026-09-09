@@ -46,6 +46,8 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_SolAtmosphereLightningScattering"),
         Shader.PropertyToID("_SolAtmosphereLightAvailable"),
         Shader.PropertyToID("_SolAtmosphereTransparentFog"),
+        Shader.PropertyToID("_SolSkyFrameActive"),
+        Shader.PropertyToID("_SolSkyStellarBackdropActive"),
         Shader.PropertyToID("_SolCloudActive"),
         Shader.PropertyToID("_Sol_RippleSpeed"),
         Shader.PropertyToID("_Sol_RippleFrequency"),
@@ -80,6 +82,11 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_SolAtmosphereSkyParams"),
         Shader.PropertyToID("_SolAtmosphereLightingParams"),
         Shader.PropertyToID("_SolAtmosphereSunDirection"),
+        Shader.PropertyToID("_SolSkyHorizon"),
+        Shader.PropertyToID("_SolSkySunDirection"),
+        Shader.PropertyToID("_SolSkyGradientParams"),
+        Shader.PropertyToID("_SolSkyDirectionalParams"),
+        Shader.PropertyToID("_SolSkyStellarParams"),
         Shader.PropertyToID("_SolAtmosphereWindTime"),
         Shader.PropertyToID("_Sol_TerrainSandChannel"),
         Shader.PropertyToID("_Sol_TerrainOriginInvSize"),
@@ -92,6 +99,11 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_Sol_SunColor"),
         Shader.PropertyToID("_SolAtmosphereFogColor"),
         Shader.PropertyToID("_SolAtmosphereSunColor"),
+        Shader.PropertyToID("_SolSkyZenithColor"),
+        Shader.PropertyToID("_SolSkyHorizonColor"),
+        Shader.PropertyToID("_SolSkyNadirColor"),
+        Shader.PropertyToID("_SolSkyTwilightColor"),
+        Shader.PropertyToID("_SolSkyAntiSolarColor"),
     };
 
     static readonly int[] TextureIds =
@@ -102,6 +114,7 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_CloudNoiseTex"),
         Shader.PropertyToID("_CloudWeatherMap"),
         Shader.PropertyToID("_SolCloudRenderTexture"),
+        Shader.PropertyToID("_SolSkyStellarBackdrop"),
     };
 
     static readonly int[] VectorArrayIds =

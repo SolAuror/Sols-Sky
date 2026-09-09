@@ -3,7 +3,11 @@
 Unity 6 / URP 17 sky, time-of-day, weather, and water framework.
 
 ```
-TimeOfDay
+SolSkyProfile -> pure SolSkyResolver -> immutable SolSkyFrame
+        |                    | shared directional sky radiance
+        |--------------------|------------------------------|
+        v                    v                              v
+TimeOfDay              Atmosphere / Clouds          Water reflections
   - Calendar
   - skybox, sun, moon, planets, stars, aurora, eclipses
   - ambient and fog
@@ -32,7 +36,7 @@ SolWaterManager
 3. Add `WaterTileGrid` and assign a `Sol/Water` material. Leave `autoWaterVolume` enabled for a generated gameplay query volume.
 4. Add `WaterRippleManager`. Assign `Water/Shaders/Sol.RippleSim.shader` to `simShader` before making builds.
 5. Add `SolWeatherManager`. References auto-resolve if the managers are in the scene.
-6. Add `SolAtmosphereController` and `SolRainVfxController` to the same scene-owned manager. Optional atmosphere profiles are created from `Create > Sol > Environment > Atmosphere Profile`.
+6. Assign a `SolSkyProfile` to `TimeOfDay`; the shipped `Sol_Sky_Grounded` profile is the default and `Sol_Sky_Legacy` is the compatibility translation. Add `SolAtmosphereController` and `SolRainVfxController` to the same scene-owned manager. `SolAtmosphereProfile` remains a fallback only when no sky profile is assigned.
 7. Add `SolAtmosphereRendererFeature` and `UnderwaterRendererFeature` to the URP Renderer asset. Keep existing features such as SSAO. Assign the underwater overlay material.
 8. Add `UnderwaterVolumeController` to a persistent scene GameObject. Assign `playerTransform` for third-person cameras.
 9. Enable Depth Texture and Opaque Texture on the URP asset.
@@ -57,13 +61,26 @@ Use Probe Adjustment Volumes around caves, enclosed buildings, and shoreline/int
 transitions where automatic placement produces leaking or invalid probes. Keep these
 volumes local to the problem area rather than increasing global probe density.
 
-## Celestial Lighting Handoff
+## Celestial Lighting
 
-The lighting frame publishes a continuous radiance-weighted blend of eligible sun and
-moon contributions. Atmosphere and clouds consume that same blend, so overlapping
-contributors crossfade naturally. If neither body is eligible around dawn or dusk,
-direct celestial lighting and cloud shadows fade to zero while ambient twilight remains;
-renderers must not substitute a synthetic white key light.
+Sun, moon, and configured additional bodies emit independently whenever they rise above
+the horizon. Each keeps its own direction, color, intensity, and weather attenuation;
+moonlight also follows lunar illumination. Moonlight does not wait for sunset. Tune the
+sun and moon light colors and minimum/maximum intensities on `TimeOfDay`, including when
+a sky profile is assigned. Sky profiles author the appearance of the discs and sky.
+
+For another emitter, add a prefab and `CelestialBodyConfig` to Tertiary Planets, enable
+`hasLight`, and set its light color/intensity. A missing directional light is created on
+the instance. Clouds, fog, and water consume up to eight active celestial emitters from
+the lighting director. Cloud occlusion is traced per emitter; the first two use the
+quality tier's light steps and further emitters use at most two steps. Dark bodies incur
+no light march. Surface lights remain managed by URP Forward+.
+
+URP supplies one directional shadow map, assigned to the dominant emitter. Its shadow
+strength fades around a change of ownership so shadows do not snap; emitted light is
+unaffected. Cloud world shadows use that same owner. Cloud self-shadowing is independent
+for every emitter. With no visible emitters, directional radiance is zero and ambient
+twilight remains.
 
 ## Public API
 
@@ -74,6 +91,8 @@ Common entry points:
 | Class | Main use |
 |---|---|
 | `Sol.ToD.TimeOfDay` | world clock, sky authority, time skip/mutation events |
+| `Sol.ToD.SolSkyProfile` | reusable authored sky, atmosphere, celestial, cloud-baseline, and source-asset settings |
+| `Sol.ToD.SolSkyFrame` | immutable resolved sky presentation consumed by atmosphere, lighting, clouds, and water |
 | `Sol.ToD.Calendar` | day/month/year state and season events |
 | `SolLightingDirector` | unified sun, moon, ambient, shader-global, and quality authority |
 | `SolLightingQualityProfile` | deterministic Low/Medium/High lighting budgets |
@@ -114,11 +133,20 @@ Visual waves are defined in `Water/Shaders/SolWaterWaves.hlsl` and mirrored in `
 | `_Sol_GlobalWaterLevel` | `SolWaterManager` | global fallback water level |
 | `_Sol_LightningFlash` | `SolLightingDirector` | reflection and surface strike illumination |
 | `_SolAtmosphere*` | `SolAtmosphereController` | analytic fog, noise, sun/moon scattering, High volumetric settings, quality, and lightning |
+| `_SolSky*` | `TimeOfDay` / `SolSkyFrame` | shared normalized radiance, directional twilight, altitude response, horizon, and stellar backdrop |
 | `_Sol_WaveFadeCenter` | `WaterTileGrid` | LOD and wave-fade origin |
 | `_Sol_Ripples*` | `WaterRippleManager` | analytic fallback ripples |
 | `_Sol_RippleSimTex`, `_Sol_RippleSimRegion`, `_Sol_RippleSimParams` | `WaterRippleManager` | GPU ripple sim |
 | `_WaterSurfaceY` | `WaterVolume` | underwater overlay surface height |
 | `_UnderwaterFactor`, `_UnderwaterDepth` | `UnderwaterVolumeController` | underwater overlay blend |
+
+## Solar eclipses
+
+The primary moon always renders in front of the sun. Its spawned orbit distance is capped at 95% of the sun's distance if a config would put it farther away; authored assets are preserved. Apparent disc sizes remain independently adjustable through the sky profile.
+
+Solar coverage uses those displayed angular diameters, refraction, and horizon flattening. The moon's opaque silhouette blocks the photosphere and corona directly; its opacity never depends on the eclipse strength. Direct sunlight and the solar aureole scale with the uncovered solar area, reaching zero at totality. Ambient eclipse colours and the corona remain separately authored, and other celestial lights retain their own illumination. The threshold, phase window, and apex bias controls now apply only to lunar eclipses.
+
+The CPU rejects separated discs early, uses analytic circle overlap away from the horizon, and integrates overlapping horizon ellipses with cached sampling nodes and no per-frame allocations. The sky shader reuses the two existing disc masks instead of constructing additional eclipse masks.
 
 ## Tuning
 
@@ -127,7 +155,8 @@ Visual waves are defined in `Water/Shaders/SolWaterWaves.hlsl` and mirrored in `
 - Managed local lights: add `SolEnvironmentLight` beside a point or spot light. Choose night-only, always-on, or a custom day-factor curve, then set its priority, shadow eligibility, and volumetric scattering.
 - Dynamic probes: add `SolReflectionProbeAnchor` beside each realtime probe. Captures are ranked by camera visibility/distance, water relevance, and staleness; only one individual-face capture runs at once.
 - APV authoring: use `Tools > Sol Environment > Configure Adaptive Probe Volumes` after adding an environment scene, then add that scene to `SolApvSetupUtility.EnvironmentScenePaths` so membership remains testable.
-- Lighting diagnostics: open `Tools > Sol Environment > Environment Window` for the active tier, registered/selected lights, shadow slices, volumetric lights, GI requests, and reflection-probe requests/completions. The same values are available from `SolEnvironmentBudget` in editor and development builds.
+- Environment authoring and diagnostics: open `Tools > Elementa > Control Panel`. Its Overview, Sky & Time, Weather, Wind & Sea, and Diagnostics tabs edit the same scene authorities and profile assets used at runtime; it owns no preview simulation state.
+- Visual validation: open `Tools > Elementa > Visual Validation > Capture Matrix` in Play Mode. One run captures exactly 432 converged states for a selected profile/version and writes raw images beside the Unity repository in `SolSkyVisualPass_Raw`.
 - Environment clocks: consume `WorldDeltaSeconds` for continuous motion, `WorldDeltaHours` for chronology, and `PresentationDeltaSeconds` only for bounded transitions/transient envelopes. All freeze when Sol time is not moving forward; presentation time deliberately ignores the 10x/100x Sol multiplier.
 - Day length: `TimeOfDay.DayRatio`; the four-season annual curve modifies `EffectiveDayRatio` and exposes `SunriseClockHour`/`SunsetClockHour`.
 - Climate: `SolWeatherManager` derives `DailyFogTarget` deterministically from `Calendar.WorldDayIndex`, applies dawn-biased `FogDiurnalFactor`, and smooths `CurrentDailyFog` using presentation time. Tune the seasonal fog ranges, `climateSeed`, and `ClimateTransitionDurationSeconds`.

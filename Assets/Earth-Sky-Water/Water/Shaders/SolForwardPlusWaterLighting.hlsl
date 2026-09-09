@@ -1,6 +1,16 @@
 #ifndef SOL_FORWARD_PLUS_WATER_LIGHTING_INCLUDED
 #define SOL_FORWARD_PLUS_WATER_LIGHTING_INCLUDED
 
+#include "SolCelestialLighting.hlsl"
+
+bool SolWaterIsPublishedCelestial(float3 direction)
+{
+    if (_SolCelestialLightingActive < 0.5) return false;
+    [loop] for (int i = 0; i < min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS); i++)
+        if (dot(direction, _SolCelestialDirections[i].xyz) > 0.99999) return true;
+    return false;
+}
+
 // Shared URP 17 clustered-light path for both Sol water implementations. This contributes
 // specular only: local lights must not brighten volume scattering, caustics, or refraction.
 half3 SolWaterEvaluateLightSpecular(
@@ -51,6 +61,8 @@ half3 SolWaterAdditionalSpecular(
     {
         CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
         Light light = GetAdditionalLight(lightIndex, positionWS, inputData.shadowMask);
+        // Published celestials use the same authored highlight as the main body.
+        if (SolWaterIsPublishedCelestial(light.direction)) continue;
         result += SolWaterEvaluateLightSpecular(
             light, normalWS, viewDirectionWS, roughness, intensity, hdrCeiling);
     }

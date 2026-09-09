@@ -1,0 +1,22 @@
+{
+  "harness": "SolSkyVisualPass",
+  "capturesPerProfileVersion": 432,
+  "convergenceFrames": 64,
+  "solarStates": [
+    { "name": "Dawn", "hour": 6.0 },
+    { "name": "Noon", "hour": 12.0 },
+    { "name": "Sunset", "hour": 18.0 },
+    { "name": "NearFullMoonNight", "hour": 0.0 }
+  ],
+  "weatherProfiles": ["Blizzard", "Clear", "Drizzle", "Fair", "Fog", "Overcast", "Rain", "Snow", "Storm"],
+  "views": ["CoastGround", "WaterSurface", "Underwater", "CloudTopAerial"],
+  "qualities": ["Low", "Medium", "High"],
+  "rawOutput": "../SolSkyVisualPass_Raw/<profile>/<version>",
+  "referenceScene": "Assets/Scenes/Sols_Water2_Demo.unity",
+  "resolution": "2560x1440",
+  "performanceBudget": {
+    "markers": ["Sol Skybox", "Sol Atmosphere"],
+    "maximumRegressionMilliseconds": 0.15,
+    "reporting": "repeat-floor, two runs, same build"
+  }
+}

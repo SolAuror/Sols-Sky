@@ -96,8 +96,11 @@ public sealed class SolAtmosphereController : MonoBehaviour
         }
     }
 
+    bool HasSkyFrame => timeOfDay != null && timeOfDay.CurrentSkyFrame.IsValid;
+    SolSkyAtmosphereFrame SkyAtmosphere => timeOfDay.CurrentSkyFrame.Atmosphere;
     public SolAtmosphereQuality Quality => _runtimeQualityOverride
-        ?? (profile != null ? profile.quality : fallbackQuality);
+        ?? (HasSkyFrame ? SkyAtmosphere.Quality
+            : profile != null ? profile.quality : fallbackQuality);
     public Color CurrentFogColor { get; private set; }
     public float CurrentDensity { get; private set; }
 
@@ -331,6 +334,8 @@ public sealed class SolAtmosphereController : MonoBehaviour
             : timeOfDay != null ? timeOfDay.DominantAtmosphereLight : null;
         Vector3 sunDirection = celestial.Direction;
         Color scatteringColor = Color.Lerp(SettingsNightColor, SettingsDayColor, day);
+        // Compatibility fallback only. The shader consumes each published emitter
+        // independently whenever the lighting director is active.
         Color directionalColor = ResolveLightColor(scatteringColor, celestial);
         float scattering = SettingsDirectionalScattering
                          * (weatherManager != null ? weather.LightScattering : 1f);
@@ -403,38 +408,38 @@ public sealed class SolAtmosphereController : MonoBehaviour
             ? Mathf.Max(SettingsMaxOpacity, 0.985f)
             : SettingsMaxOpacity;
 
-    float SettingsDensityMultiplier => profile != null ? profile.densityMultiplier : 1f;
-    float SettingsStartDistance => profile != null ? profile.startDistance : 5f;
-    float SettingsMaxDistance => profile != null ? profile.maxDistance : 500f;
-    float SettingsMaxOpacity => profile != null ? profile.maxOpacity : 0.92f;
-    float SettingsBaseHeight => profile != null ? profile.baseHeight : 12f;
-    float SettingsHeightFalloff => profile != null ? profile.heightFalloff : 0.035f;
-    float SettingsMistBaseHeight => profile != null ? profile.mistBaseHeight : 1.5f;
-    float SettingsMistHeightFalloff => profile != null ? profile.mistHeightFalloff : 0.12f;
-    float SettingsNoiseIntensity => Quality == SolAtmosphereQuality.Low ? 0f : profile != null ? profile.noiseIntensity : 0.1f;
-    float SettingsNoiseScale => profile != null ? profile.noiseScale : 0.0035f;
-    float SettingsNoiseSpeed => profile != null ? profile.noiseSpeed : 0.08f;
-    float SettingsPhaseAnisotropy => Mathf.Clamp(profile != null ? profile.phaseAnisotropy : 0.55f, -0.9f, 0.9f);
-    float SettingsDirectionalScattering => profile != null ? profile.directionalScatteringIntensity : 0.65f;
-    float SettingsShadowedScattering => Mathf.Clamp01(profile != null ? profile.shadowedScatteringStrength : 0.85f);
-    float SettingsRaymarchDistance => Mathf.Max(1f, profile != null ? profile.raymarchDistance : 500f);
+    float SettingsDensityMultiplier => HasSkyFrame ? SkyAtmosphere.DensityMultiplier : profile != null ? profile.densityMultiplier : 1f;
+    float SettingsStartDistance => HasSkyFrame ? SkyAtmosphere.StartDistance : profile != null ? profile.startDistance : 5f;
+    float SettingsMaxDistance => HasSkyFrame ? SkyAtmosphere.MaxDistance : profile != null ? profile.maxDistance : 500f;
+    float SettingsMaxOpacity => HasSkyFrame ? SkyAtmosphere.MaxOpacity : profile != null ? profile.maxOpacity : 0.92f;
+    float SettingsBaseHeight => HasSkyFrame ? SkyAtmosphere.BaseHeight : profile != null ? profile.baseHeight : 12f;
+    float SettingsHeightFalloff => HasSkyFrame ? SkyAtmosphere.HeightFalloff : profile != null ? profile.heightFalloff : 0.035f;
+    float SettingsMistBaseHeight => HasSkyFrame ? SkyAtmosphere.MistBaseHeight : profile != null ? profile.mistBaseHeight : 1.5f;
+    float SettingsMistHeightFalloff => HasSkyFrame ? SkyAtmosphere.MistHeightFalloff : profile != null ? profile.mistHeightFalloff : 0.12f;
+    float SettingsNoiseIntensity => Quality == SolAtmosphereQuality.Low ? 0f : HasSkyFrame ? SkyAtmosphere.NoiseIntensity : profile != null ? profile.noiseIntensity : 0.1f;
+    float SettingsNoiseScale => HasSkyFrame ? SkyAtmosphere.NoiseScale : profile != null ? profile.noiseScale : 0.0035f;
+    float SettingsNoiseSpeed => HasSkyFrame ? SkyAtmosphere.NoiseSpeed : profile != null ? profile.noiseSpeed : 0.08f;
+    float SettingsPhaseAnisotropy => Mathf.Clamp(HasSkyFrame ? SkyAtmosphere.PhaseAnisotropy : profile != null ? profile.phaseAnisotropy : 0.55f, -0.9f, 0.9f);
+    float SettingsDirectionalScattering => HasSkyFrame ? SkyAtmosphere.DirectionalScattering : profile != null ? profile.directionalScatteringIntensity : 0.65f;
+    float SettingsShadowedScattering => Mathf.Clamp01(HasSkyFrame ? SkyAtmosphere.ShadowedScattering : profile != null ? profile.shadowedScatteringStrength : 0.85f);
+    float SettingsRaymarchDistance => Mathf.Max(1f, HasSkyFrame ? SkyAtmosphere.RaymarchDistance : profile != null ? profile.raymarchDistance : 500f);
     int SettingsRaymarchSteps => Quality == SolAtmosphereQuality.Medium
         ? 16
-        : Mathf.Clamp(profile != null ? profile.raymarchStepCount : 32, 8, 32);
-    float SettingsRaymarchJitter => Mathf.Clamp01(profile != null ? profile.raymarchJitter : 0.15f);
-    float SettingsBilateralDepthThreshold => Mathf.Max(0.01f, profile != null ? profile.bilateralDepthThreshold : 2f);
+        : Mathf.Clamp(HasSkyFrame ? SkyAtmosphere.RaymarchSteps : profile != null ? profile.raymarchStepCount : 32, 8, 32);
+    float SettingsRaymarchJitter => Mathf.Clamp01(HasSkyFrame ? SkyAtmosphere.RaymarchJitter : profile != null ? profile.raymarchJitter : 0.15f);
+    float SettingsBilateralDepthThreshold => Mathf.Max(0.01f, HasSkyFrame ? SkyAtmosphere.BilateralDepthThreshold : profile != null ? profile.bilateralDepthThreshold : 2f);
     float SettingsSpatialFilterStrength => Quality == SolAtmosphereQuality.High
-        ? Mathf.Clamp01(profile != null ? profile.spatialFilterStrength : 0.75f)
+        ? Mathf.Clamp01(HasSkyFrame ? SkyAtmosphere.SpatialFilterStrength : profile != null ? profile.spatialFilterStrength : 0.75f)
         : 0f;
-    float SettingsSkyFog => profile != null ? profile.skyFogStrength : 1f;
-    float SettingsZenithFogStrength => Mathf.Max(0f, profile != null ? profile.zenithFogStrength : 0.12f);
-    float SettingsHorizonFogStrength => Mathf.Max(0f, profile != null ? profile.horizonFogStrength : 1f);
-    float SettingsFogSaturation => Mathf.Clamp01(profile != null ? profile.fogSaturation : 0.35f);
-    float SettingsAmbientScattering => Mathf.Max(0f, profile != null ? profile.ambientScatteringIntensity : 0.65f);
-    float SettingsMaxScatteringLuminance => Mathf.Max(0.01f, profile != null ? profile.maxScatteringLuminance : 1.5f);
-    float SettingsLightningScattering => Mathf.Max(0f, profile != null ? profile.lightningScatteringIntensity : 0.08f);
-    Color SettingsDayColor => profile != null ? profile.dayScatteringColor : new Color(1f, 0.75f, 0.48f, 1f);
-    Color SettingsNightColor => profile != null ? profile.nightScatteringColor : new Color(0.22f, 0.34f, 0.62f, 1f);
+    float SettingsSkyFog => HasSkyFrame ? SkyAtmosphere.SkyFogStrength : profile != null ? profile.skyFogStrength : 1f;
+    float SettingsZenithFogStrength => Mathf.Max(0f, HasSkyFrame ? SkyAtmosphere.ZenithFogStrength : profile != null ? profile.zenithFogStrength : 0.12f);
+    float SettingsHorizonFogStrength => Mathf.Max(0f, HasSkyFrame ? SkyAtmosphere.HorizonFogStrength : profile != null ? profile.horizonFogStrength : 1f);
+    float SettingsFogSaturation => Mathf.Clamp01(HasSkyFrame ? SkyAtmosphere.FogSaturation : profile != null ? profile.fogSaturation : 0.35f);
+    float SettingsAmbientScattering => Mathf.Max(0f, HasSkyFrame ? SkyAtmosphere.AmbientScattering : profile != null ? profile.ambientScatteringIntensity : 0.65f);
+    float SettingsMaxScatteringLuminance => Mathf.Max(0.01f, HasSkyFrame ? SkyAtmosphere.MaxScatteringLuminance : profile != null ? profile.maxScatteringLuminance : 1.5f);
+    float SettingsLightningScattering => Mathf.Max(0f, HasSkyFrame ? SkyAtmosphere.LightningScattering : profile != null ? profile.lightningScatteringIntensity : 0.08f);
+    Color SettingsDayColor => HasSkyFrame ? SkyAtmosphere.DayScatteringColor : profile != null ? profile.dayScatteringColor : new Color(1f, 0.75f, 0.48f, 1f);
+    Color SettingsNightColor => HasSkyFrame ? SkyAtmosphere.NightScatteringColor : profile != null ? profile.nightScatteringColor : new Color(0.22f, 0.34f, 0.62f, 1f);
 
     static Color ResolveLightColor(
         Color authoredScatteringColor,

@@ -46,6 +46,10 @@ namespace Sol.Tests.Editor
             "Assets/Earth-Sky-Water/Scripts/Water2/SolWaterFftReadback.cs";
         const string SkyboxShaderPath =
             "Assets/Earth-Sky-Water/TimeOfDay/CelestialBodies/Sol_Skybox.shader";
+        const string CelestialBodyShaderPath =
+            "Assets/Earth-Sky-Water/TimeOfDay/CelestialBodies/CelestialBody.shader";
+        const string TimeOfDaySourcePath =
+            "Assets/Earth-Sky-Water/TimeOfDay/TimeofDay.cs";
 
         // One home for the four containers that serialize a weather selection list,
         // shared with the migration and sync tools so they cannot drift apart.
@@ -708,6 +712,76 @@ namespace Sol.Tests.Editor
                 "Cloud density is executing in both the skybox and the renderer feature.");
         }
 
+        /// <summary>
+        /// The sky dome is drawn in every direction, but the world it sits over runs out
+        /// at a finite distance. Anything celestial painted below the horizon shows
+        /// through the gap past the edge of the terrain or the ocean clipmap, which is
+        /// how a set moon ended up visible through the waterline. Every body must be
+        /// clipped against the view ray's own elevation, not its own.
+        /// </summary>
+        [Test]
+        public void CelestialBodies_AreOccludedBelowTheHorizon()
+        {
+            Shader sky = AssetDatabase.LoadAssetAtPath<Shader>(SkyboxShaderPath);
+            Assert.IsNotNull(sky);
+            Assert.IsFalse(ShaderUtil.ShaderHasError(sky),
+                "The skybox shader has an import/compile error.");
+
+            Shader body = AssetDatabase.LoadAssetAtPath<Shader>(CelestialBodyShaderPath);
+            Assert.IsNotNull(body);
+            Assert.IsFalse(ShaderUtil.ShaderHasError(body),
+                "The celestial body shader has an import/compile error.");
+
+            string skySource = File.ReadAllText(SkyboxShaderPath);
+            Assert.That(skySource, Does.Contain("float horizonVisibility = smoothstep("),
+                "The sky no longer clips celestial bodies against the horizon.");
+            foreach (string mask in new[] { "float visibleSun", "float visibleMoon" })
+            {
+                int index = skySource.IndexOf(mask, System.StringComparison.Ordinal);
+                Assert.Greater(index, 0, mask + " is missing.");
+                Assert.That(skySource.Substring(index, 220),
+                    Does.Contain("horizonVisibility"),
+                    mask + " is drawn without the horizon test, so the body shows "
+                         + "below the waterline once it has set.");
+            }
+
+            string bodySource = File.ReadAllText(CelestialBodyShaderPath);
+            Assert.That(bodySource, Does.Contain("_SolSkyHorizon"),
+                "Tertiary planets clip against a different horizon than the sky.");
+
+            string timeOfDay = File.ReadAllText(TimeOfDaySourcePath);
+            Assert.That(timeOfDay, Does.Contain("Shader.SetGlobalVector(_SolSkyHorizonID"),
+                "Nothing publishes the horizon the billboards clip against.");
+        }
+
+        /// <summary>
+        /// A low sun reddens because its light crosses more atmosphere, and that is the
+        /// shader's job: the disc is the sun itself. Driving it from the ground-light
+        /// ramp applied the atmosphere twice and, because that ramp reaches black at the
+        /// horizon threshold, put the disc out before it ever reached the horizon.
+        /// </summary>
+        [Test]
+        public void SunDisc_RedensByAirMassRatherThanTheGroundLightRamp()
+        {
+            string skySource = File.ReadAllText(SkyboxShaderPath);
+            Assert.That(skySource, Does.Contain("float SolAirMass("),
+                "The sky has no air-mass model to redden a low sun with.");
+            Assert.That(skySource, Does.Contain("_SunDiscColor.rgb * sunExtinction"),
+                "The sun disc is not reddened by the atmosphere it is seen through.");
+            Assert.That(skySource, Does.Contain("SolApparentBodyDirection"),
+                "Refraction no longer lifts a setting body clear of the horizon.");
+
+            string timeOfDay = File.ReadAllText(TimeOfDaySourcePath);
+            Assert.That(timeOfDay,
+                Does.Not.Contain("Color sunDiscColor = cachedSunLightColor * sunDiscIntensity"),
+                "The sun disc is driven from the ground-light colour again, which "
+                    + "fades it to black before it reaches the horizon.");
+            Assert.That(timeOfDay, Does.Not.Contain("* (1f - cloudiness * 0.75f)"),
+                "The sun's aureole is dimmed by average cloud coverage as well as by "
+                    + "the per-pixel transmittance the cloud composite already applies, "
+                    + "so the sun stays dim even through a break in the deck.");
+        }
+
         [Test]
         public void CloudShell_IntersectsContinuouslyAcrossTheHorizon()
         {
@@ -793,6 +867,7 @@ namespace Sol.Tests.Editor
                 "The shipped profile should exercise the packed-texture fallback path.");
             Assert.AreEqual(8000f, profile.structureScaleMetres, 0.01f);
             Assert.AreEqual(0.38f, profile.structureInfluence, 0.0001f);
+            Assert.AreEqual(0.38f, profile.volumeTilingSuppression, 0.0001f);
             Assert.AreEqual(0.12f, profile.structureWarpStrength, 0.0001f);
             Assert.AreEqual(25000f, profile.microDetailFadeStartMetres, 0.01f);
             Assert.AreEqual(45000f, profile.microDetailFadeEndMetres, 0.01f);
@@ -811,6 +886,10 @@ namespace Sol.Tests.Editor
             Assert.That(source, Does.Contain("alphaNeighborhood"));
             Assert.That(source, Does.Contain("recoveredOpacity"));
             Assert.That(source, Does.Contain("_SolCloudDebugMode"));
+            Assert.That(density, Does.Contain("_SolCloudTileBreakup"),
+                "The periodic shape volume needs its decorrelated anti-tiling sample.");
+            Assert.That(density, Does.Contain("breakupVariants"),
+                "Anti-tiling must sample a second volume domain, not just rename a scalar.");
         }
 
         /// <summary>
@@ -1158,6 +1237,11 @@ namespace Sol.Tests.Editor
                 Assert.AreEqual(4, profile.ViewSteps(SolCloudQuality.Low));
                 Assert.AreEqual(32, profile.ViewSteps(SolCloudQuality.Medium));
                 Assert.AreEqual(48, profile.ViewSteps(SolCloudQuality.High));
+                Assert.AreEqual(0.5f, profile.RenderScale(SolCloudQuality.Low), 0.001f);
+                Assert.Greater(profile.RenderScale(SolCloudQuality.Medium),
+                    profile.RenderScale(SolCloudQuality.Low));
+                Assert.Greater(profile.RenderScale(SolCloudQuality.High),
+                    profile.RenderScale(SolCloudQuality.Medium));
                 Assert.AreEqual(0, profile.LightSteps(SolCloudQuality.Low));
                 Assert.Greater(profile.HistoryWeight(SolCloudQuality.High),
                     profile.HistoryWeight(SolCloudQuality.Medium));
@@ -2452,9 +2536,9 @@ namespace Sol.Tests.Editor
         }
 
         /// <summary>
-        /// Offsetting the ray once leaves every step landing on the same shells, so the
-        /// banding stays coherent and temporal reprojection preserves it. Each step must be
-        /// stratified within its own segment.
+        /// Every step needs independent jitter addressed in cloud-render pixels. Addressing
+        /// InterleavedGradientNoise with full-resolution coordinates while rendering at half
+        /// resolution selected a regular subset of its lattice and made the pattern visible.
         /// </summary>
         [Test]
         public void CloudRaymarch_StratifiesEveryStepNotJustTheRay()
@@ -2462,8 +2546,12 @@ namespace Sol.Tests.Editor
             string shader = File.ReadAllText(
                 "Assets/Earth-Sky-Water/Shaders/SolVolumetricClouds.shader");
 
-            Assert.That(shader, Does.Contain("float stepJitter = frac(jitter + stepIndex"),
-                "Each ray-march step must carry its own stratified offset.");
+            Assert.That(shader, Does.Contain("SolCloudStepJitter("),
+                "Each ray-march step must carry an independently hashed offset.");
+            Assert.That(shader, Does.Contain("float2 cloudSize = SolCloudBufferSize()"),
+                "Jitter must be addressed in the cloud buffer's pixel grid.");
+            Assert.That(shader, Does.Not.Contain("InterleavedGradientNoise("),
+                "The patterned full-resolution hash must not return.");
             Assert.That(shader, Does.Contain("stepLength * stepJitter"),
                 "The per-step offset must be applied to the sample position.");
             Assert.That(shader, Does.Not.Contain(

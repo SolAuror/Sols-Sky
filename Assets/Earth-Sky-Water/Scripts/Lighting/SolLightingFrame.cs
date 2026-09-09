@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sol.Lighting
@@ -9,6 +10,7 @@ namespace Sol.Lighting
         None,
         Sun,
         Moon,
+        AdditionalCelestial,
     }
 
     /// <summary>Immutable state for one environment directional light.</summary>
@@ -143,6 +145,7 @@ namespace Sol.Lighting
         public readonly SolDirectionalLightState Sun;
         public readonly SolDirectionalLightState Moon;
         public readonly SolDominantLightKind Dominant;
+        public readonly SolDirectionalLightState AdditionalDominant;
         public readonly SolTrilightAmbient Ambient;
         public readonly SolTrilightAmbient StableAmbient;
         public readonly float WeatherAttenuation;
@@ -162,12 +165,14 @@ namespace Sol.Lighting
             float cloudShadowStrength,
             float dayFactor,
             float eclipse,
-            float lightning)
+            float lightning,
+            SolDirectionalLightState additionalDominant = default)
         {
             Revision = revision;
             Sun = sun;
             Moon = moon;
             Dominant = dominant;
+            AdditionalDominant = additionalDominant;
             Ambient = ambient;
             StableAmbient = stableAmbient;
             WeatherAttenuation = Mathf.Clamp01(weatherAttenuation);
@@ -181,6 +186,7 @@ namespace Sol.Lighting
         {
             SolDominantLightKind.Sun => Sun.Source,
             SolDominantLightKind.Moon => Moon.Source,
+            SolDominantLightKind.AdditionalCelestial => AdditionalDominant.Source,
             _ => null,
         };
 
@@ -188,6 +194,7 @@ namespace Sol.Lighting
         {
             SolDominantLightKind.Sun => Sun,
             SolDominantLightKind.Moon => Moon,
+            SolDominantLightKind.AdditionalCelestial => AdditionalDominant,
             _ => default,
         };
     }
@@ -196,6 +203,50 @@ namespace Sol.Lighting
     public static class SolLightingResolver
     {
         public const float DominantSwitchHysteresis = 1.1f;
+
+        // Fade over the small band in which a body rises through the horizon.
+        // Elevation shapes its intensity; it never gates one body on another's clock.
+        public static float CelestialVisibility(float directionY)
+        {
+            float t = Mathf.InverseLerp(-0.05f, 0.02f, directionY);
+            return t * t * (3f - 2f * t);
+        }
+
+        public static float CelestialIntensity(float directionY, float minimum, float maximum)
+            => Mathf.Lerp(Mathf.Max(0f, minimum), Mathf.Max(0f, maximum),
+                Mathf.Sqrt(Mathf.Clamp01(directionY))) * CelestialVisibility(directionY);
+
+        // URP has one directional shadow map. Fade it out around an ownership
+        // crossover, while leaving both bodies' emitted radiance untouched.
+        public static float MainShadowVisibility(float mainScore, float competingScore)
+        {
+            if (competingScore <= 0.000001f) return mainScore > 0f ? 1f : 0f;
+            float t = Mathf.InverseLerp(1.15f, 2f, mainScore / competingScore);
+            return t * t * (3f - 2f * t);
+        }
+
+        public static SolDirectionalLightState ResolveDominantState(
+            in SolDirectionalLightState sun, in SolDirectionalLightState moon,
+            IReadOnlyList<SolDirectionalLightState> additional, Light previous)
+        {
+            SolDirectionalLightState best = default;
+            float bestScore = 0f;
+            Consider(sun, previous, ref best, ref bestScore);
+            Consider(moon, previous, ref best, ref bestScore);
+            for (int i = 0; i < additional.Count; i++)
+                Consider(additional[i], previous, ref best, ref bestScore);
+            return best;
+        }
+
+        static void Consider(in SolDirectionalLightState state, Light previous,
+            ref SolDirectionalLightState best, ref float bestScore)
+        {
+            if (state.Source == null) return;
+            float score = state.Score * (state.Source == previous ? DominantSwitchHysteresis : 1f);
+            if (score <= bestScore) return;
+            best = state;
+            bestScore = score;
+        }
 
         public static SolDominantLightKind ResolveDominant(
             in SolDirectionalLightState sun,

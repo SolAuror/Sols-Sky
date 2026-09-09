@@ -179,6 +179,8 @@ Shader "Hidden/Sol/Atmosphere"
                     inScattering *= targetOpacity / opacity;
                 else if (targetOpacity > 0.0)
                     inScattering = SolAtmosphereLighting(viewDirection, 1.0) * targetOpacity;
+                if (isSky > 0.5 && _SolSkyFrameActive > 0.5)
+                    inScattering = SolEvaluateResolvedSkyRadiance(viewDirection) * targetOpacity;
                 transmittance = 1.0 - targetOpacity;
                 return half4(inScattering, transmittance);
             }

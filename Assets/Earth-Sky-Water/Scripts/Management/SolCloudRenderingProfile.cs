@@ -33,6 +33,10 @@ public sealed class SolCloudRenderingProfile : ScriptableObject
     [Header("Authored mesostructure")]
     [Min(100f)] public float structureScaleMetres = 8000f;
     [Range(0f, 1f)] public float structureInfluence = 0.38f;
+    [Tooltip("Blends a second, differently oriented shape-volume lookup whose domain is "
+        + "warped by the packed structure map. This suppresses the visible repeat period "
+        + "of the 3D volume without requiring a substantially larger texture.")]
+    [Range(0f, 0.75f)] public float volumeTilingSuppression = 0.38f;
     [Tooltip("Divergence-free swirl applied to the micro-detail lookup only. Curling the "
         + "base shape instead makes whole cloud masses swim under temporal reprojection.")]
     [Range(0f, 2f)] public float curlWarpStrength = 0.6f;
@@ -48,7 +52,7 @@ public sealed class SolCloudRenderingProfile : ScriptableObject
     [Header("Advection")]
     [Tooltip("Cloud-layer wind is normally faster than the weather profile's 10 m wind. "
         + "This multiplier preserves physical direction while making cloud motion legible.")]
-    [Range(0f, 4f)] public float cloudAdvectionMultiplier = 2f;
+    [Range(0f, 8f)] public float cloudAdvectionMultiplier = 4f;
 
     [Header("Temporal stability")]
     [Tooltip("Temporal accumulation starts reducing beyond this shell-entry distance.")]
@@ -103,6 +107,10 @@ public sealed class SolCloudRenderingProfile : ScriptableObject
     [Range(0f, 1f)] public float worldShadowStrength = 0.85f;
 
     [Header("Quality budgets")]
+    [Tooltip("Fraction of the camera resolution used by the cloud ray march.")]
+    [Range(0.5f, 1f)] public float lowRenderScale = 0.5f;
+    [Range(0.5f, 1f)] public float mediumRenderScale = 0.6f;
+    [Range(0.5f, 1f)] public float highRenderScale = 0.75f;
     [Range(2, 8)] public int lowViewSteps = 4;
     [Range(16, 64)] public int mediumViewSteps = 32;
     [Range(24, 64)] public int highViewSteps = 48;
@@ -120,6 +128,13 @@ public sealed class SolCloudRenderingProfile : ScriptableObject
         SolCloudQuality.Low => lowViewSteps,
         SolCloudQuality.High => highViewSteps,
         _ => mediumViewSteps,
+    };
+
+    public float RenderScale(SolCloudQuality quality) => quality switch
+    {
+        SolCloudQuality.Low => lowRenderScale,
+        SolCloudQuality.High => highRenderScale,
+        _ => mediumRenderScale,
     };
 
     public int LightSteps(SolCloudQuality quality) => quality switch
@@ -166,7 +181,11 @@ public sealed class SolCloudRenderingProfile : ScriptableObject
 
     void OnValidate()
     {
-        cloudAdvectionMultiplier = Mathf.Clamp(cloudAdvectionMultiplier, 0f, 4f);
+        cloudAdvectionMultiplier = Mathf.Clamp(cloudAdvectionMultiplier, 0f, 8f);
+        lowRenderScale = Mathf.Clamp(lowRenderScale, 0.5f, 1f);
+        mediumRenderScale = Mathf.Clamp(mediumRenderScale, 0.5f, 1f);
+        highRenderScale = Mathf.Clamp(highRenderScale, 0.5f, 1f);
+        volumeTilingSuppression = Mathf.Clamp(volumeTilingSuppression, 0f, 0.75f);
         temporalRejectStartMetres = Mathf.Max(1000f, temporalRejectStartMetres);
         temporalRejectEndMetres = Mathf.Max(temporalRejectStartMetres + 1000f,
             temporalRejectEndMetres);

@@ -762,9 +762,9 @@ Shader "Sol/Water"
                 todLightDir = dot(todLightDir, todLightDir) > 0.0001
                     ? normalize(todLightDir)
                     : normalize(mainLight.direction);
-                float3 lightDir    = normalize(lerp(mainLight.direction, todLightDir, _ToDSpecInfluence));
+                float3 lightDir    = normalize(mainLight.direction);
                 float  lightAtten  = mainLight.distanceAttenuation;
-                float3 lightColor  = lerp(mainLight.color, _Sol_SunColor.rgb, _ToDSpecInfluence) * lightAtten;
+                float3 lightColor  = mainLight.color * lightAtten;
 
                 float3 todSunColor = lerp(float3(1,1,1), _Sol_SunColor.rgb, _ToDSpecInfluence);
 
@@ -782,7 +782,7 @@ Shader "Sol/Water"
                 float underwaterShadowInfluence = saturate(_UnderwaterShadowStrength * underwaterShadowDepthFade * depthSoftenAlpha);
                 float softenedShadowAtten = lerp(1.0, mainLight.shadowAttenuation, underwaterShadowInfluence);
                 lightAtten *= softenedShadowAtten;
-                lightColor = lerp(mainLight.color, _Sol_SunColor.rgb, _ToDSpecInfluence) * lightAtten;
+                lightColor = mainLight.color * lightAtten;
 
                 // Precompute roughness terms once - used by main specular and additional lights.
                 // Rain increases roughness, reducing specular sharpness.
@@ -805,7 +805,20 @@ Shader "Sol/Water"
                 noise          = pow(saturate(noise), _SparkleSharpness);
                 noise          = saturate((noise - _SparkleThreshold) * _SparkleIntensity);
 
-                half3 specColor = specTerm * _SpecIntensity * noise * lightColor * todSunColor;
+                half3 specColor = specTerm * _SpecIntensity * noise * lightColor;
+                if (_SolCelestialLightingActive > 0.5)
+                {
+                    specColor = 0.0;
+                    [loop] for (int body = 0; body < min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS); body++)
+                    {
+                        float3 bodyDirection = _SolCelestialDirections[body].xyz;
+                        float3 bodyHalf = SafeNormalize(viewDirWS + bodyDirection);
+                        float bodySpec = DistributionGGX(saturate(dot(finalNormal, bodyHalf)), roughness4)
+                            * saturate(dot(finalNormal, bodyDirection));
+                        float shadow = lerp(1.0, softenedShadowAtten, _SolCelestialDirections[body].w);
+                        specColor += bodySpec * _SpecIntensity * noise * _SolCelestialColors[body].rgb * shadow;
+                    }
+                }
 
                 // =====================================
                 //  ENVIRONMENT REFLECTIONS
@@ -971,11 +984,20 @@ Shader "Sol/Water"
                 // =====================================
                 float3 sunReflect = reflect(-lightDir, finalNormal);
                 float  sunAlign   = saturate(dot(sunReflect, viewDirWS));
-                // Keep a floor at night: _Sol_SunColor is moon-tinted then
-                // (SolWaterManager), giving a moonlight streak on the water.
-                half3  sunStreak  = pow(sunAlign, _SunStreakPower) * _Sol_SunColor.rgb
-                                  * _SunStreakIntensity * lightAtten
-                                  * lerp(0.35, 1.0, dayFactor);
+                half3 sunStreak = pow(sunAlign, _SunStreakPower) * mainLight.color
+                    * _SunStreakIntensity * lightAtten;
+                if (_SolCelestialLightingActive > 0.5)
+                {
+                    sunStreak = 0.0;
+                    [loop] for (int body = 0; body < min(_SolCelestialLightCount, SOL_MAX_CELESTIAL_LIGHTS); body++)
+                    {
+                        float bodyAlign = saturate(dot(reflect(-_SolCelestialDirections[body].xyz,
+                            finalNormal), viewDirWS));
+                        float shadow = lerp(1.0, softenedShadowAtten, _SolCelestialDirections[body].w);
+                        sunStreak += pow(bodyAlign, _SunStreakPower) * _SolCelestialColors[body].rgb
+                            * _SunStreakIntensity * shadow;
+                    }
+                }
                 waterColor += sunStreak;
 
                 // =====================================

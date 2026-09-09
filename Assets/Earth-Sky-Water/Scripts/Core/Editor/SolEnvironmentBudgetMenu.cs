@@ -9,9 +9,12 @@ namespace Sol.Environment.EditorTools
     ///
     /// A menu item rather than an overlay on purpose: the counters describe the frame that
     /// just finished, and anything that repaints to display them would itself be part of
-    /// the frame being measured. This will be folded into the environment window later; for
-    /// now it exists so questions like "is the spectrum recorded once or twice" have an
-    /// answer that is not a guess.
+    /// the frame being measured.
+    ///
+    /// The control panel's Diagnostics page now shows and logs the same counters. This is kept
+    /// because it reaches them without opening a window - which matters when the question is
+    /// what a frame cost with no editor window repainting on top of it - and because the menu
+    /// path is what batch-mode invocations already name.
     /// </summary>
     static class SolEnvironmentBudgetMenu
     {

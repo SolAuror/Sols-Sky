@@ -39,34 +39,34 @@ MonoBehaviour:
   m_LightingScenarios:
   - Default
   cellDescs:
-    m_Keys:
+    m_Keys: 
     m_Values: []
   m_SerializedPerSceneCellList: []
   cellSharedDataAsset:
-    m_AssetGUID:
-    m_StreamableAssetPath:
+    m_AssetGUID: 
+    m_StreamableAssetPath: 
     m_ElementSize: 0
     m_StreamableCellDescs:
-      m_Keys:
+      m_Keys: 
       m_Values: []
     m_Asset: {fileID: 0}
   scenarios:
     m_Keys: []
     m_Values: []
   cellBricksDataAsset:
-    m_AssetGUID:
-    m_StreamableAssetPath:
+    m_AssetGUID: 
+    m_StreamableAssetPath: 
     m_ElementSize: 0
     m_StreamableCellDescs:
-      m_Keys:
+      m_Keys: 
       m_Values: []
     m_Asset: {fileID: 0}
   cellSupportDataAsset:
-    m_AssetGUID:
-    m_StreamableAssetPath:
+    m_AssetGUID: 
+    m_StreamableAssetPath: 
     m_ElementSize: 0
     m_StreamableCellDescs:
-      m_Keys:
+      m_Keys: 
       m_Values: []
     m_Asset: {fileID: 0}
   chunkSizeInBricks: 0
@@ -130,7 +130,7 @@ MonoBehaviour:
       bakeScene: 1
       bounds:
         m_Center: {x: 0, y: 0, z: 0}
-        m_Extent: {x: 648, y: 162, z: 648}
+        m_Extent: {x: 1620, y: 162, z: 1620}
     - hasProbeVolume: 1
       bakeScene: 1
       bounds:

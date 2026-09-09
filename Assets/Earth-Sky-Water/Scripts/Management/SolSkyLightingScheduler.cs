@@ -72,6 +72,14 @@ public static class SolSkyLightingScheduler
             ? AsyncGiUpdateIntervalSeconds
             : SynchronousGiUpdateIntervalSeconds;
 
+    /// <summary>Requests one stable GI/probe refresh on the next eligible scheduler tick.</summary>
+    public static void RequestStableRefresh()
+    {
+        _lastGiTime = double.NegativeInfinity;
+        _lastGiCloud = float.NaN;
+        _lastGiAmbient = default;
+    }
+
     public static bool IsApvDataAvailable()
     {
         ProbeReferenceVolume referenceVolume = ProbeReferenceVolume.instance;

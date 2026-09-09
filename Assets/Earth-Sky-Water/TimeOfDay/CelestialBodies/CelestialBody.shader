@@ -38,6 +38,7 @@ Shader "Sol/CelestialBody"
             #pragma fragment Frag
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "../../Water/Shaders/SolAtmosphere.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
@@ -54,6 +55,9 @@ Shader "Sol/CelestialBody"
             SAMPLER(sampler_SurfaceTex);
             TEXTURE2D_X(_SolCloudRenderTexture);
             float _SolCloudActive;
+            // Horizon occlusion level and softness, published by TimeOfDay so the sky
+            // shader and these billboards clip against exactly the same horizon.
+            float4 _SolSkyHorizon;
 
             struct Attributes
             {
@@ -65,6 +69,7 @@ Shader "Sol/CelestialBody"
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv         : TEXCOORD0;
+                float3 positionWS : TEXCOORD1;
             };
 
             Varyings Vert(Attributes IN)
@@ -72,6 +77,7 @@ Shader "Sol/CelestialBody"
                 Varyings OUT;
                 OUT.positionCS = TransformObjectToHClip(IN.positionOS.xyz);
                 OUT.uv         = IN.uv;
+                OUT.positionWS = TransformObjectToWorld(IN.positionOS.xyz);
                 return OUT;
             }
 
@@ -87,6 +93,18 @@ Shader "Sol/CelestialBody"
                 // Anti-aliased edge via screen-space derivatives
                 float dist  = length(centered);
                 float alpha = saturate((1.0 - dist) / fwidth(dist));
+
+                // A body below the horizon is behind the planet, not behind whatever
+                // geometry happens to be modelled out there. The billboard orbits at a
+                // fixed radius, well beyond any terrain, so without this it shows
+                // through wherever the ground or the water runs out before the view ray
+                // does. Testing the view direction rather than the body's own clips a
+                // straddling disc along the horizon, so it sets instead of vanishing.
+                float3 viewDirWS = normalize(IN.positionWS - _WorldSpaceCameraPos);
+                float horizonSoftness = max(_SolSkyHorizon.y, 1e-4);
+                alpha *= smoothstep(_SolSkyHorizon.x - horizonSoftness,
+                                    _SolSkyHorizon.x + horizonSoftness, viewDirWS.y);
+                clip(alpha - 0.0005);
 
                 // Reconstruct spherical normal in object space
                 // (quad faces camera, so local Z = toward camera)
@@ -128,6 +146,11 @@ Shader "Sol/CelestialBody"
                         _SolCloudRenderTexture, sampler_LinearClamp, screenUV);
                     body = body * cloud.a + cloud.rgb;
                 }
+
+                // Match the skybox ordering: authored body, then cloud composition,
+                // then the shared atmosphere convergence operator.
+                body = SolApplyAtmosphere(body, _WorldSpaceCameraPos,
+                    IN.positionWS, viewDirWS, 1.0);
 
                 return half4(body, alpha);
             }

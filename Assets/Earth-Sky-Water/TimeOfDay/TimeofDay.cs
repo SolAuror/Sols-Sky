@@ -52,6 +52,7 @@ public class TimeOfDay : MonoBehaviour
     Light moonLight;
     Light dominantAtmosphereLight;
     Light editPreviewSunLight;
+    Light editPreviewMoonLight;
 
     // -- CURRENT TIME OF DAY --------------------------
     [Header("-- Current Time of Day ------------")]
@@ -74,7 +75,7 @@ public class TimeOfDay : MonoBehaviour
     [Min(0f)]
     [SerializeField] float maxIntensity = 1.5f;
 
-    [Tooltip("Sun intensity at the horizon or below.")]
+    [Tooltip("Sun intensity at the horizon, fading to zero as the disc sets.")]
     [Min(0f)]
     [SerializeField] float minIntensity = 0.05f;
 
@@ -83,9 +84,13 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("Moon light color at night.")]
     [SerializeField] Color moonColorNight = new Color(0.6f, 0.7f, 0.9f);
 
-    [Tooltip("Moon intensity at full night (full moon, directly overhead).")]
+    [Tooltip("Full-moon intensity overhead. Moonlight works during daylight too.")]
     [Min(0f)]
     [SerializeField] float moonMaxIntensity = 0.3f;
+
+    [Tooltip("Full-moon intensity at the horizon, before phase and weather dimming.")]
+    [Min(0f)]
+    [SerializeField] float moonMinIntensity = 0.04f;
 
     // -- Runtime celestial body references --
     CelestialBody sunBody;
@@ -120,18 +125,18 @@ public class TimeOfDay : MonoBehaviour
     [Min(1f)]
     [SerializeField] float nodalPrecessionDays = 168f;
 
-    [Tooltip("Angular threshold in degrees within which an eclipse occurs.")]
+    [Tooltip("Angular threshold for lunar eclipses. Solar eclipses use the displayed sun and moon sizes.")]
     [Range(0.5f, 10f)]
     [SerializeField] float eclipseThresholdDegrees = 3f;
 
     [Tooltip("Color the moon turns during a lunar eclipse.")]
     [SerializeField] Color lunarEclipseTint = new Color(0.6f, 0.15f, 0.1f);
 
-    [Tooltip("Lunar phase must be within this fraction of new (0) or full (0.5) for an eclipse to be possible.")]
+    [Tooltip("Lunar phase must be within this fraction of full (0.5) for a lunar eclipse.")]
     [Range(0.01f, 0.15f)]
     [SerializeField] float eclipsePhaseWindow = 0.05f;
 
-    [Tooltip("How strongly eclipses are biased toward the apex of the orbit. Higher = eclipses only near zenith.")]
+    [Tooltip("Biases lunar eclipses toward the zenith. Solar eclipses remain visible near the horizon.")]
     [Range(0f, 5f)]
     [SerializeField] float eclipseApexBias = 2f;
 
@@ -203,6 +208,9 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("Should this script control the skybox material colors?")]
     [SerializeField] bool controlSkybox = true;
 
+    [Tooltip("Unified visual-authoring asset. When absent, the inline fields below remain the compatibility fallback.")]
+    [SerializeField] SolSkyProfile skyProfile;
+
     [Header("    Day")]
     [Tooltip("Zenith (top of sky) color during the day.")]
     [SerializeField] Color skyZenithDay = new Color(0.4f, 0.6f, 0.9f);
@@ -272,6 +280,14 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("Star height (controls noise scale / star density).")]
     [Min(0f)]
     [SerializeField] float starHeight = 100f;
+
+    [Tooltip("Visible star brightness variation, independent of cloud advection.")]
+    [Range(0f, 1f)]
+    [SerializeField] float starTwinkleAmount = 0.65f;
+
+    [Tooltip("Approximate twinkle cycles per presentation second.")]
+    [Range(0f, 5f)]
+    [SerializeField] float starTwinkleSpeed = 1.25f;
 
     [Header("    Aurora")]
     [Tooltip("Enable aurora displays on some nights (deterministic per calendar day, " +
@@ -373,6 +389,12 @@ public class TimeOfDay : MonoBehaviour
     [Min(0f)]
     [SerializeField] float sunGlowIntensityNight = 0.1f;
 
+    [Tooltip("Atmospheric glow brightness with the sun on the horizon. This is the "
+           + "peak of the ramp, not an endpoint: forward scatter is strongest when "
+           + "the sunlight reaching the viewer has crossed the most atmosphere.")]
+    [Min(0f)]
+    [SerializeField] float sunGlowIntensityHorizon = 3f;
+
     [Tooltip("Eclipse corona color (HDR).")]
     [SerializeField] Color coronaColor = new Color(1.5f, 0.4f, 0.15f, 1f);
 
@@ -400,6 +422,58 @@ public class TimeOfDay : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] float hazeIntensityNight = 0.03f;
 
+    [Tooltip("Width of the broad forward-scatter lobe around the sun, relative to the "
+           + "tight aureole. This is the wash that lights up half the sky at dusk.")]
+    [Range(0f, 4f)]
+    [SerializeField] float sunGlowWideWeight = 0.75f;
+
+    [Tooltip("Falloff of that broad lobe. Lower spreads it further across the sky.")]
+    [Range(0.05f, 4f)]
+    [SerializeField] float sunGlowWideFalloff = 0.6f;
+
+    [Tooltip("Strength of air-mass extinction on the sun and moon discs. 0 leaves them "
+           + "the same colour at every altitude; 1 is the full physical reddening.")]
+    [Range(0f, 1f)]
+    [SerializeField] float sunAirMassExtinction = 0.35f;
+
+    [Header("    Horizon")]
+    [Tooltip("Elevation (sine of the angle) at which the sky occludes the sun, moon and "
+           + "planets. 0 is a flat sea horizon; lower it for a raised viewpoint.")]
+    [Range(-0.25f, 0.25f)]
+    [SerializeField] float horizonOcclusionLevel;
+
+    [Tooltip("Softness of that horizon clip. A few pixels' worth keeps the setting "
+           + "disc anti-aliased without blurring it into the sea.")]
+    [Range(0.0005f, 0.05f)]
+    [SerializeField] float horizonOcclusionSoftness = 0.0035f;
+
+    [Tooltip("Astronomical refraction multiplier. 1 is physical: a body within half a "
+           + "degree of the horizon is lifted just clear of it, so sunset runs on a "
+           + "few minutes past the geometric one.")]
+    [Range(0f, 4f)]
+    [SerializeField] float horizonRefraction = 1f;
+
+    [Tooltip("How much a low disc is squashed vertically by differential refraction.")]
+    [Range(0f, 1f)]
+    [SerializeField] float horizonFlatten = 0.45f;
+
+    [Tooltip("Fraction of the sun's glow still reaching view rays aimed below the "
+           + "horizon. Keeps the waterline from picking up a hard bright edge.")]
+    [Range(0f, 1f)]
+    [SerializeField] float horizonGlowRetention = 0.2f;
+
+    [Header("    Twilight")]
+    [Tooltip("Strength of the Earth's-shadow wedge and the Belt of Venus above it, "
+           + "opposite the sun at dawn and dusk.")]
+    [Range(0f, 2f)]
+    [SerializeField] float twilightBandIntensity = 1f;
+
+    [Tooltip("Multiplicative tint of the rising Earth shadow. Alpha is its strength.")]
+    [SerializeField] Color earthShadowColor = new Color(0.45f, 0.5f, 0.7f, 0.85f);
+
+    [Tooltip("Additive colour of the Belt of Venus band. Alpha is its strength.")]
+    [SerializeField] Color beltOfVenusColor = new Color(0.55f, 0.24f, 0.26f, 0.7f);
+
     // Cached property IDs (allocated once)
     static readonly int _ZenithColorID          = Shader.PropertyToID("_ZenithColor");
     static readonly int _HorizonColorID         = Shader.PropertyToID("_HorizonColor");
@@ -419,18 +493,25 @@ public class TimeOfDay : MonoBehaviour
     static readonly int _SunDiscSizeID          = Shader.PropertyToID("_SunDiscSize");
     static readonly int _SunGlowFalloffID       = Shader.PropertyToID("_SunGlowFalloff");
     static readonly int _SunGlowIntensityID     = Shader.PropertyToID("_SunGlowIntensity");
+    static readonly int _SunLimbDarkeningID     = Shader.PropertyToID("_SunLimbDarkening");
+    static readonly int _CoronaPowerID          = Shader.PropertyToID("_CoronaPower");
     static readonly int _CoronaColorID          = Shader.PropertyToID("_CoronaColor");
     static readonly int _MoonDirectionID        = Shader.PropertyToID("_MoonDirection");
     static readonly int _MoonColorID            = Shader.PropertyToID("_MoonColor");
     static readonly int _MoonDarkColorID        = Shader.PropertyToID("_MoonDarkColor");
     static readonly int _MoonDiscSizeID         = Shader.PropertyToID("_MoonDiscSize");
     static readonly int _MoonSharpnessID        = Shader.PropertyToID("_MoonSharpness");
+    static readonly int _MoonSurfaceTexID       = Shader.PropertyToID("_MoonSurfaceTex");
+    static readonly int _MoonSurfaceRotationID  = Shader.PropertyToID("_MoonSurfaceRotation");
     static readonly int _SolarEclipseFactorID   = Shader.PropertyToID("_SolarEclipseFactor");
     static readonly int _LunarEclipseFactorID   = Shader.PropertyToID("_LunarEclipseFactor");
     static readonly int _EclipseTintID          = Shader.PropertyToID("_EclipseTint");
     static readonly int _CloudScaleID           = Shader.PropertyToID("_CloudScale");
     static readonly int _CloudSpeedID           = Shader.PropertyToID("_CloudSpeed");
     static readonly int _CloudTimeID            = Shader.PropertyToID("_CloudTime");
+    static readonly int _StarTimeID             = Shader.PropertyToID("_StarTime");
+    static readonly int _StarTwinkleSpeedID     = Shader.PropertyToID("_StarTwinkleSpeed");
+    static readonly int _StarTwinkleAmountID    = Shader.PropertyToID("_StarTwinkleAmount");
     static readonly int _CloudWindDirectionID   = Shader.PropertyToID("_CloudWindDirection");
     static readonly int _CloudErosionID         = Shader.PropertyToID("_CloudErosion");
     static readonly int _CloudNoiseTexID        = Shader.PropertyToID("_CloudNoiseTex");
@@ -445,6 +526,32 @@ public class TimeOfDay : MonoBehaviour
     static readonly int _CloudColorID           = Shader.PropertyToID("_CloudColor");
     static readonly int _CloudShadowColorID     = Shader.PropertyToID("_CloudShadowColor");
     static readonly int _HazeIntensityID        = Shader.PropertyToID("_HazeIntensity");
+    static readonly int _SunGlowWideWeightID    = Shader.PropertyToID("_SunGlowWideWeight");
+    static readonly int _SunGlowWideFalloffID   = Shader.PropertyToID("_SunGlowWideFalloff");
+    static readonly int _SunExtinctionID        = Shader.PropertyToID("_SunExtinction");
+    static readonly int _HorizonLevelID         = Shader.PropertyToID("_HorizonLevel");
+    static readonly int _HorizonSoftnessID      = Shader.PropertyToID("_HorizonSoftness");
+    static readonly int _HorizonRefractionID    = Shader.PropertyToID("_HorizonRefraction");
+    static readonly int _HorizonFlattenID       = Shader.PropertyToID("_HorizonFlatten");
+    static readonly int _HorizonGlowFloorID     = Shader.PropertyToID("_HorizonGlowFloor");
+    static readonly int _TwilightIntensityID    = Shader.PropertyToID("_TwilightIntensity");
+    static readonly int _EarthShadowColorID     = Shader.PropertyToID("_EarthShadowColor");
+    static readonly int _BeltOfVenusColorID     = Shader.PropertyToID("_BeltOfVenusColor");
+    // Global rather than material-scoped: the tertiary-planet billboards are separate
+    // materials that have to clip against the same horizon the sky does.
+    static readonly int _SolSkyHorizonID        = Shader.PropertyToID("_SolSkyHorizon");
+    static readonly int _SolSkyFrameActiveID    = Shader.PropertyToID("_SolSkyFrameActive");
+    static readonly int _SolSkyZenithColorID    = Shader.PropertyToID("_SolSkyZenithColor");
+    static readonly int _SolSkyHorizonColorID   = Shader.PropertyToID("_SolSkyHorizonColor");
+    static readonly int _SolSkyNadirColorID     = Shader.PropertyToID("_SolSkyNadirColor");
+    static readonly int _SolSkyTwilightColorID  = Shader.PropertyToID("_SolSkyTwilightColor");
+    static readonly int _SolSkyAntiSolarColorID = Shader.PropertyToID("_SolSkyAntiSolarColor");
+    static readonly int _SolSkySunDirectionID   = Shader.PropertyToID("_SolSkySunDirection");
+    static readonly int _SolSkyGradientParamsID = Shader.PropertyToID("_SolSkyGradientParams");
+    static readonly int _SolSkyDirectionalParamsID = Shader.PropertyToID("_SolSkyDirectionalParams");
+    static readonly int _SolSkyStellarBackdropID = Shader.PropertyToID("_SolSkyStellarBackdrop");
+    static readonly int _SolSkyStellarBackdropActiveID = Shader.PropertyToID("_SolSkyStellarBackdropActive");
+    static readonly int _SolSkyStellarParamsID = Shader.PropertyToID("_SolSkyStellarParams");
 
     // -- CYCLE TIMING ---------------------------------
     [Header("-- Cycle Timing -------------------")]
@@ -508,6 +615,7 @@ public class TimeOfDay : MonoBehaviour
     double _editorClockStamp;
     float presentationDeltaSeconds;
     float cloudTime;
+    float starTime;
     SolEnvironmentCoordinator environmentCoordinator;
     Material controlledSkyboxMaterial;
     Material _cloudKeywordMaterial;
@@ -517,6 +625,8 @@ public class TimeOfDay : MonoBehaviour
     Texture2D _resolvedCloudNoiseTexture;
     Texture2D _resolvedCloudWeatherMap;
     Sol.Environment.SolWorldFrameGate environmentUpdateGate;
+    SolSkyFrame currentSkyFrame;
+    uint skyRevision = 1;
 
     /// <summary>World-space direction toward the sun (unit vector).</summary>
     public Vector3 SunDirection => cachedSunDirection;
@@ -526,6 +636,28 @@ public class TimeOfDay : MonoBehaviour
 
     /// <summary>0 = night, 1 = zenith. Continuous day/night blend factor.</summary>
     public float DayFactor => cachedDayFactor;
+
+    /// <summary>The active unified visual-authoring profile, or null for compatibility fallback.</summary>
+    public SolSkyProfile SkyProfile => skyProfile;
+
+    /// <summary>Immutable presentation resolved for the latest environment update.</summary>
+    public SolSkyFrame CurrentSkyFrame => currentSkyFrame;
+
+    /// <summary>Switches visual presets without changing time or weather simulation.</summary>
+    public void SetSkyProfile(SolSkyProfile profile)
+    {
+        if (skyProfile == profile)
+            return;
+
+        skyProfile = profile;
+        skyRevision++;
+        currentSkyFrame = default;
+        environmentUpdateGate.Invalidate();
+        SolCloudController.Active.InvalidateHistory();
+        Sol.Environment.SolEnvironmentCameraRegistry.InvalidateAllHistories();
+        SolSkyLightingScheduler.RequestStableRefresh();
+        UpdateEnvironment();
+    }
 
     internal SolDirectionalLightState SunLightingCandidate => new(
         sunLight,
@@ -547,6 +679,24 @@ public class TimeOfDay : MonoBehaviour
 
     internal void SetDominantAtmosphereLight(Light value)
         => dominantAtmosphereLight = value;
+
+    internal SolDirectionalLightState GetTertiaryLightingCandidate(int index)
+    {
+        var runtime = tertiaryInstances[index];
+        CelestialBody body = runtime.body;
+        CelestialBodyConfig config = runtime.config;
+        if (body == null) return default;
+        bool emits = config != null && config.hasLight;
+        float visibility = SolLightingResolver.CelestialVisibility(body.Direction.y);
+        float intensity = emits ? SolLightingResolver.CelestialIntensity(body.Direction.y,
+            config.minLightIntensity, config.maxLightIntensity)
+            * (1f - body.EclipseFactor * config.eclipseDimFactor) : 0f;
+        return new SolDirectionalLightState(body.AttachedLight, body.Direction,
+            emits ? Color.Lerp(config.lightColor, config.eclipseTintColor, body.EclipseFactor)
+                : Color.black,
+            intensity, emits && config.castShadows ? visibility : 0f,
+            emits && intensity > 0f);
+    }
 
     Calendar calendar;
     #endregion
@@ -775,21 +925,35 @@ public class TimeOfDay : MonoBehaviour
     #region Celestial Body Setup
     void EnsureEditPreviewSun()
     {
-        if (Application.isPlaying || sunLight != null)
+        if (Application.isPlaying)
             return;
 
-        var previewObject = new GameObject("Sol Edit Preview Sun")
+        if (sunLight == null)
+            sunLight = editPreviewSunLight = CreatePreviewLight("Sol Edit Preview Sun");
+        if (moonLight == null)
+            moonLight = editPreviewMoonLight = CreatePreviewLight("Sol Edit Preview Moon");
+    }
+
+    static Light CreatePreviewLight(string name)
+    {
+        var previewObject = new GameObject(name)
         {
             hideFlags = HideFlags.HideAndDontSave
         };
-        editPreviewSunLight = previewObject.AddComponent<Light>();
-        editPreviewSunLight.hideFlags = HideFlags.HideAndDontSave;
-        editPreviewSunLight.type = LightType.Directional;
-        sunLight = editPreviewSunLight;
+        Light light = previewObject.AddComponent<Light>();
+        light.hideFlags = HideFlags.HideAndDontSave;
+        light.type = LightType.Directional;
+        return light;
     }
 
     void DestroyEditPreviewSun()
     {
+        if (editPreviewMoonLight != null)
+        {
+            if (moonLight == editPreviewMoonLight) moonLight = null;
+            DestroyImmediate(editPreviewMoonLight.gameObject);
+            editPreviewMoonLight = null;
+        }
         if (editPreviewSunLight == null)
             return;
 
@@ -870,6 +1034,7 @@ public class TimeOfDay : MonoBehaviour
         }
 
         presentationDeltaSeconds = GetPresentationDeltaSeconds(Time.deltaTime);
+        starTime += presentationDeltaSeconds;
         worldDeltaSeconds = GetWorldDeltaSeconds(Time.deltaTime);
         worldDeltaHours = GetWorldDeltaHours(worldDeltaSeconds);
         cloudTime += worldDeltaSeconds
@@ -961,6 +1126,7 @@ public class TimeOfDay : MonoBehaviour
         float editorDelta = Mathf.Clamp((float)elapsed, 0f, 0.1f);
 
         presentationDeltaSeconds = GetPresentationDeltaSeconds(editorDelta);
+        starTime += presentationDeltaSeconds;
         worldDeltaSeconds = GetWorldDeltaSeconds(editorDelta);
         worldDeltaHours = GetWorldDeltaHours(worldDeltaSeconds);
         cloudTime += worldDeltaSeconds
@@ -1063,7 +1229,7 @@ public class TimeOfDay : MonoBehaviour
         bool sunAboveHorizon = dot > horizonThreshold;
         cachedSunLightEnabled = sunAboveHorizon;
         cachedSunLightIntensity = sunAboveHorizon
-            ? Mathf.Lerp(minIntensity, maxIntensity, elevation)
+            ? SolLightingResolver.CelestialIntensity(dot, minIntensity, maxIntensity)
             : 0f;
         cachedSunShadowStrength = sunAboveHorizon
             ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elevation / 0.15f))
@@ -1074,12 +1240,10 @@ public class TimeOfDay : MonoBehaviour
             bool isMorning = timeOfDay < 0.5f;
             Color horizonColor = isMorning ? sunriseColor : sunsetColor;
 
-            if (elevation < 0.3f)
-                cachedSunLightColor = Color.Lerp(Color.black, horizonColor, elevation / 0.3f);
-            else if (elevation < 0.7f)
-                cachedSunLightColor = Color.Lerp(horizonColor, noonColor, (elevation - 0.3f) / 0.4f);
-            else
-                cachedSunLightColor = noonColor;
+            // Brightness belongs to intensity. Fading the color to black as well
+            // extinguished the sunset light long before its visible disc set.
+            cachedSunLightColor = Color.Lerp(horizonColor, noonColor,
+                Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, 0.7f, elevation)));
         }
     }
 
@@ -1132,7 +1296,8 @@ public class TimeOfDay : MonoBehaviour
         cachedMoonLightEnabled = moonAboveHorizon;
         cachedMoonLightColor = moonColorNight;
         cachedMoonLightIntensity = moonAboveHorizon
-            ? moonMaxIntensity * moonElevation * currentMoonIllumination
+            ? SolLightingResolver.CelestialIntensity(moonDot, moonMinIntensity, moonMaxIntensity)
+                * currentMoonIllumination
             : 0f;
         cachedMoonShadowStrength = moonAboveHorizon
             ? Mathf.SmoothStep(0f, 1f,
@@ -1149,20 +1314,19 @@ public class TimeOfDay : MonoBehaviour
         Vector3 toSun  = cachedSunDirection;
         Vector3 toMoon = cachedMoonDirection;
 
-        // Eclipses are only physically possible at specific phases:
-        //   Solar eclipse  -> near new moon  (phase ~ 0 or ~ 1)
-        //   Lunar eclipse  -> near full moon (phase ~ 0.5)
-        float phaseDistFromNew  = Mathf.Min(currentLunarPhase, 1f - currentLunarPhase);
+        // The moon is always in front. Actual apparent disc overlap determines
+        // solar coverage, including authored fantasy sizes and horizon distortion.
+        // The angle test inside the solver rejects non-overlaps without integration.
+        solarEclipseFactor = SolEclipseGeometry.SolarOcclusion(toSun, toMoon,
+            skyProfile != null ? skyProfile.sunAngularDiameter
+                : 2f * Mathf.Acos(Mathf.Clamp(sunDiscSize, -1f, 1f)) * Mathf.Rad2Deg,
+            skyProfile != null ? skyProfile.moonAngularDiameter
+                : 2f * Mathf.Acos(Mathf.Clamp(moonDiscSize, -1f, 1f)) * Mathf.Rad2Deg,
+            skyProfile != null ? skyProfile.horizonRefraction : horizonRefraction,
+            skyProfile != null ? skyProfile.horizonFlatten : horizonFlatten);
+
         float phaseDistFromFull = Mathf.Abs(currentLunarPhase - 0.5f);
-
-        bool nearNewMoon  = phaseDistFromNew  < eclipsePhaseWindow;
         bool nearFullMoon = phaseDistFromFull < eclipsePhaseWindow;
-
-        // Solar eclipse: moon overlaps the sun disc (requires new moon)
-        float solarDist = Vector3.Angle(toSun, toMoon);
-        solarEclipseFactor = nearNewMoon
-            ? Mathf.Clamp01(1f - solarDist / eclipseThresholdDegrees)
-            : 0f;
 
         // Lunar eclipse: moon enters Earth's shadow (requires full moon)
         float lunarDist = Vector3.Angle(-toSun, toMoon);
@@ -1170,23 +1334,17 @@ public class TimeOfDay : MonoBehaviour
             ? Mathf.Clamp01(1f - lunarDist / eclipseThresholdDegrees)
             : 0f;
 
- // Bias eclipses toward the apex of the orbit - suppress near horizon
+        // Preserve the separately authored lunar eclipse behaviour.
         if (eclipseApexBias > 0f)
         {
-            float sunElev  = Mathf.Clamp01(Vector3.Dot(toSun,  Vector3.up));
             float moonElev = Mathf.Clamp01(Vector3.Dot(toMoon, Vector3.up));
-            solarEclipseFactor *= Mathf.Pow(sunElev,  eclipseApexBias);
             lunarEclipseFactor *= Mathf.Pow(moonElev, eclipseApexBias);
         }
 
         // Apply eclipses to the solved candidates. SolLightingDirector is the only
         // component that commits these values to Unity Light objects.
         if (solarEclipseFactor > 0f && cachedSunLightEnabled)
-        {
-            cachedSunLightIntensity *= 1f - solarEclipseFactor * 0.95f;
-            cachedSunLightColor = Color.Lerp(
-                cachedSunLightColor, solarEclipseLightColor, solarEclipseFactor);
-        }
+            cachedSunLightIntensity *= 1f - solarEclipseFactor;
 
         if (lunarEclipseFactor > 0f && cachedMoonLightEnabled)
         {
@@ -1226,6 +1384,10 @@ public class TimeOfDay : MonoBehaviour
 
         if (moonBody != null)
         {
+            moonBody.OrbitDistanceOverride = SolEclipseGeometry.ForegroundMoonDistance(
+                sunBody != null ? sunBody.EffectiveOrbitDistance
+                    : sunConfig != null ? sunConfig.orbitDistance : 1000f,
+                moonBody.AuthoredOrbitDistance);
             moonBody.Direction     = cachedMoonDirection;
             moonBody.EclipseFactor = lunarEclipseFactor * 0.3f;
             moonBody.ColorOverride = Color.Lerp(moonColorNight, lunarEclipseTint, lunarEclipseFactor);
@@ -1265,21 +1427,8 @@ public class TimeOfDay : MonoBehaviour
             rt.body.SunDirection  = cachedSunDirection;
             rt.body.Refresh();
 
-            // If the planet config declares a light, drive it
-            Light planetLight = rt.body.AttachedLight;
-            if (planetLight != null && cfg.hasLight)
-            {
-                float elev = Mathf.Clamp01(Vector3.Dot(orbit * Vector3.forward, Vector3.down));
-                bool above = elev > 0.01f;
-                planetLight.enabled = above;
-                if (above)
-                {
-                    planetLight.transform.rotation = orbit;
-                    planetLight.intensity = Mathf.Lerp(cfg.minLightIntensity, cfg.maxLightIntensity, elev);
-                    planetLight.color = cfg.lightColor;
-                    planetLight.shadows = cfg.castShadows ? LightShadows.Soft : LightShadows.None;
-                }
-            }
+            // The lighting director applies every emitter after visuals, including
+            // weather attenuation and participation in clouds/fog/main-light selection.
         }
     }
 
@@ -1297,6 +1446,18 @@ public class TimeOfDay : MonoBehaviour
         float weatherDim = Mathf.Clamp01(WeatherDim);
         float cloudiness = Mathf.Clamp01(WeatherCloudiness);
         float lightning  = Mathf.Clamp01(WeatherLightningFlash);
+        bool auroraNight = false;
+        if (skyProfile != null && skyProfile.enableAurora)
+        {
+            float dayHash = Mathf.Abs(Mathf.Sin((float)WorldDayIndex * 12.9898f + 78.233f)) * 43758.5453f;
+            auroraNight = dayHash - Mathf.Floor(dayHash) < skyProfile.auroraNightChance;
+        }
+        Camera skyCamera = Camera.current != null ? Camera.current : Camera.main;
+        currentSkyFrame = SolSkyResolver.Resolve(skyProfile, new SolSkyResolveInput(
+            cachedSunDirection, cachedMoonDirection, solarEclipseFactor, lunarEclipseFactor,
+            weatherDim, cloudiness, WeatherFogBoost, 0f, lightning,
+            skyCamera != null ? skyCamera.transform.position.y : transform.position.y,
+            timeOfDay < 0.5f, auroraNight, skyRevision));
         AmbientMode scheduledAmbientMode = RenderSettings.ambientMode;
         bool applyAmbient = false;
         Color presentedAmbientSky = RenderSettings.ambientSkyColor;
@@ -1308,7 +1469,18 @@ public class TimeOfDay : MonoBehaviour
 
         // Flat ambient fallback. When ambientFromSky is on, Trilight ambient
         // is derived from the computed sky colors inside the skybox block.
-        if (controlAmbient && (!ambientFromSky || !controlSkybox))
+        if (controlAmbient && currentSkyFrame.IsValid)
+        {
+            scheduledAmbientMode = AmbientMode.Trilight;
+            applyAmbient = true;
+            scheduledAmbientSky = currentSkyFrame.StableAmbientSky;
+            scheduledAmbientEquator = currentSkyFrame.StableAmbientEquator;
+            scheduledAmbientGround = currentSkyFrame.StableAmbientGround;
+            presentedAmbientSky = currentSkyFrame.PresentedAmbientSky;
+            presentedAmbientEquator = currentSkyFrame.PresentedAmbientEquator;
+            presentedAmbientGround = currentSkyFrame.PresentedAmbientGround;
+        }
+        else if (controlAmbient && (!ambientFromSky || !controlSkybox))
         {
             scheduledAmbientMode = AmbientMode.Flat;
             applyAmbient = true;
@@ -1324,12 +1496,21 @@ public class TimeOfDay : MonoBehaviour
 
         if (controlFog)
         {
-            bool isNight = cachedDayFactor < 0.1f;
-            RenderSettings.fog = isNight ? enableNightFog : true;
-            Color fogCol = Color.Lerp(fogNightColor, fogDayColor, cachedDayFactor);
-            float fogDen = Mathf.Lerp(fogNightDensity, fogDayDensity, cachedDayFactor);
-            fogCol *= 1f - weatherDim * 0.4f;
-            fogDen *= 1f + Mathf.Max(0f, WeatherFogBoost);
+            float fogDayFactor = currentSkyFrame.IsValid ? currentSkyFrame.DayFactor : cachedDayFactor;
+            bool isNight = fogDayFactor < 0.1f;
+            RenderSettings.fog = isNight
+                ? (currentSkyFrame.IsValid ? skyProfile.enableNightFog : enableNightFog)
+                : true;
+            Color fogCol = currentSkyFrame.IsValid
+                ? currentSkyFrame.FogColor
+                : Color.Lerp(fogNightColor, fogDayColor, cachedDayFactor);
+            float fogDen = currentSkyFrame.IsValid
+                ? currentSkyFrame.FogDensity
+                : Mathf.Lerp(fogNightDensity, fogDayDensity, cachedDayFactor);
+            if (!currentSkyFrame.IsValid)
+                fogCol *= 1f - weatherDim * 0.4f;
+            if (!currentSkyFrame.IsValid)
+                fogDen *= 1f + Mathf.Max(0f, WeatherFogBoost);
             if (eclipseEnv > 0f)
                 fogCol = Color.Lerp(fogCol, eclipseFogColor, eclipseEnv);
             RenderSettings.fogColor = fogCol;
@@ -1346,28 +1527,39 @@ public class TimeOfDay : MonoBehaviour
                 float df = cachedDayFactor;
 
                 // Zenith: night ? day, with eclipse overlay
-                Color zenith = Color.Lerp(skyZenithNight, skyZenithDay, df);
-                zenith *= 1f - weatherDim * 0.35f;
-                if (eclipseEnv > 0f)
+                Color zenith = currentSkyFrame.IsValid
+                    ? currentSkyFrame.Zenith
+                    : Color.Lerp(skyZenithNight, skyZenithDay, df);
+                if (!currentSkyFrame.IsValid)
+                    zenith *= 1f - weatherDim * 0.35f;
+                if (!currentSkyFrame.IsValid && eclipseEnv > 0f)
                     zenith = Color.Lerp(zenith, skyZenithEclipse, eclipseEnv);
 
                 // Horizon: cool base gradient; the warm dawn/dusk tint is
                 // applied azimuthally around the sun in the shader via
                 // _HorizonWarmColor so the anti-solar side stays cool.
-                Color horizon = Color.Lerp(skyHorizonNight, skyHorizonDay, df);
-                horizon *= 1f - weatherDim * 0.3f;
-                if (eclipseEnv > 0f)
+                Color horizon = currentSkyFrame.IsValid
+                    ? currentSkyFrame.Horizon
+                    : Color.Lerp(skyHorizonNight, skyHorizonDay, df);
+                if (!currentSkyFrame.IsValid)
+                    horizon *= 1f - weatherDim * 0.3f;
+                if (!currentSkyFrame.IsValid && eclipseEnv > 0f)
                     horizon = Color.Lerp(horizon, skyHorizonEclipse, eclipseEnv);
 
                 // Capture the stable sky-lighting state before transient lightning is
                 // added. GI and reflection probes must not chase sub-second flashes.
-                Color nadir = Color.Lerp(skyNadirNight, skyNadirDay, df);
-                scheduledAmbientSky = zenith * ambientSkyIntensity;
-                scheduledAmbientEquator = horizon * ambientSkyIntensity;
-                scheduledAmbientGround = nadir * (ambientSkyIntensity * 0.9f);
+                Color nadir = currentSkyFrame.IsValid
+                    ? currentSkyFrame.Nadir
+                    : Color.Lerp(skyNadirNight, skyNadirDay, df);
+                scheduledAmbientSky = currentSkyFrame.IsValid
+                    ? currentSkyFrame.StableAmbientSky : zenith * ambientSkyIntensity;
+                scheduledAmbientEquator = currentSkyFrame.IsValid
+                    ? currentSkyFrame.StableAmbientEquator : horizon * ambientSkyIntensity;
+                scheduledAmbientGround = currentSkyFrame.IsValid
+                    ? currentSkyFrame.StableAmbientGround : nadir * (ambientSkyIntensity * 0.9f);
 
                 // Lightning: sheet flash brightens the sky, horizon most.
-                if (lightning > 0f)
+                if (!currentSkyFrame.IsValid && lightning > 0f)
                 {
                     zenith  += Color.white * (lightning * 0.6f);
                     horizon += Color.white * (lightning * 0.8f);
@@ -1394,9 +1586,12 @@ public class TimeOfDay : MonoBehaviour
                 {
                     scheduledAmbientMode = AmbientMode.Trilight;
                     applyAmbient = true;
-                    presentedAmbientSky = zenith * ambientSkyIntensity;
-                    presentedAmbientEquator = horizon * ambientSkyIntensity;
-                    presentedAmbientGround = nadir * (ambientSkyIntensity * 0.9f);
+                    presentedAmbientSky = currentSkyFrame.IsValid
+                        ? currentSkyFrame.PresentedAmbientSky : zenith * ambientSkyIntensity;
+                    presentedAmbientEquator = currentSkyFrame.IsValid
+                        ? currentSkyFrame.PresentedAmbientEquator : horizon * ambientSkyIntensity;
+                    presentedAmbientGround = currentSkyFrame.IsValid
+                        ? currentSkyFrame.PresentedAmbientGround : nadir * (ambientSkyIntensity * 0.9f);
                 }
                 if (controlFog && fogColorFromSky)
                 {
@@ -1411,12 +1606,20 @@ public class TimeOfDay : MonoBehaviour
                 }
 
                 // Stars: visible at night, fade out during the day
-                float starIntensity = Mathf.Lerp(starIntensityNight, 0f, df);
+                float starIntensity = currentSkyFrame.IsValid
+                    ? currentSkyFrame.StarIntensity
+                    : Mathf.Lerp(starIntensityNight, 0f, df);
 
                 // Blends: interpolate day/night sharpness
-                float zenithBlend  = Mathf.Lerp(skyZenithBlendNight,  skyZenithBlendDay,  df);
-                float horizonBlend = Mathf.Lerp(skyHorizonBlendNight, skyHorizonBlendDay, df);
-                float nadirBlend   = Mathf.Lerp(skyNadirBlendNight,   skyNadirBlendDay,   df);
+                float zenithBlend = currentSkyFrame.IsValid
+                    ? currentSkyFrame.GradientParameters.x
+                    : Mathf.Lerp(skyZenithBlendNight, skyZenithBlendDay, df);
+                float horizonBlend = currentSkyFrame.IsValid
+                    ? currentSkyFrame.GradientParameters.z
+                    : Mathf.Lerp(skyHorizonBlendNight, skyHorizonBlendDay, df);
+                float nadirBlend = currentSkyFrame.IsValid
+                    ? currentSkyFrame.GradientParameters.y
+                    : Mathf.Lerp(skyNadirBlendNight, skyNadirBlendDay, df);
 
                 // -- Sky gradient --
                 sky.SetColor(_ZenithColorID,    zenith);
@@ -1428,23 +1631,29 @@ public class TimeOfDay : MonoBehaviour
                 sky.SetFloat(_HorizonBlendID,   horizonBlend);
                 sky.SetFloat(_NadirBlendID,     nadirBlend);
                 sky.SetFloat(_StarIntensityID,  starIntensity);
-                sky.SetFloat(_StarPowerID,      starPower);
-                sky.SetFloat(_StarHeightID,     starHeight);
+                sky.SetFloat(_StarPowerID, currentSkyFrame.IsValid ? skyProfile.starPower : starPower);
+                sky.SetFloat(_StarHeightID, currentSkyFrame.IsValid ? skyProfile.starHeight : starHeight);
                 // One dome revolution per civil day. Whole days are identity
                 // rotations, so timeOfDay alone keeps the angle small and
                 // continuous across the midnight wrap.
                 sky.SetFloat(_StarRotationID,   timeOfDay * 2f * Mathf.PI);
-                // Star twinkle and aurora animation still share this canonical visual clock.
+                // Aurora retains the cloud clock. Stars animate in presentation seconds
+                // so cloud advection, day length and fast-forward cannot stall/flicker them.
                 sky.SetFloat(_CloudTimeID, cloudTime);
+                sky.SetFloat(_StarTimeID, starTime);
+                sky.SetFloat(_StarTwinkleAmountID, currentSkyFrame.IsValid
+                    ? skyProfile.twinkleAmount : starTwinkleAmount);
+                sky.SetFloat(_StarTwinkleSpeedID, currentSkyFrame.IsValid
+                    ? skyProfile.twinkleSpeed : starTwinkleSpeed);
                 // Night factor gates the milky way (stars are gated by
                 // _StarIntensity already).
-                sky.SetFloat(_NightFactorID,    1f - df);
+                sky.SetFloat(_NightFactorID, currentSkyFrame.IsValid ? currentSkyFrame.NightFactor : 1f - df);
 
                 // Aurora: some nights get a display (deterministic hash of
                 // the calendar day), visible only at night and suppressed
                 // by storm cover.
-                float aurora = 0f;
-                if (enableAurora)
+                float aurora = currentSkyFrame.IsValid ? currentSkyFrame.AuroraIntensity : 0f;
+                if (!currentSkyFrame.IsValid && enableAurora)
                 {
                     float dayHash = Mathf.Abs(Mathf.Sin((float)WorldDayIndex * 12.9898f + 78.233f)) * 43758.5453f;
                     dayHash -= Mathf.Floor(dayHash);
@@ -1455,36 +1664,115 @@ public class TimeOfDay : MonoBehaviour
 
                 // -- Sun disc --
                 sky.SetVector(_SunDirectionID,  cachedSunDirection);
-                Color sunDiscColor = cachedSunLightColor * sunDiscIntensity;
+                // The disc is the sun itself, not the light that survives the journey
+                // down to the ground. The skybox applies air-mass extinction, which is
+                // what reddens and dims a low sun, so feeding it cachedSunLightColor
+                // counted the atmosphere twice: that ramp reaches black at the horizon
+                // threshold, which put the disc out before it ever got there.
+                // Occlusion masks the covered photosphere; its exposed portion
+                // keeps its brightness. Corona and ambient eclipse colour are separate.
+                Color sunDiscBase = currentSkyFrame.IsValid ? skyProfile.sunColor : noonColor;
+                Color sunDiscColor = sunDiscBase * (currentSkyFrame.IsValid ? skyProfile.sunIntensity : sunDiscIntensity);
                 sky.SetColor(_SunDiscColorID,   sunDiscColor);
-                sky.SetFloat(_SunDiscSizeID,    sunDiscSize);
-                sky.SetColor(_CoronaColorID,    coronaColor);
+                sky.SetFloat(_SunDiscSizeID, currentSkyFrame.IsValid
+                    ? Mathf.Cos(currentSkyFrame.SunAngularDiameter * 0.5f * Mathf.Deg2Rad) : sunDiscSize);
+                sky.SetColor(_CoronaColorID, currentSkyFrame.IsValid
+                    ? skyProfile.coronaColor * skyProfile.coronaIntensity : coronaColor);
+                sky.SetFloat(_SunLimbDarkeningID, currentSkyFrame.IsValid
+                    ? skyProfile.sunLimbDarkening : 0f);
+                sky.SetFloat(_CoronaPowerID, currentSkyFrame.IsValid ? skyProfile.coronaPower : 24f);
 
                 // -- Moon disc --
                 sky.SetVector(_MoonDirectionID,   cachedMoonDirection);
-                sky.SetColor(_MoonColorID,        moonLitColor);
-                sky.SetColor(_MoonDarkColorID,    moonDarkColor);
-                sky.SetFloat(_MoonDiscSizeID,     moonDiscSize);
-                sky.SetFloat(_MoonSharpnessID,    moonTerminatorSharpness);
+                sky.SetColor(_MoonColorID, currentSkyFrame.IsValid ? skyProfile.moonLitColor : moonLitColor);
+                sky.SetColor(_MoonDarkColorID, currentSkyFrame.IsValid ? skyProfile.moonDarkColor : moonDarkColor);
+                sky.SetFloat(_MoonDiscSizeID, currentSkyFrame.IsValid
+                    ? Mathf.Cos(currentSkyFrame.MoonAngularDiameter * 0.5f * Mathf.Deg2Rad) : moonDiscSize);
+                sky.SetFloat(_MoonSharpnessID, currentSkyFrame.IsValid
+                    ? skyProfile.moonTerminatorSharpness : moonTerminatorSharpness);
+                if (currentSkyFrame.IsValid)
+                {
+                    sky.SetTexture(_MoonSurfaceTexID, skyProfile.lunarSurface != null
+                        ? skyProfile.lunarSurface : Texture2D.whiteTexture);
+                    sky.SetFloat(_MoonSurfaceRotationID, skyProfile.moonSurfaceRotation);
+                    sky.SetColor("_AuroraColor1", skyProfile.auroraLowColor);
+                    sky.SetColor("_AuroraColor2", skyProfile.auroraHighColor);
+                    sky.SetVector("_AuroraElevation", new Vector4(
+                        skyProfile.auroraMinElevation, skyProfile.auroraMaxElevation,
+                        skyProfile.auroraEdgeSoftness, 0f));
+                    sky.SetFloat("_GalaxyIntensity", skyProfile.milkyWayIntensity);
+                    sky.SetColor("_GalaxyColor1", skyProfile.milkyWayColor);
+                }
 
                 // -- Eclipses --
                 sky.SetFloat(_SolarEclipseFactorID, solarEclipseFactor);
                 sky.SetFloat(_LunarEclipseFactorID, lunarEclipseFactor);
-                sky.SetColor(_EclipseTintID,        lunarEclipseTint);
+                sky.SetColor(_EclipseTintID, currentSkyFrame.IsValid ? skyProfile.lunarEclipseTint : lunarEclipseTint);
 
                 // -- Atmosphere --
-                float glowIntensity = Mathf.Lerp(sunGlowIntensityNight, sunGlowIntensityDay, df);
+                // Day factor is near zero exactly when the sun is on the horizon, so
+                // lerping the aureole by it put the maximum at noon and left dusk --
+                // the one time of day the wash defines -- almost unlit. The ramp peaks
+                // just above the horizon instead and decays toward the daytime value.
+                // 0.06 is where dayFactor lands with the sun a fraction of a degree up,
+                // given the -0.05 threshold UpdateSun maps elevation from.
+                const float glowPeakDayFactor = 0.06f;
+                float glowIntensity = df < glowPeakDayFactor
+                    ? Mathf.Lerp(sunGlowIntensityNight, sunGlowIntensityHorizon,
+                                 df / glowPeakDayFactor)
+                    : Mathf.Lerp(sunGlowIntensityHorizon, sunGlowIntensityDay,
+                                 (df - glowPeakDayFactor) / (1f - glowPeakDayFactor));
                 float hazeIntensity = Mathf.Lerp(hazeIntensityNight, hazeIntensityDay, df);
-                glowIntensity *= (1f - weatherDim * 0.6f)
-                               * (1f - cloudiness * 0.75f);
-                hazeIntensity *= (1f - weatherDim * 0.7f)
-                               * (1f - cloudiness * 0.35f);
+                // Cloud cover is deliberately not folded in here. The volumetric cloud
+                // composite already multiplies the whole sky, aureole included, by the
+                // transmittance it actually marched, so dimming by average coverage as
+                // well counted the deck twice -- and did it uniformly, which put out the
+                // sun even where a break in the cloud left it in plain view.
+                glowIntensity *= 1f - weatherDim * 0.6f;
+                hazeIntensity *= 1f - weatherDim * 0.7f;
 
-                sky.SetFloat(_SunGlowFalloffID,    sunGlowFalloff);
-                sky.SetFloat(_SunGlowIntensityID,  glowIntensity);
-                sky.SetFloat(_HazeIntensityID,     hazeIntensity);
+                sky.SetFloat(_SunGlowFalloffID,     sunGlowFalloff);
+                sky.SetFloat(_SunGlowIntensityID,   glowIntensity);
+                sky.SetFloat(_SunGlowWideWeightID,  sunGlowWideWeight);
+                sky.SetFloat(_SunGlowWideFalloffID, sunGlowWideFalloff);
+                sky.SetFloat(_SunExtinctionID, currentSkyFrame.IsValid
+                    ? skyProfile.airMassExtinction : sunAirMassExtinction);
+                sky.SetFloat(_HazeIntensityID,      hazeIntensity);
+
+                // -- Horizon --
+                sky.SetFloat(_HorizonLevelID, currentSkyFrame.IsValid
+                    ? skyProfile.horizonOcclusionLevel : horizonOcclusionLevel);
+                sky.SetFloat(_HorizonSoftnessID, currentSkyFrame.IsValid
+                    ? skyProfile.horizonOcclusionSoftness : horizonOcclusionSoftness);
+                sky.SetFloat(_HorizonRefractionID, currentSkyFrame.IsValid
+                    ? skyProfile.horizonRefraction : horizonRefraction);
+                sky.SetFloat(_HorizonFlattenID, currentSkyFrame.IsValid
+                    ? skyProfile.horizonFlatten : horizonFlatten);
+                sky.SetFloat(_HorizonGlowFloorID, currentSkyFrame.IsValid
+                    ? skyProfile.horizonGlowRetention : horizonGlowRetention);
+
+                // -- Twilight bands --
+                // Both bands are sunlight grazing the upper atmosphere, so an overcast
+                // deck hides them outright. Unlike the aureole they sit well away from
+                // the sun, where a break in the cloud is no help, so average coverage
+                // is the right measure for them.
+                sky.SetFloat(_TwilightIntensityID, twilightBandIntensity
+                                                 * (1f - eclipseEnv)
+                                                 * (1f - weatherDim * 0.9f)
+                                                 * (1f - cloudiness * 0.8f));
+                sky.SetColor(_EarthShadowColorID,  earthShadowColor);
+                sky.SetColor(_BeltOfVenusColorID,  beltOfVenusColor);
             }
         }
+
+        // Published globally, and outside the controlSkybox gate: the tertiary-planet
+        // billboards are separate materials that must clip against the same horizon the
+        // sky does, whether or not this component owns the sky material.
+        Shader.SetGlobalVector(_SolSkyHorizonID, currentSkyFrame.IsValid
+            ? new Vector4(skyProfile.horizonOcclusionLevel,
+                skyProfile.horizonOcclusionSoftness, 0f, 0f)
+            : new Vector4(horizonOcclusionLevel, horizonOcclusionSoftness, 0f, 0f));
+        PublishSkyFrameGlobals(currentSkyFrame);
 
         SolLightingDirector.PublishFromTimeOfDay(
             this,
@@ -1495,6 +1783,32 @@ public class TimeOfDay : MonoBehaviour
                 scheduledAmbientSky, scheduledAmbientEquator, scheduledAmbientGround),
             applyAmbient,
             cloudiness);
+    }
+
+    void PublishSkyFrameGlobals(in SolSkyFrame frame)
+    {
+        Shader.SetGlobalFloat(_SolSkyFrameActiveID, frame.IsValid ? 1f : 0f);
+        Shader.SetGlobalFloat(_SolSkyStellarBackdropActiveID,
+            frame.IsValid && skyProfile.stellarBackdrop != null ? 1f : 0f);
+        if (!frame.IsValid)
+        {
+            Shader.SetGlobalTexture(_SolSkyStellarBackdropID, null);
+            return;
+        }
+        Shader.SetGlobalColor(_SolSkyZenithColorID, frame.Zenith);
+        Shader.SetGlobalColor(_SolSkyHorizonColorID, frame.Horizon);
+        Shader.SetGlobalColor(_SolSkyNadirColorID, frame.Nadir);
+        Shader.SetGlobalColor(_SolSkyTwilightColorID, frame.Twilight);
+        Shader.SetGlobalColor(_SolSkyAntiSolarColorID, frame.AntiSolarHorizon);
+        Shader.SetGlobalVector(_SolSkySunDirectionID, frame.SunDirection);
+        Shader.SetGlobalVector(_SolSkyGradientParamsID, frame.GradientParameters);
+        Shader.SetGlobalVector(_SolSkyDirectionalParamsID, frame.DirectionalParameters);
+        SolSkyProfile profile = skyProfile;
+        Shader.SetGlobalTexture(_SolSkyStellarBackdropID,
+            profile != null && profile.stellarBackdrop != null ? profile.stellarBackdrop : null);
+        Shader.SetGlobalVector(_SolSkyStellarParamsID, profile != null
+            ? new Vector4(profile.milkyWayIntensity, profile.twinkleAmount, 0f, 0f)
+            : Vector4.zero);
     }
 
     /// <summary>
@@ -2021,6 +2335,8 @@ public class TimeOfDay : MonoBehaviour
     {
         get
         {
+            if (currentSkyFrame.IsValid)
+                return currentSkyFrame.AuthoredCloudState;
             float threshold = Mathf.Lerp(cloudCoverageNight, cloudCoverageDay, cachedDayFactor);
             float coverage = 1f - threshold;
             float density = Mathf.Lerp(cloudDensityNight, cloudDensityDay, cachedDayFactor);

@@ -9,7 +9,7 @@ using UnityEngine.Rendering.RenderGraphModule.Util;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// Curved-shell, half-resolution volumetric clouds. The feature is ordered before Sol's
+/// Curved-shell, quality-scaled volumetric clouds. The feature is ordered before Sol's
 /// atmosphere feature so haze is applied to clouds, while opaque depth keeps terrain in front.
 /// </summary>
 [System.Serializable]
@@ -88,22 +88,22 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
         static readonly int ShapeOffsetId = Shader.PropertyToID("_SolCloudShapeOffset");
         static readonly int DetailOffsetId = Shader.PropertyToID("_SolCloudDetailOffset");
         static readonly int WindId = Shader.PropertyToID("_SolCloudWind");
+        static readonly int AdvectionSpeedId = Shader.PropertyToID("_SolCloudAdvectionSpeed");
+        static readonly int RenderScaleId = Shader.PropertyToID("_SolCloudRenderScale");
         static readonly int PreviousOffsetDeltaId = Shader.PropertyToID("_SolCloudPreviousOffsetDelta");
         static readonly int VariationWeightsId = Shader.PropertyToID("_SolCloudVariationWeights");
         static readonly int LightDirectionId = Shader.PropertyToID("_SolCloudLightDirection");
-        static readonly int LightColorId = Shader.PropertyToID("_SolCloudLightColor");
         static readonly int AmbientColorId = Shader.PropertyToID("_SolCloudAmbientColor");
         static readonly int OpticsId = Shader.PropertyToID("_SolCloudOptics");
         static readonly int LightingId = Shader.PropertyToID("_SolCloudLighting");
         static readonly int TemporalHorizonId = Shader.PropertyToID("_SolCloudTemporalHorizon");
         static readonly int TemporalParamsId = Shader.PropertyToID("_SolCloudTemporalParams");
         static readonly int PreviousViewProjectionId = Shader.PropertyToID("_SolCloudPreviousViewProjection");
-        static readonly int SecondaryLightDirectionId = Shader.PropertyToID("_SolCloudSecondaryLightDirection");
-        static readonly int SecondaryLightColorId = Shader.PropertyToID("_SolCloudSecondaryLightColor");
         static readonly int AmbientGroundId = Shader.PropertyToID("_SolCloudAmbientGround");
         static readonly int FormationWeightsId = Shader.PropertyToID("_SolCloudFormationWeights");
         static readonly int SculptingId = Shader.PropertyToID("_SolCloudSculpting");
         static readonly int StructureId = Shader.PropertyToID("_SolCloudStructure");
+        static readonly int TileBreakupId = Shader.PropertyToID("_SolCloudTileBreakup");
         static readonly int DefinitionId = Shader.PropertyToID("_SolCloudDefinition");
         static readonly int DistanceGainId = Shader.PropertyToID("_SolCloudDistanceGain");
         static readonly int DetailDistanceId = Shader.PropertyToID("_SolCloudDetailDistance");
@@ -215,8 +215,21 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
                 UpdateWorldShadows(renderGraph, cameraData, state, quality, controller);
 
             TextureDesc sourceDesc = renderGraph.GetTextureDesc(activeColor);
-            TextureDesc halfDesc = CreateHalfResolutionDescriptor(sourceDesc);
-            TextureHandle cloud = renderGraph.CreateTexture(halfDesc);
+            float cloudRenderScale = RenderScale(quality);
+            TextureDesc cloudDesc = CreateCloudResolutionDescriptor(
+                sourceDesc, pixelSize, cloudRenderScale);
+            int cloudWidth = Mathf.Max(1, Mathf.CeilToInt(pixelSize.x * cloudRenderScale));
+            int cloudHeight = Mathf.Max(1, Mathf.CeilToInt(pixelSize.y * cloudRenderScale));
+            _material.SetFloat(RenderScaleId, cloudRenderScale);
+            float historyWeight = HistoryWeight(quality);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (_profile != null && _profile.debugView != SolCloudDebugView.FinalLighting)
+                historyWeight = 0f;
+#endif
+            _material.SetVector(TemporalParamsId, new Vector4(
+                cameraContext.CameraCut ? 0f : historyWeight, 0.12f,
+                Time.frameCount & 1023, BilateralDepthThreshold));
+            TextureHandle cloud = renderGraph.CreateTexture(cloudDesc);
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<RaymarchData>(
                 "Sol Clouds Curved Shell Raymarch", out RaymarchData passData))
             {
@@ -237,21 +250,14 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
             }
 
             TextureHandle resolvedCloud = cloud;
-            float historyWeight = HistoryWeight(quality);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (_profile != null && _profile.debugView != SolCloudDebugView.FinalLighting)
-                historyWeight = 0f;
-#endif
             if (historyWeight > 0f && SolEnvironmentCameraRegistry.EnsureCloudHistory(
-                cameraContext, cameraData.cameraTargetDescriptor, signature))
+                cameraContext, cameraData.cameraTargetDescriptor,
+                cloudWidth, cloudHeight, signature))
             {
                 TextureHandle history = renderGraph.ImportTexture(cameraContext.CloudHistory);
-                TextureDesc temporalDesc = halfDesc;
+                TextureDesc temporalDesc = cloudDesc;
                 temporalDesc.name = "_SolCloudTemporal";
                 TextureHandle temporal = renderGraph.CreateTexture(temporalDesc);
-                _material.SetVector(TemporalParamsId, new Vector4(
-                    cameraContext.CameraCut ? 0f : historyWeight, 0.12f,
-                    Time.frameCount & 1023, BilateralDepthThreshold));
                 _material.SetMatrix(PreviousViewProjectionId, cameraContext.PreviousViewProjection);
                 using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<TemporalData>(
                     "Sol Clouds Temporal Reprojection", out TemporalData passData))
@@ -347,31 +353,31 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
 
             SolEnvironmentState environment = SolEnvironmentWorld.ResolveState();
             Vector3 cloudWind = environment.Wind.CloudDirection;
+            float advectionMultiplier = _profile != null
+                ? _profile.cloudAdvectionMultiplier : 4f;
             _material.SetVector(WindId, new Vector4(
                 cloudWind.x, cloudWind.y, cloudWind.z, environment.Wind.CloudSpeed));
+            _material.SetFloat(AdvectionSpeedId,
+                environment.Wind.CloudSpeed * advectionMultiplier);
 
             TimeOfDay time = TimeOfDay.ResolveInstance();
             _material.SetVector(VariationWeightsId, SolCloudMath.DailyVariationWeights(
                 time != null ? time.WorldDayIndex : 0L,
                 time != null ? time.ClockHour : 0f));
             SolLightingFrame lightingFrame = SolLightingDirector.ResolveFrame();
-            SolCelestialLightBlend celestial = SolLightingResolver.ResolveCelestialBlend(
-                lightingFrame.Sun, lightingFrame.Moon, lightingFrame.DayFactor);
-            Color ambient = (RenderSettings.ambientSkyColor + RenderSettings.ambientEquatorColor) * 0.5f;
-            _material.SetVector(LightDirectionId, new Vector4(
-                celestial.Direction.x, celestial.Direction.y, celestial.Direction.z, 0f));
-            _material.SetColor(LightColorId, celestial.Radiance);
+            SolSkyFrame skyFrame = time != null ? time.CurrentSkyFrame : default;
+            Color ambient = skyFrame.IsValid
+                ? (skyFrame.PresentedAmbientSky + skyFrame.PresentedAmbientEquator) * 0.5f
+                : (RenderSettings.ambientSkyColor + RenderSettings.ambientEquatorColor) * 0.5f;
+            // Only the world-shadow pass uses this direction. Cloud radiance uses
+            // the independent celestial array published by SolLightingDirector.
+            _material.SetVector(LightDirectionId, lightingFrame.DominantState.Direction);
             _material.SetColor(AmbientColorId, ambient);
             // The ground half of the trilight term. Ambient mode may leave this at its
             // authored value rather than a probe-derived one, which is fine: it only needs to
             // be the colour bouncing back up under the deck.
-            _material.SetColor(AmbientGroundId, RenderSettings.ambientGroundColor);
-
-            // Sun and moon have already been combined into one continuous key. Keeping the
-            // legacy secondary channel dark avoids double-counting either body at crossover.
-            _material.SetVector(SecondaryLightDirectionId, new Vector4(
-                celestial.Direction.x, celestial.Direction.y, celestial.Direction.z, 0f));
-            _material.SetColor(SecondaryLightColorId, Color.black);
+            _material.SetColor(AmbientGroundId, skyFrame.IsValid
+                ? skyFrame.PresentedAmbientGround : RenderSettings.ambientGroundColor);
 
             _material.SetVector(FormationWeightsId, SolCloudController.Active.FormationWeights);
             _material.SetVector(SculptingId, new Vector4(
@@ -394,6 +400,8 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
                 _profile != null ? _profile.structureInfluence : 0.38f,
                 _profile != null ? _profile.structureWarpStrength : 0.12f,
                 _profile != null ? _profile.surfaceGradientStrength : 0.18f));
+            _material.SetFloat(TileBreakupId,
+                _profile != null ? _profile.volumeTilingSuppression : 0.38f);
             _material.SetVector(DetailDistanceId, new Vector4(
                 _profile != null ? _profile.microDetailFadeStartMetres : 25000f,
                 _profile != null ? _profile.microDetailFadeEndMetres : 45000f,
@@ -467,15 +475,13 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
         {
             TimeOfDay time = TimeOfDay.ResolveInstance();
             SolLightingFrame lightingFrame = SolLightingDirector.ResolveFrame();
-            SolCelestialLightBlend celestial = SolLightingResolver.ResolveCelestialBlend(
-                lightingFrame.Sun, lightingFrame.Moon, lightingFrame.DayFactor);
             Light dominant = lightingFrame.Revision > 0UL
                 ? lightingFrame.DominantLight
                 : time != null ? time.DominantAtmosphereLight : null;
             bool enabled = (_profile == null || _profile.enableWorldCloudShadows)
                 && dominant != null
                 && dominant.type == LightType.Directional
-                && celestial.ShadowStrength > 0.0001f
+                && dominant.shadowStrength > 0.0001f
                 && _material != null;
             if (!enabled)
             {
@@ -548,7 +554,7 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
             float strength = Mathf.Clamp01(
                 (_profile != null ? _profile.worldShadowStrength : 0.85f)
                 * state.ShadowStrength
-                * celestial.ShadowStrength);
+                * dominant.shadowStrength);
 
             if (regenerate)
             {
@@ -715,16 +721,22 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
             ? _profile.HistoryWeight(quality)
             : quality == SolCloudQuality.Low ? 0f : quality == SolCloudQuality.High ? 0.84f : 0.72f;
         float BilateralDepthThreshold => _profile != null ? _profile.bilateralDepthThreshold : 3f;
+        float RenderScale(SolCloudQuality quality) => _profile != null
+            ? _profile.RenderScale(quality)
+            : quality == SolCloudQuality.Low ? 0.5f
+                : quality == SolCloudQuality.High ? 0.75f : 0.6f;
 
-        internal static TextureDesc CreateHalfResolutionDescriptor(TextureDesc source)
+        internal static TextureDesc CreateCloudResolutionDescriptor(
+            TextureDesc source, Vector2Int cameraSize, float renderScale)
         {
+            renderScale = Mathf.Clamp(renderScale, 0.5f, 1f);
             if (source.sizeMode == TextureSizeMode.Scale)
-                source.scale *= 0.5f;
+                source.scale *= renderScale;
             else
             {
                 source.sizeMode = TextureSizeMode.Explicit;
-                source.width = Mathf.Max(1, (source.width + 1) / 2);
-                source.height = Mathf.Max(1, (source.height + 1) / 2);
+                source.width = Mathf.Max(1, Mathf.CeilToInt(cameraSize.x * renderScale));
+                source.height = Mathf.Max(1, Mathf.CeilToInt(cameraSize.y * renderScale));
                 source.scale = Vector2.one;
                 source.func = null;
             }
@@ -735,7 +747,7 @@ public sealed class SolCloudRendererFeature : ScriptableRendererFeature
             source.filterMode = FilterMode.Bilinear;
             source.wrapMode = TextureWrapMode.Clamp;
             source.clearBuffer = false;
-            source.name = "_SolCloudHalfResolution";
+            source.name = "_SolCloudResolution";
             return source;
         }
     }

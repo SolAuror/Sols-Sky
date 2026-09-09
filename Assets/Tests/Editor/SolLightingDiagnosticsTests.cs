@@ -38,16 +38,19 @@ namespace Sol.Tests.Editor
                 "Assets/Earth-Sky-Water/Scripts/Lighting/SolLightingDirector.cs");
             string scheduler = File.ReadAllText(
                 "Assets/Earth-Sky-Water/Scripts/Management/SolSkyLightingScheduler.cs");
-            string window = File.ReadAllText(
-                "Assets/Earth-Sky-Water/Scripts/Core/Editor/SolEnvironmentWindow.cs");
+            // The control panel window is a shell around its pages; the budget readout lives
+            // on the diagnostics page, which is what has to keep surfacing these counters.
+            string diagnosticsPage = File.ReadAllText(
+                "Assets/Earth-Sky-Water/Scripts/Core/Editor/ControlPanel/"
+                + "ElementaDiagnosticsPage.cs");
 
             StringAssert.Contains("Sol.Lighting.Selection", director);
             StringAssert.Contains("Sol.Lighting.Apply", director);
             StringAssert.Contains("Sol.Lighting.ProbeScheduling", scheduler);
             StringAssert.Contains("Sol.Lighting.DynamicGI", scheduler);
-            StringAssert.Contains("Lights registered / active", window);
-            StringAssert.Contains("Shadow slices", window);
-            StringAssert.Contains("Probe requests / done", window);
+            StringAssert.Contains("Lights registered / active", diagnosticsPage);
+            StringAssert.Contains("Shadow slices", diagnosticsPage);
+            StringAssert.Contains("Probe requests / done", diagnosticsPage);
         }
     }
 }

@@ -10,11 +10,11 @@ Shader "Sol/Water2/Ocean"
         #pragma multi_compile_instancing
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-        #include "../../Water/Shaders/SolForwardPlusWaterLighting.hlsl"
+        #include "Assets/Earth-Sky-Water/Shaders/Common/SolForwardPlusWaterLighting.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
         #include "SolWaterWaves2.hlsl"
         #include "SolWaterOptics.hlsl"
-        #include "../../Water/Shaders/SolAtmosphere.hlsl"
+        #include "Assets/Earth-Sky-Water/Shaders/Common/SolAtmosphere.hlsl"
 
         // Debug view selectors, in _SolWaterReflectionParams.y.
         //

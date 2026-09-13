@@ -38,7 +38,7 @@ Shader "Sol/CelestialBody"
             #pragma fragment Frag
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "../../Water/Shaders/SolAtmosphere.hlsl"
+            #include "../../Shaders/Common/SolAtmosphere.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;

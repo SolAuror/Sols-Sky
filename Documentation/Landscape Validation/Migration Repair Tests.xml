@@ -1,0 +1,1162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="262" result="Passed" total="262" passed="262" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:15Z" duration="3.5128317">
+  <test-suite type="TestSuite" id="1000" name="Elementa - Unified Gameplay Environment" fullname="Elementa - Unified Gameplay Environment" runstate="Runnable" testcasecount="262" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:15Z" duration="3.512832" total="262" passed="262" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1298" name="Assembly-CSharp-Editor.dll" fullname="B:/Projects/Unity/SkySystem/LandscapeDesignerValidation/Library/ScriptAssemblies/Assembly-CSharp-Editor.dll" runstate="Runnable" testcasecount="262" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:15Z" duration="3.305876" total="262" passed="262" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="28824" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestFixture" id="1001" name="LandscapeFirstPaintScratchTests" fullname="LandscapeFirstPaintScratchTests" classname="LandscapeFirstPaintScratchTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:53:55Z" end-time="2026-09-11 16:54:02Z" duration="6.574900" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1002" name="DemoSharedMaterialMigration_CreatesNineEditableTilesAndUndoRedoWorks" fullname="LandscapeFirstPaintScratchTests.DemoSharedMaterialMigration_CreatesNineEditableTilesAndUndoRedoWorks" methodname="DemoSharedMaterialMigration_CreatesNineEditableTilesAndUndoRedoWorks" classname="LandscapeFirstPaintScratchTests" runstate="Runnable" seed="1446415301" result="Passed" start-time="2026-09-11 16:53:55Z" end-time="2026-09-11 16:54:01Z" duration="6.111996" asserts="0">
+          <properties />
+        </test-case>
+        <test-case id="1003" name="FirstStrokeCreatesTwoAssets_SavesWithoutMouseUp_ThenUndoesAndRedoes" fullname="LandscapeFirstPaintScratchTests.FirstStrokeCreatesTwoAssets_SavesWithoutMouseUp_ThenUndoesAndRedoes" methodname="FirstStrokeCreatesTwoAssets_SavesWithoutMouseUp_ThenUndoesAndRedoes" classname="LandscapeFirstPaintScratchTests" runstate="Runnable" seed="1159717480" result="Passed" start-time="2026-09-11 16:54:01Z" end-time="2026-09-11 16:54:02Z" duration="0.453258" asserts="0">
+          <properties />
+        </test-case>
+      </test-suite>
+      <test-suite type="TestSuite" id="1299" name="Sol" fullname="Sol" runstate="Runnable" testcasecount="260" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:15Z" duration="3.299047" total="260" passed="260" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1300" name="Tests" fullname="Sol.Tests" runstate="Runnable" testcasecount="260" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:15Z" duration="3.297778" total="260" passed="260" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1301" name="Editor" fullname="Sol.Tests.Editor" runstate="Runnable" testcasecount="260" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:15Z" duration="3.295397" total="260" passed="260" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1004" name="SolApvConfigurationTests" fullname="Sol.Tests.Editor.SolApvConfigurationTests" classname="Sol.Tests.Editor.SolApvConfigurationTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-11 16:54:02Z" end-time="2026-09-11 16:54:03Z" duration="1.312469" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1006" name="BakingSetUsesDynamicSkyOcclusionAndOneDefaultScenario" fullname="Sol.Tests.Editor.SolApvConfigurationTests.BakingSetUsesDynamicSkyOcclusionAndOneDefaultScenario" methodname="BakingSetUsesDynamicSkyOcclusionAndOneDefaultScenario" classname="Sol.Tests.Editor.SolApvConfigurationTests" runstate="Runnable" seed="1262239793" result="Passed" start-time="2026-09-11 16:54:02Z" end-time="2026-09-11 16:54:02Z" duration="0.017389" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1008" name="EnvironmentScenesHaveAutoFitVolumesAndRealtimeLights" fullname="Sol.Tests.Editor.SolApvConfigurationTests.EnvironmentScenesHaveAutoFitVolumesAndRealtimeLights" methodname="EnvironmentScenesHaveAutoFitVolumesAndRealtimeLights" classname="Sol.Tests.Editor.SolApvConfigurationTests" runstate="Runnable" seed="647596445" result="Passed" start-time="2026-09-11 16:54:02Z" end-time="2026-09-11 16:54:03Z" duration="1.281804" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1007" name="EveryEnvironmentSceneBelongsToTheSharedBakingSet" fullname="Sol.Tests.Editor.SolApvConfigurationTests.EveryEnvironmentSceneBelongsToTheSharedBakingSet" methodname="EveryEnvironmentSceneBelongsToTheSharedBakingSet" classname="Sol.Tests.Editor.SolApvConfigurationTests" runstate="Runnable" seed="512869967" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.007346" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1005" name="UrpUsesStreamingAdaptiveProbeVolumesWithoutScenarios" fullname="Sol.Tests.Editor.SolApvConfigurationTests.UrpUsesStreamingAdaptiveProbeVolumesWithoutScenarios" methodname="UrpUsesStreamingAdaptiveProbeVolumesWithoutScenarios" classname="Sol.Tests.Editor.SolApvConfigurationTests" runstate="Runnable" seed="1264889069" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.004584" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1009" name="SolCelestialLightingTests" fullname="Sol.Tests.Editor.SolCelestialLightingTests" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.135290" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1018" name="AdditionalBodyCreatesLightAndParticipatesInDirector" fullname="Sol.Tests.Editor.SolCelestialLightingTests.AdditionalBodyCreatesLightAndParticipatesInDirector" methodname="AdditionalBodyCreatesLightAndParticipatesInDirector" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="1399840153" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.010311" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1019" name="AtmosphereGpuAddsIndependentLobesAndShadowsOnlyTheOwner" fullname="Sol.Tests.Editor.SolCelestialLightingTests.AtmosphereGpuAddsIndependentLobesAndShadowsOnlyTheOwner" methodname="AtmosphereGpuAddsIndependentLobesAndShadowsOnlyTheOwner" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="1898727432" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.019339" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1016" name="EachBodyUsesItsOwnSmoothHorizonVisibility" fullname="Sol.Tests.Editor.SolCelestialLightingTests.EachBodyUsesItsOwnSmoothHorizonVisibility" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.068460" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1012" name="EachBodyUsesItsOwnSmoothHorizonVisibility(-0.06f,0.0f)" fullname="Sol.Tests.Editor.SolCelestialLightingTests.EachBodyUsesItsOwnSmoothHorizonVisibility(-0.06f,0.0f)" methodname="EachBodyUsesItsOwnSmoothHorizonVisibility" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="901343649" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.000260" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1013" name="EachBodyUsesItsOwnSmoothHorizonVisibility(-0.05f,0.0f)" fullname="Sol.Tests.Editor.SolCelestialLightingTests.EachBodyUsesItsOwnSmoothHorizonVisibility(-0.05f,0.0f)" methodname="EachBodyUsesItsOwnSmoothHorizonVisibility" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="124486519" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.000083" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1014" name="EachBodyUsesItsOwnSmoothHorizonVisibility(0.02f,1.0f)" fullname="Sol.Tests.Editor.SolCelestialLightingTests.EachBodyUsesItsOwnSmoothHorizonVisibility(0.02f,1.0f)" methodname="EachBodyUsesItsOwnSmoothHorizonVisibility" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="1143122446" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.000034" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1015" name="EachBodyUsesItsOwnSmoothHorizonVisibility(0.5f,1.0f)" fullname="Sol.Tests.Editor.SolCelestialLightingTests.EachBodyUsesItsOwnSmoothHorizonVisibility(0.5f,1.0f)" methodname="EachBodyUsesItsOwnSmoothHorizonVisibility" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="1084314010" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.000024" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1017" name="ShadowOwnershipChangesWithoutChangingEmittedRadiance" fullname="Sol.Tests.Editor.SolCelestialLightingTests.ShadowOwnershipChangesWithoutChangingEmittedRadiance" methodname="ShadowOwnershipChangesWithoutChangingEmittedRadiance" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="2028752592" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.000231" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1011" name="SunsetKeepsWarmRadianceWhileDiscIsAboveHorizon" fullname="Sol.Tests.Editor.SolCelestialLightingTests.SunsetKeepsWarmRadianceWhileDiscIsAboveHorizon" methodname="SunsetKeepsWarmRadianceWhileDiscIsAboveHorizon" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="150844511" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.001762" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1010" name="VisibleMoonEmitsAlongsideSunWithSkyProfile" fullname="Sol.Tests.Editor.SolCelestialLightingTests.VisibleMoonEmitsAlongsideSunWithSkyProfile" methodname="VisibleMoonEmitsAlongsideSunWithSkyProfile" classname="Sol.Tests.Editor.SolCelestialLightingTests" runstate="Runnable" seed="970302655" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.003582" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1020" name="SolControlPanelCoverageTests" fullname="Sol.Tests.Editor.SolControlPanelCoverageTests" classname="Sol.Tests.Editor.SolControlPanelCoverageTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:04Z" duration="0.878611" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1023" name="ControlPanel_DoesNotReferenceTheRetiredWaterStack" fullname="Sol.Tests.Editor.SolControlPanelCoverageTests.ControlPanel_DoesNotReferenceTheRetiredWaterStack" methodname="ControlPanel_DoesNotReferenceTheRetiredWaterStack" classname="Sol.Tests.Editor.SolControlPanelCoverageTests" runstate="Runnable" seed="651880151" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.006372" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1022" name="ControlPanel_ExposesEveryInstalledSolRendererFeature" fullname="Sol.Tests.Editor.SolControlPanelCoverageTests.ControlPanel_ExposesEveryInstalledSolRendererFeature" methodname="ControlPanel_ExposesEveryInstalledSolRendererFeature" classname="Sol.Tests.Editor.SolControlPanelCoverageTests" runstate="Runnable" seed="1476305052" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:03Z" duration="0.003623" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1021" name="ControlPanel_ExposesEveryManagerialComponentTheDemoSceneUses" fullname="Sol.Tests.Editor.SolControlPanelCoverageTests.ControlPanel_ExposesEveryManagerialComponentTheDemoSceneUses" methodname="ControlPanel_ExposesEveryManagerialComponentTheDemoSceneUses" classname="Sol.Tests.Editor.SolControlPanelCoverageTests" runstate="Runnable" seed="1274684197" result="Passed" start-time="2026-09-11 16:54:03Z" end-time="2026-09-11 16:54:04Z" duration="0.867167" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1024" name="SolControlPanelUIToolkitTests" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-11 16:54:04Z" end-time="2026-09-11 16:54:07Z" duration="2.740812" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1029" name="CopyWeatherProfile_PreservesWeights_AndUndoRestoresOnlyAssignment" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.CopyWeatherProfile_PreservesWeights_AndUndoRestoresOnlyAssignment" methodname="CopyWeatherProfile_PreservesWeights_AndUndoRestoresOnlyAssignment" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="2011783419" result="Passed" start-time="2026-09-11 16:54:04Z" end-time="2026-09-11 16:54:04Z" duration="0.099551" asserts="0">
+                <properties />
+                <output><![CDATA[[SolWeatherManager] No weather profile selections are configured.
+]]></output>
+              </test-case>
+              <test-case id="1026" name="DemoCatalogue_RegistersRealControlsAndValidRoutes_ForEveryVisibleProperty" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.DemoCatalogue_RegistersRealControlsAndValidRoutes_ForEveryVisibleProperty" methodname="DemoCatalogue_RegistersRealControlsAndValidRoutes_ForEveryVisibleProperty" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="614986523" result="Passed" start-time="2026-09-11 16:54:04Z" end-time="2026-09-11 16:54:06Z" duration="1.332210" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1025" name="EveryPage_BuildsNativeControls_AndDoesNotStartPreview" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.EveryPage_BuildsNativeControls_AndDoesNotStartPreview" methodname="EveryPage_BuildsNativeControls_AndDoesNotStartPreview" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="1634973534" result="Passed" start-time="2026-09-11 16:54:06Z" end-time="2026-09-11 16:54:06Z" duration="0.091712" asserts="0">
+                <properties />
+                <output><![CDATA[[SolWeatherManager] No weather profile selections are configured.
+]]></output>
+              </test-case>
+              <test-case id="1031" name="LiveClockDoesNotPublishAnAuthoredEdit_AndOneProfileChangePublishesOnce" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.LiveClockDoesNotPublishAnAuthoredEdit_AndOneProfileChangePublishesOnce" methodname="LiveClockDoesNotPublishAnAuthoredEdit_AndOneProfileChangePublishesOnce" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="402707688" result="Passed" start-time="2026-09-11 16:54:06Z" end-time="2026-09-11 16:54:06Z" duration="0.053122" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1030" name="NavigationAndLiveUpdates_KeepNativeBindingsAndFocus" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.NavigationAndLiveUpdates_KeepNativeBindingsAndFocus" methodname="NavigationAndLiveUpdates_KeepNativeBindingsAndFocus" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="3814888" result="Passed" start-time="2026-09-11 16:54:06Z" end-time="2026-09-11 16:54:07Z" duration="0.931524" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                </properties>
+              </test-case>
+              <test-case id="1028" name="Preview_EndAndCloseRestoreWeather_WithoutRevertingAuthoredEditsOrClock" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.Preview_EndAndCloseRestoreWeather_WithoutRevertingAuthoredEditsOrClock" methodname="Preview_EndAndCloseRestoreWeather_WithoutRevertingAuthoredEditsOrClock" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="1584344557" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.086568" asserts="0">
+                <properties />
+                <output><![CDATA[[SolWeatherManager] No weather profile selections are configured.
+]]></output>
+              </test-case>
+              <test-case id="1033" name="Preview_TargetReplacementAndReloadReleaseOwnership" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.Preview_TargetReplacementAndReloadReleaseOwnership" methodname="Preview_TargetReplacementAndReloadReleaseOwnership" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="165469997" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.039651" asserts="0">
+                <properties />
+                <output><![CDATA[[SolWeatherManager] No weather profile selections are configured.
+[SolWeatherManager] No weather profile selections are configured.
+]]></output>
+              </test-case>
+              <test-case id="1032" name="WaterBodySelectionDoesNotCreateOrEditAnInheritedDefault" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.WaterBodySelectionDoesNotCreateOrEditAnInheritedDefault" methodname="WaterBodySelectionDoesNotCreateOrEditAnInheritedDefault" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="1325217385" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.041843" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1027" name="WeatherShape_IsBoundOnlyToTheNamedProfile_AndFormationFieldsAreDisabled" fullname="Sol.Tests.Editor.SolControlPanelUIToolkitTests.WeatherShape_IsBoundOnlyToTheNamedProfile_AndFormationFieldsAreDisabled" methodname="WeatherShape_IsBoundOnlyToTheNamedProfile_AndFormationFieldsAreDisabled" classname="Sol.Tests.Editor.SolControlPanelUIToolkitTests" runstate="Runnable" seed="1912584961" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.045006" asserts="0">
+                <properties />
+                <output><![CDATA[[SolWeatherManager] No weather profile selections are configured.
+]]></output>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1034" name="SolEclipseTests" fullname="Sol.Tests.Editor.SolEclipseTests" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" testcasecount="10" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.007868" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1040" name="AuthoredSizeDeterminesTotalOrAnnularEclipse" fullname="Sol.Tests.Editor.SolEclipseTests.AuthoredSizeDeterminesTotalOrAnnularEclipse" methodname="AuthoredSizeDeterminesTotalOrAnnularEclipse" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="135266352" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000566" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1045" name="EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor" fullname="Sol.Tests.Editor.SolEclipseTests.EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.002602" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1042" name="EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor(0.0f)" fullname="Sol.Tests.Editor.SolEclipseTests.EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor(0.0f)" methodname="EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1185904269" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001716" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1043" name="EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor(0.5f)" fullname="Sol.Tests.Editor.SolEclipseTests.EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor(0.5f)" methodname="EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1933348324" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000252" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1044" name="EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor(1.0f)" fullname="Sol.Tests.Editor.SolEclipseTests.EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor(1.0f)" methodname="EclipseDimmingIsAppliedOnceAndKeepsUncoveredSunColor" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1043270545" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000165" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-suite type="ParameterizedMethod" id="1039" name="EqualDiscsHaveExpectedOverlap" fullname="Sol.Tests.Editor.SolEclipseTests.EqualDiscsHaveExpectedOverlap" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001006" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1035" name="EqualDiscsHaveExpectedOverlap(0.0f,1.0f)" fullname="Sol.Tests.Editor.SolEclipseTests.EqualDiscsHaveExpectedOverlap(0.0f,1.0f)" methodname="EqualDiscsHaveExpectedOverlap" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1519537143" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000195" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1036" name="EqualDiscsHaveExpectedOverlap(2.0f,0.3910022f)" fullname="Sol.Tests.Editor.SolEclipseTests.EqualDiscsHaveExpectedOverlap(2.0f,0.3910022f)" methodname="EqualDiscsHaveExpectedOverlap" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1812854010" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000046" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1037" name="EqualDiscsHaveExpectedOverlap(4.0f,0.0f)" fullname="Sol.Tests.Editor.SolEclipseTests.EqualDiscsHaveExpectedOverlap(4.0f,0.0f)" methodname="EqualDiscsHaveExpectedOverlap" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="596462476" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000022" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1038" name="EqualDiscsHaveExpectedOverlap(180.0f,0.0f)" fullname="Sol.Tests.Editor.SolEclipseTests.EqualDiscsHaveExpectedOverlap(180.0f,0.0f)" methodname="EqualDiscsHaveExpectedOverlap" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1203564829" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000020" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1041" name="IngressIsContinuousAndMonotonic" fullname="Sol.Tests.Editor.SolEclipseTests.IngressIsContinuousAndMonotonic" methodname="IngressIsContinuousAndMonotonic" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1554393578" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000436" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1046" name="MoonStaysCloserAfterRuntimeConfigChanges" fullname="Sol.Tests.Editor.SolEclipseTests.MoonStaysCloserAfterRuntimeConfigChanges" methodname="MoonStaysCloserAfterRuntimeConfigChanges" classname="Sol.Tests.Editor.SolEclipseTests" runstate="Runnable" seed="1130373234" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001667" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1047" name="SolEnvironmentLightTests" fullname="Sol.Tests.Editor.SolEnvironmentLightTests" classname="Sol.Tests.Editor.SolEnvironmentLightTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.003185" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1052" name="ComponentDefaultsToAnOptInLocalLight" fullname="Sol.Tests.Editor.SolEnvironmentLightTests.ComponentDefaultsToAnOptInLocalLight" methodname="ComponentDefaultsToAnOptInLocalLight" classname="Sol.Tests.Editor.SolEnvironmentLightTests" runstate="Runnable" seed="791786577" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000973" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1050" name="CustomCurve_IsEvaluatedAgainstDayFactor" fullname="Sol.Tests.Editor.SolEnvironmentLightTests.CustomCurve_IsEvaluatedAgainstDayFactor" methodname="CustomCurve_IsEvaluatedAgainstDayFactor" classname="Sol.Tests.Editor.SolEnvironmentLightTests" runstate="Runnable" seed="1590480576" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000304" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1053" name="ManagedLightsRemainRealtimeAndRestoreTheirAuthoredBakeMode" fullname="Sol.Tests.Editor.SolEnvironmentLightTests.ManagedLightsRemainRealtimeAndRestoreTheirAuthoredBakeMode" methodname="ManagedLightsRemainRealtimeAndRestoreTheirAuthoredBakeMode" classname="Sol.Tests.Editor.SolEnvironmentLightTests" runstate="Runnable" seed="1900035569" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000616" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1048" name="NightActivation_UsesTheDocumentedDayThresholds" fullname="Sol.Tests.Editor.SolEnvironmentLightTests.NightActivation_UsesTheDocumentedDayThresholds" methodname="NightActivation_UsesTheDocumentedDayThresholds" classname="Sol.Tests.Editor.SolEnvironmentLightTests" runstate="Runnable" seed="1525708473" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000104" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1051" name="SelectionScore_PrioritizesAuthoredPriorityAndRetainedLights" fullname="Sol.Tests.Editor.SolEnvironmentLightTests.SelectionScore_PrioritizesAuthoredPriorityAndRetainedLights" methodname="SelectionScore_PrioritizesAuthoredPriorityAndRetainedLights" classname="Sol.Tests.Editor.SolEnvironmentLightTests" runstate="Runnable" seed="1591474669" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000148" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1049" name="WeatherDim_CanActivateNightLightsEarly" fullname="Sol.Tests.Editor.SolEnvironmentLightTests.WeatherDim_CanActivateNightLightsEarly" methodname="WeatherDim_CanActivateNightLightsEarly" classname="Sol.Tests.Editor.SolEnvironmentLightTests" runstate="Runnable" seed="1128943543" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000052" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1054" name="SolEnvironmentRegressionTests" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" testcasecount="115" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.400068" total="115" passed="115" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1064" name="AtmosphereAndRain_RunInEditMode" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.AtmosphereAndRain_RunInEditMode" methodname="AtmosphereAndRain_RunInEditMode" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1140869603" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000174" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1059" name="AtmosphereCameraResolve_OneOverrideChangesOneField" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.AtmosphereCameraResolve_OneOverrideChangesOneField" methodname="AtmosphereCameraResolve_OneOverrideChangesOneField" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="987649929" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001475" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1058" name="AtmosphereCameraResolve_WithoutVolumeReturnsBaselineFieldForField" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.AtmosphereCameraResolve_WithoutVolumeReturnsBaselineFieldForField" methodname="AtmosphereCameraResolve_WithoutVolumeReturnsBaselineFieldForField" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1782866332" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000266" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1055" name="AtmosphereShader_PassOrderMatchesRendererConstants" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.AtmosphereShader_PassOrderMatchesRendererConstants" methodname="AtmosphereShader_PassOrderMatchesRendererConstants" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1885254620" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000638" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1057" name="AtmosphereSpatialFilter_IsAuthoredOnlyAtHighQuality" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.AtmosphereSpatialFilter_IsAuthoredOnlyAtHighQuality" methodname="AtmosphereSpatialFilter_IsAuthoredOnlyAtHighQuality" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="301072432" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000343" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1138" name="AuthoredCloudDeck_MatchesTheProfileTuningBaseline" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.AuthoredCloudDeck_MatchesTheProfileTuningBaseline" methodname="AuthoredCloudDeck_MatchesTheProfileTuningBaseline" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="273668" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.041266" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1166" name="BlizzardProfile_ObscuresBrightlyRatherThanDarkening" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.BlizzardProfile_ObscuresBrightlyRatherThanDarkening" methodname="BlizzardProfile_ObscuresBrightlyRatherThanDarkening" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1591838470" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000867" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1174" name="BlowingSnow_IsGatedOnWindRatherThanOnSnowAlone" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.BlowingSnow_IsGatedOnWindRatherThanOnSnowAlone" methodname="BlowingSnow_IsGatedOnWindRatherThanOnSnowAlone" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2048986344" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.006039" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1121" name="CameraRegistry_DoesNotOwnTheNormalFoamHistory" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CameraRegistry_DoesNotOwnTheNormalFoamHistory" methodname="CameraRegistry_DoesNotOwnTheNormalFoamHistory" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1351245863" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000199" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1092" name="CelestialBodies_AreOccludedBelowTheHorizon" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CelestialBodies_AreOccludedBelowTheHorizon" methodname="CelestialBodies_AreOccludedBelowTheHorizon" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1970314688" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.022399" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1141" name="ClearDays_AreMostlyLightlyCloudedRatherThanCloudless" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.ClearDays_AreMostlyLightlyCloudedRatherThanCloudless" methodname="ClearDays_AreMostlyLightlyCloudedRatherThanCloudless" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1266948620" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000825" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1140" name="ClearProfile_ReachesATrulyCloudlessSky" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.ClearProfile_ReachesATrulyCloudlessSky" methodname="ClearProfile_ReachesATrulyCloudlessSky" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="869879412" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000789" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1107" name="CloudAdvection_WrapsWithoutLosingMotionAcrossLongTimeLapses" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudAdvection_WrapsWithoutLosingMotionAcrossLongTimeLapses" methodname="CloudAdvection_WrapsWithoutLosingMotionAcrossLongTimeLapses" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1970191310" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000576" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1108" name="CloudAmbient_DarkensWithRainStormAndFormationDepth" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudAmbient_DarkensWithRainStormAndFormationDepth" methodname="CloudAmbient_DarkensWithRainStormAndFormationDepth" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="607111019" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000165" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1090" name="CloudBake_IsAddressableByTheRuntimeFallbackPaths" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudBake_IsAddressableByTheRuntimeFallbackPaths" methodname="CloudBake_IsAddressableByTheRuntimeFallbackPaths" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1770197520" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000269" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1089" name="CloudBake_UsesRuntimeSafeImporterSettings" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudBake_UsesRuntimeSafeImporterSettings" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.007216" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1087" name="CloudBake_UsesRuntimeSafeImporterSettings(&quot;Assets/Earth-Sky-Water/TimeOfDay/Resources/SolEnvironment/Sol_CloudNoisePacked.png&quot;)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudBake_UsesRuntimeSafeImporterSettings(&quot;Assets/Earth-Sky-Water/TimeOfDay/Resources/SolEnvironment/Sol_CloudNoisePacked.png&quot;)" methodname="CloudBake_UsesRuntimeSafeImporterSettings" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="204899425" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.005916" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1088" name="CloudBake_UsesRuntimeSafeImporterSettings(&quot;Assets/Earth-Sky-Water/TimeOfDay/Resources/SolEnvironment/Sol_CloudWeatherMap.png&quot;)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudBake_UsesRuntimeSafeImporterSettings(&quot;Assets/Earth-Sky-Water/TimeOfDay/Resources/SolEnvironment/Sol_CloudWeatherMap.png&quot;)" methodname="CloudBake_UsesRuntimeSafeImporterSettings" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="137506340" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000301" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1101" name="CloudController_DoesNotRebuildFormationWeightsFromTheEnum" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudController_DoesNotRebuildFormationWeightsFromTheEnum" methodname="CloudController_DoesNotRebuildFormationWeightsFromTheEnum" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1286906969" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.005783" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1096" name="CloudDailyVariation_IsContinuousDistinctAndNormalized" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudDailyVariation_IsContinuousDistinctAndNormalized" methodname="CloudDailyVariation_IsContinuousDistinctAndNormalized" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1243253031" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000642" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1165" name="CloudDefinition_IsUploadedAndConsumed" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudDefinition_IsUploadedAndConsumed" methodname="CloudDefinition_IsUploadedAndConsumed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1683944668" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.014602" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1091" name="CloudDensity_IsBakedAndNoLongerRunsInTheSkybox" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudDensity_IsBakedAndNoLongerRunsInTheSkybox" methodname="CloudDensity_IsBakedAndNoLongerRunsInTheSkybox" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1908000867" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.002235" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1164" name="CloudDensity_IsNotClampedAwayFromItsAuthoredPeak" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudDensity_IsNotClampedAwayFromItsAuthoredPeak" methodname="CloudDensity_IsNotClampedAwayFromItsAuthoredPeak" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1673589006" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000634" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1104" name="CloudDetail_ResolvesAndUsesItsThreeWorleyBandsSeparately" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudDetail_ResolvesAndUsesItsThreeWorleyBandsSeparately" methodname="CloudDetail_ResolvesAndUsesItsThreeWorleyBandsSeparately" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1192173222" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000633" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1159" name="CloudDistanceGain_IsBoundedAndMonotonic" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudDistanceGain_IsBoundedAndMonotonic" methodname="CloudDistanceGain_IsBoundedAndMonotonic" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="336467775" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000371" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1158" name="CloudEdgeSoftness_WidensTheBoundaryMonotonically" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudEdgeSoftness_WidensTheBoundaryMonotonically" methodname="CloudEdgeSoftness_WidensTheBoundaryMonotonically" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="843704613" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000225" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1095" name="CloudExtinction_IsMonotonicAndIndependentOfBrightness" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudExtinction_IsMonotonicAndIndependentOfBrightness" methodname="CloudExtinction_IsMonotonicAndIndependentOfBrightness" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1837247478" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000133" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1099" name="CloudFormationBlend_IsCarriedThroughTheWeatherBlend" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudFormationBlend_IsCarriedThroughTheWeatherBlend" methodname="CloudFormationBlend_IsCarriedThroughTheWeatherBlend" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1530319665" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001132" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1100" name="CloudFormationBlend_SurvivesApplyWeather" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudFormationBlend_SurvivesApplyWeather" methodname="CloudFormationBlend_SurvivesApplyWeather" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1409740723" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000404" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1109" name="CloudFormationInterpolation_SwitchesLabelAtMidpointOnly" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudFormationInterpolation_SwitchesLabelAtMidpointOnly" methodname="CloudFormationInterpolation_SwitchesLabelAtMidpointOnly" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1120290784" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000143" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1103" name="CloudFormationWeights_AreOneHotAndBlendContinuously" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudFormationWeights_AreOneHotAndBlendContinuously" methodname="CloudFormationWeights_AreOneHotAndBlendContinuously" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1269068469" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000577" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1098" name="CloudHybridStructure_PreservesMesostructureLightingAndDistanceDetail" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudHybridStructure_PreservesMesostructureLightingAndDistanceDetail" methodname="CloudHybridStructure_PreservesMesostructureLightingAndDistanceDetail" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1498103352" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000804" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1097" name="CloudLightMarch_SpansTheShellRatherThanAFixedDistance" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudLightMarch_SpansTheShellRatherThanAFixedDistance" methodname="CloudLightMarch_SpansTheShellRatherThanAFixedDistance" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="281623878" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000546" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1086" name="CloudNoiseBake_IsPeriodicAcrossBothAxes" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudNoiseBake_IsPeriodicAcrossBothAxes" methodname="CloudNoiseBake_IsPeriodicAcrossBothAxes" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="576251526" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.006408" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1085" name="CloudNoiseBake_MatchesReferenceWithinOneByte" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudNoiseBake_MatchesReferenceWithinOneByte" methodname="CloudNoiseBake_MatchesReferenceWithinOneByte" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2126028411" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.127398" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1112" name="CloudQualityProfile_UsesBoundedShippingBudgets" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudQualityProfile_UsesBoundedShippingBudgets" methodname="CloudQualityProfile_UsesBoundedShippingBudgets" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="668875097" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000591" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1163" name="CloudRaymarch_StratifiesEveryStepNotJustTheRay" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudRaymarch_StratifiesEveryStepNotJustTheRay" methodname="CloudRaymarch_StratifiesEveryStepNotJustTheRay" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1736881130" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000782" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1162" name="CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001921" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1160" name="CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell(32)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell(32)" methodname="CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1800637167" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000396" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1161" name="CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell(48)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell(48)" methodname="CloudRaymarchSteps_GrowAlongTheRayAndStillSpanTheShell" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1584512258" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000163" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1063" name="CloudRenderer_ExecutesRenderGraphWithoutErrors" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudRenderer_ExecutesRenderGraphWithoutErrors" methodname="CloudRenderer_ExecutesRenderGraphWithoutErrors" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1550617922" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.011530" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1061" name="CloudShader_PassOrderMatchesRendererConstants" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudShader_PassOrderMatchesRendererConstants" methodname="CloudShader_PassOrderMatchesRendererConstants" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1386538485" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000522" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1106" name="CloudShadowCookie_RestoresTheBorrowedLightExactly" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudShadowCookie_RestoresTheBorrowedLightExactly" methodname="CloudShadowCookie_RestoresTheBorrowedLightExactly" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1472084814" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.002208" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1105" name="CloudShadowMap_HasQualityDerivedBudgets" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudShadowMap_HasQualityDerivedBudgets" methodname="CloudShadowMap_HasQualityDerivedBudgets" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="795129630" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000753" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1094" name="CloudShell_IntersectsContinuouslyAcrossTheHorizon" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CloudShell_IntersectsContinuouslyAcrossTheHorizon" methodname="CloudShell_IntersectsContinuouslyAcrossTheHorizon" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1297172437" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000516" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1139" name="CoverageBias_AppliesIndependentlyOfCloudiness" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.CoverageBias_AppliesIndependentlyOfCloudiness" methodname="CoverageBias_AppliesIndependentlyOfCloudiness" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="745892047" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000129" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1144" name="DailyCoverage_IsContinuousAcrossTheDayBoundary" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.DailyCoverage_IsContinuousAcrossTheDayBoundary" methodname="DailyCoverage_IsContinuousAcrossTheDayBoundary" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2003272586" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000391" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1143" name="DailyCoverage_VariesAcrossWorldDaysAndIsDeterministic" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.DailyCoverage_VariesAcrossWorldDaysAndIsDeterministic" methodname="DailyCoverage_VariesAcrossWorldDaysAndIsDeterministic" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1585945014" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000264" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1060" name="EnvironmentAuthorities_KeepTheirExecutionOrderChain" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.EnvironmentAuthorities_KeepTheirExecutionOrderChain" methodname="EnvironmentAuthorities_KeepTheirExecutionOrderChain" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2080328494" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000250" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1111" name="FullWeatherCloudiness_ReachesOvercastFormation" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.FullWeatherCloudiness_ReachesOvercastFormation" methodname="FullWeatherCloudiness_ReachesOvercastFormation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1086686082" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000121" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1157" name="InstantWeatherChange_CompletesEveryChannel" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.InstantWeatherChange_CompletesEveryChannel" methodname="InstantWeatherChange_CompletesEveryChannel" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1813193791" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000112" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1102" name="LightningTapersWithTheBlendNotTheTargetProfile" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.LightningTapersWithTheBlendNotTheTargetProfile" methodname="LightningTapersWithTheBlendNotTheTargetProfile" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1421773962" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.006655" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1156" name="PrecipitationGate_WaitsForBuildingCoverButNotForClearing" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.PrecipitationGate_WaitsForBuildingCoverButNotForClearing" methodname="PrecipitationGate_WaitsForBuildingCoverButNotForClearing" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="594705464" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000296" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1131" name="PrecipitationVfx_UsesTheSplitRatherThanTotalPrecipitation" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.PrecipitationVfx_UsesTheSplitRatherThanTotalPrecipitation" methodname="PrecipitationVfx_UsesTheSplitRatherThanTotalPrecipitation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2103407917" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000481" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1124" name="RainController_ResolvesSubmersionFromTheSharedGlobal" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.RainController_ResolvesSubmersionFromTheSharedGlobal" methodname="RainController_ResolvesSubmersionFromTheSharedGlobal" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1670338725" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000371" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1122" name="ReflectionHistory_IsAllocatedAtTraceResolution" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.ReflectionHistory_IsAllocatedAtTraceResolution" methodname="ReflectionHistory_IsAllocatedAtTraceResolution" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="139170317" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000167" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1062" name="RendererAsset_OrdersCloudsImmediatelyBeforeAtmosphere" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.RendererAsset_OrdersCloudsImmediatelyBeforeAtmosphere" methodname="RendererAsset_OrdersCloudsImmediatelyBeforeAtmosphere" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1027819558" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000216" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1056" name="RendererAsset_ShipsWithWaterDebugLoggingDisabled" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.RendererAsset_ShipsWithWaterDebugLoggingDisabled" methodname="RendererAsset_ShipsWithWaterDebugLoggingDisabled" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1472910198" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000238" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1130" name="SnowBias_ReachesTheEnvironmentSimulation" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SnowBias_ReachesTheEnvironmentSimulation" methodname="SnowBias_ReachesTheEnvironmentSimulation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="70550941" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000349" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1129" name="SnowBias_ShiftsTheSplitWithoutBreakingConservation" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SnowBias_ShiftsTheSplitWithoutBreakingConservation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001477" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1125" name="SnowBias_ShiftsTheSplitWithoutBreakingConservation(-1.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SnowBias_ShiftsTheSplitWithoutBreakingConservation(-1.0f)" methodname="SnowBias_ShiftsTheSplitWithoutBreakingConservation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="731814209" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000292" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1126" name="SnowBias_ShiftsTheSplitWithoutBreakingConservation(0.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SnowBias_ShiftsTheSplitWithoutBreakingConservation(0.0f)" methodname="SnowBias_ShiftsTheSplitWithoutBreakingConservation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1145892929" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000072" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1127" name="SnowBias_ShiftsTheSplitWithoutBreakingConservation(0.35f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SnowBias_ShiftsTheSplitWithoutBreakingConservation(0.35f)" methodname="SnowBias_ShiftsTheSplitWithoutBreakingConservation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1061209241" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000064" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1128" name="SnowBias_ShiftsTheSplitWithoutBreakingConservation(1.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SnowBias_ShiftsTheSplitWithoutBreakingConservation(1.0f)" methodname="SnowBias_ShiftsTheSplitWithoutBreakingConservation" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="21856552" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000065" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1173" name="SnowEmitter_TracksTheWindWithoutOutgrowingItsBudget" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SnowEmitter_TracksTheWindWithoutOutgrowingItsBudget" methodname="SnowEmitter_TracksTheWindWithoutOutgrowingItsBudget" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1531778001" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000682" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1093" name="SunDisc_RedensByAirMassRatherThanTheGroundLightRamp" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.SunDisc_RedensByAirMassRatherThanTheGroundLightRamp" methodname="SunDisc_RedensByAirMassRatherThanTheGroundLightRamp" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="555881044" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001337" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1066" name="TimeOfDay_RuntimeSkyboxCloneField_IsNotSerialized" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.TimeOfDay_RuntimeSkyboxCloneField_IsNotSerialized" methodname="TimeOfDay_RuntimeSkyboxCloneField_IsNotSerialized" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1043884449" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000179" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1067" name="TimeOfDayEnvironmentUpdate_IsIdempotentWithinAFrame" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.TimeOfDayEnvironmentUpdate_IsIdempotentWithinAFrame" methodname="TimeOfDayEnvironmentUpdate_IsIdempotentWithinAFrame" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1096310930" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000826" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1170" name="VisibilityDistance_HidesTheSceneWhereItSaysItDoes" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.VisibilityDistance_HidesTheSceneWhereItSaysItDoes" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000970" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1167" name="VisibilityDistance_HidesTheSceneWhereItSaysItDoes(55.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.VisibilityDistance_HidesTheSceneWhereItSaysItDoes(55.0f)" methodname="VisibilityDistance_HidesTheSceneWhereItSaysItDoes" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1708242643" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000185" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1168" name="VisibilityDistance_HidesTheSceneWhereItSaysItDoes(180.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.VisibilityDistance_HidesTheSceneWhereItSaysItDoes(180.0f)" methodname="VisibilityDistance_HidesTheSceneWhereItSaysItDoes" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1889131127" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000034" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1169" name="VisibilityDistance_HidesTheSceneWhereItSaysItDoes(300.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.VisibilityDistance_HidesTheSceneWhereItSaysItDoes(300.0f)" methodname="VisibilityDistance_HidesTheSceneWhereItSaysItDoes" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1790492601" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000023" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1171" name="VisibilityFloor_BlendsMonotonicallyOutOfUnused" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.VisibilityFloor_BlendsMonotonicallyOutOfUnused" methodname="VisibilityFloor_BlendsMonotonicallyOutOfUnused" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1106446188" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000303" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1172" name="VisibilityFloor_ReachesTheAtmosphereController" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.VisibilityFloor_ReachesTheAtmosphereController" methodname="VisibilityFloor_ReachesTheAtmosphereController" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1228028557" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.007727" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1115" name="WaterCascadeDomains_MatchAcrossComputeShaderIncludeAndCpu" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WaterCascadeDomains_MatchAcrossComputeShaderIncludeAndCpu" methodname="WaterCascadeDomains_MatchAcrossComputeShaderIncludeAndCpu" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="286332358" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.017528" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1123" name="WaterQualityLowTier_ClampsSsrResolutionScale" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WaterQualityLowTier_ClampsSsrResolutionScale" methodname="WaterQualityLowTier_ClampsSsrResolutionScale" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="285281032" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000499" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1117" name="WaterQualityTiers_DegradeMonotonically" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WaterQualityTiers_DegradeMonotonically" methodname="WaterQualityTiers_DegradeMonotonically" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1559108532" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000260" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1116" name="WaterQualityTiers_ExposeExpectedSpectralBudgets" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WaterQualityTiers_ExposeExpectedSpectralBudgets" methodname="WaterQualityTiers_ExposeExpectedSpectralBudgets" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="462664645" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000194" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1120" name="WaterSpectrum_IsRecordedWithoutACameraContext" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WaterSpectrum_IsRecordedWithoutACameraContext" methodname="WaterSpectrum_IsRecordedWithoutACameraContext" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="230091449" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000444" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1114" name="WaterWindReferenceSpeed_MatchesBetweenCpuAndShader" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WaterWindReferenceSpeed_MatchesBetweenCpuAndShader" methodname="WaterWindReferenceSpeed_MatchesBetweenCpuAndShader" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1826077214" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000489" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1148" name="WeatherAdjacency_IsSymmetricBoundedAndNeverZero" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherAdjacency_IsSymmetricBoundedAndNeverZero" methodname="WeatherAdjacency_IsSymmetricBoundedAndNeverZero" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="145086359" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.002794" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1150" name="WeatherAdjacency_KeepsFrozenAndLiquidPrecipitationApart" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherAdjacency_KeepsFrozenAndLiquidPrecipitationApart" methodname="WeatherAdjacency_KeepsFrozenAndLiquidPrecipitationApart" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1732552863" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000177" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1152" name="WeatherAdjacency_LeavesEveryStateAWayOut" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherAdjacency_LeavesEveryStateAWayOut" methodname="WeatherAdjacency_LeavesEveryStateAWayOut" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="508275656" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000960" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1151" name="WeatherAdjacency_PhaseCostsNothingBetweenDryStates" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherAdjacency_PhaseCostsNothingBetweenDryStates" methodname="WeatherAdjacency_PhaseCostsNothingBetweenDryStates" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="959095576" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000287" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1149" name="WeatherAdjacency_RanksPlausibleSuccessorsAboveImplausibleOnes" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherAdjacency_RanksPlausibleSuccessorsAboveImplausibleOnes" methodname="WeatherAdjacency_RanksPlausibleSuccessorsAboveImplausibleOnes" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2146845399" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000681" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1155" name="WeatherChannelTiming_IsMonotonicAndCompletesAtMasterOne" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherChannelTiming_IsMonotonicAndCompletesAtMasterOne" methodname="WeatherChannelTiming_IsMonotonicAndCompletesAtMasterOne" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2073903056" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000846" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1113" name="WeatherCompatibilityConstructor_MapsCloudProperties" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherCompatibilityConstructor_MapsCloudProperties" methodname="WeatherCompatibilityConstructor_MapsCloudProperties" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1936447305" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000214" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1065" name="WeatherManager_ExposesTheSharedABPreviewSeam" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherManager_ExposesTheSharedABPreviewSeam" methodname="WeatherManager_ExposesTheSharedABPreviewSeam" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="369273764" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000115" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1070" name="WeatherManagers_UseSharedProfileAssets" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherManagers_UseSharedProfileAssets" methodname="WeatherManagers_UseSharedProfileAssets" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="809199071" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.010230" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1145" name="WeatherProfiles_AuthorEveryFieldExplicitly" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorEveryFieldExplicitly" methodname="WeatherProfiles_AuthorEveryFieldExplicitly" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1082080757" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.013361" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1080" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001838" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1071" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Clear&quot;,2.6f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Clear&quot;,2.6f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1485904585" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000374" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1072" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Fair&quot;,4.4f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Fair&quot;,4.4f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="318490008" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000066" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1073" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Fog&quot;,1.2f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Fog&quot;,1.2f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="835011501" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000040" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1074" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Overcast&quot;,6.4f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Overcast&quot;,6.4f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="533075198" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000036" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1075" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Drizzle&quot;,7.6f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Drizzle&quot;,7.6f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="160842615" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000032" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1076" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Rain&quot;,11.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Rain&quot;,11.0f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="54982681" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000031" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1077" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Snow&quot;,5.2f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Snow&quot;,5.2f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="833405122" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000036" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1078" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Storm&quot;,21.2f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Storm&quot;,21.2f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="371220726" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000030" asserts="0">
+                  <properties />
+                </test-case>
+                <test-case id="1079" name="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Blizzard&quot;,22.0f)" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_AuthorPhysicalTenMetreWindSpeed(&quot;Blizzard&quot;,22.0f)" methodname="WeatherProfiles_AuthorPhysicalTenMetreWindSpeed" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1982233504" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000031" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+              <test-case id="1142" name="WeatherProfiles_FormOneMonotonicEffectiveCoverageLadder" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_FormOneMonotonicEffectiveCoverageLadder" methodname="WeatherProfiles_FormOneMonotonicEffectiveCoverageLadder" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="271615500" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001616" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1146" name="WeatherProfiles_MatchTheirFormationPresetUnlessTheyOverrideIt" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_MatchTheirFormationPresetUnlessTheyOverrideIt" methodname="WeatherProfiles_MatchTheirFormationPresetUnlessTheyOverrideIt" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1484656688" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000853" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1068" name="WeatherProfiles_ShipTheExpectedUniqueAssetSet" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_ShipTheExpectedUniqueAssetSet" methodname="WeatherProfiles_ShipTheExpectedUniqueAssetSet" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="28681314" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000517" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1069" name="WeatherProfiles_StayWithinDeclaredRanges" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherProfiles_StayWithinDeclaredRanges" methodname="WeatherProfiles_StayWithinDeclaredRanges" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1983070098" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001015" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1137" name="WeatherSeed_IsOwnedByTheWeatherManager" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSeed_IsOwnedByTheWeatherManager" methodname="WeatherSeed_IsOwnedByTheWeatherManager" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="2030916870" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.032571" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1153" name="WeatherSelection_HasNoDeadEndInAnySeason" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSelection_HasNoDeadEndInAnySeason" methodname="WeatherSelection_HasNoDeadEndInAnySeason" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1134632112" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.004072" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1154" name="WeatherSelection_MultipliesAdjacencyIntoTheSeasonalWeight" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSelection_MultipliesAdjacencyIntoTheSeasonalWeight" methodname="WeatherSelection_MultipliesAdjacencyIntoTheSeasonalWeight" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1074618720" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000549" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1147" name="WeatherSelectionLists_AreIdenticalAcrossEveryContainer" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSelectionLists_AreIdenticalAcrossEveryContainer" methodname="WeatherSelectionLists_AreIdenticalAcrossEveryContainer" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1766395444" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.003772" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1134" name="WeatherSequencer_DoesNotTouchUnityRandom" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSequencer_DoesNotTouchUnityRandom" methodname="WeatherSequencer_DoesNotTouchUnityRandom" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="730228831" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001063" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1132" name="WeatherSequencer_IsSeededAndReproducible" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSequencer_IsSeededAndReproducible" methodname="WeatherSequencer_IsSeededAndReproducible" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1465272451" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001562" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1133" name="WeatherSequencer_ResumesExactlyFromACapturedState" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSequencer_ResumesExactlyFromACapturedState" methodname="WeatherSequencer_ResumesExactlyFromACapturedState" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="863748718" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000233" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1136" name="WeatherSnapshot_CarriesEveryFieldItRestores" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSnapshot_CarriesEveryFieldItRestores" methodname="WeatherSnapshot_CarriesEveryFieldItRestores" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="848712740" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.001138" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1135" name="WeatherSnapshot_RejectsAForeignVersion" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WeatherSnapshot_RejectsAForeignVersion" methodname="WeatherSnapshot_RejectsAForeignVersion" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1962067770" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000464" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1082" name="WindLag_IsFrameRateIndependent" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WindLag_IsFrameRateIndependent" methodname="WindLag_IsFrameRateIndependent" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="76014146" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000184" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1081" name="WindLag_ReachesExactFirstOrderResponse" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WindLag_ReachesExactFirstOrderResponse" methodname="WindLag_ReachesExactFirstOrderResponse" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="604973085" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000069" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1083" name="WindLag_ZeroDeltaIsANoOp" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WindLag_ZeroDeltaIsANoOp" methodname="WindLag_ZeroDeltaIsANoOp" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="424164267" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000053" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1084" name="WindLag_ZeroTimeConstantSnaps" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WindLag_ZeroTimeConstantSnaps" methodname="WindLag_ZeroTimeConstantSnaps" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="30476692" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000048" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1118" name="WorldFrameGate_AdmitsOneCallerPerFrame" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WorldFrameGate_AdmitsOneCallerPerFrame" methodname="WorldFrameGate_AdmitsOneCallerPerFrame" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="27875737" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000099" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1119" name="WorldFrameGate_DefaultInstanceAdmitsFrameZero" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.WorldFrameGate_DefaultInstanceAdmitsFrameZero" methodname="WorldFrameGate_DefaultInstanceAdmitsFrameZero" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="526605940" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000047" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1110" name="ZeroCloudinessPreservesAuthoredCoverWhenBiasIsZero" fullname="Sol.Tests.Editor.SolEnvironmentRegressionTests.ZeroCloudinessPreservesAuthoredCoverWhenBiasIsZero" methodname="ZeroCloudinessPreservesAuthoredCoverWhenBiasIsZero" classname="Sol.Tests.Editor.SolEnvironmentRegressionTests" runstate="Runnable" seed="1810296264" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.000263" asserts="0">
+                <properties />
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1175" name="SolForwardPlusWaterLightingTests" fullname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests" classname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.013419" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1176" name="SharedHelper_ImplementsBothForwardPlusLoops" fullname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests.SharedHelper_ImplementsBothForwardPlusLoops" methodname="SharedHelper_ImplementsBothForwardPlusLoops" classname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests" runstate="Runnable" seed="1936989409" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.005473" asserts="0">
+                <properties />
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1178" name="WaterShaders_CompileAndUseTheClusteredSpecularHelper" fullname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests.WaterShaders_CompileAndUseTheClusteredSpecularHelper" classname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.007030" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1177" name="WaterShaders_CompileAndUseTheClusteredSpecularHelper(&quot;Earth-Sky-Water/Shaders/Water2/SolOcean.shader&quot;)" fullname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests.WaterShaders_CompileAndUseTheClusteredSpecularHelper(&quot;Earth-Sky-Water/Shaders/Water2/SolOcean.shader&quot;)" methodname="WaterShaders_CompileAndUseTheClusteredSpecularHelper" classname="Sol.Tests.Editor.SolForwardPlusWaterLightingTests" runstate="Runnable" seed="890102301" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.006348" asserts="0">
+                  <properties />
+                </test-case>
+              </test-suite>
+            </test-suite>
+            <test-suite type="TestFixture" id="1179" name="SolLandscapeDesignerTests" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" testcasecount="31" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:13Z" duration="0.754851" total="31" passed="31" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1204" name="BindingRelease_PreservesPropertiesWrittenAfterPublication" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.BindingRelease_PreservesPropertiesWrittenAfterPublication" methodname="BindingRelease_PreservesPropertiesWrittenAfterPublication" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1691443058" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.003495" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1199" name="Cancel_RestoresUnallocatedMaps_AndExclusionDoesNotChangePaint" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Cancel_RestoresUnallocatedMaps_AndExclusionDoesNotChangePaint" methodname="Cancel_RestoresUnallocatedMaps_AndExclusionDoesNotChangePaint" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1777286863" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.022635" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1181" name="DesignerActivities_BuildNativeControlsAndReleasePreview" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.DesignerActivities_BuildNativeControlsAndReleasePreview" methodname="DesignerActivities_BuildNativeControlsAndReleasePreview" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="918660352" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.099815" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1207" name="GpuFinalWeights_RespectOverrideEraseAndExclusion" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.GpuFinalWeights_RespectOverrideEraseAndExclusion" methodname="GpuFinalWeights_RespectOverrideEraseAndExclusion" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="960235930" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:07Z" duration="0.039107" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1184" name="IndependentGroups_RetainTheirOwnPalettesAndPreview" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.IndependentGroups_RetainTheirOwnPalettesAndPreview" methodname="IndependentGroups_RetainTheirOwnPalettesAndPreview" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="919374767" result="Passed" start-time="2026-09-11 16:54:07Z" end-time="2026-09-11 16:54:08Z" duration="0.006462" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1186" name="LegacyElementaDemo_AllNineTerrainsReceiveTheExistingMaterialContract" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.LegacyElementaDemo_AllNineTerrainsReceiveTheExistingMaterialContract" methodname="LegacyElementaDemo_AllNineTerrainsReceiveTheExistingMaterialContract" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1641641604" result="Passed" start-time="2026-09-11 16:54:08Z" end-time="2026-09-11 16:54:08Z" duration="0.958759" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1185" name="LegacySharedMaterial_BindsFollowersAndRestoresUnrelatedProperties" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.LegacySharedMaterial_BindsFollowersAndRestoresUnrelatedProperties" methodname="LegacySharedMaterial_BindsFollowersAndRestoresUnrelatedProperties" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="212674250" result="Passed" start-time="2026-09-11 16:54:08Z" end-time="2026-09-11 16:54:08Z" duration="0.006665" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1182" name="MaterialEditing_ExposesPaintAndEraseForAutoLayers" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.MaterialEditing_ExposesPaintAndEraseForAutoLayers" methodname="MaterialEditing_ExposesPaintAndEraseForAutoLayers" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="368556269" result="Passed" start-time="2026-09-11 16:54:08Z" end-time="2026-09-11 16:54:08Z" duration="0.020552" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1200" name="Paint_RemapPreservesMaterialIdentity_AndRemovalRevealsBase" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Paint_RemapPreservesMaterialIdentity_AndRemovalRevealsBase" methodname="Paint_RemapPreservesMaterialIdentity_AndRemovalRevealsBase" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="472694613" result="Passed" start-time="2026-09-11 16:54:08Z" end-time="2026-09-11 16:54:09Z" duration="0.027346" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1203" name="Paint_SerializesAndUndoRestoresBothTiles" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Paint_SerializesAndUndoRestoresBothTiles" methodname="Paint_SerializesAndUndoRestoresBothTiles" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="492257570" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.043526" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1193" name="PaintingBug_AssetSaveCommitsActiveStrokeAndNativeReloadRetainsPixels" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_AssetSaveCommitsActiveStrokeAndNativeReloadRetainsPixels" methodname="PaintingBug_AssetSaveCommitsActiveStrokeAndNativeReloadRetainsPixels" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1462331162" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.033709" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1190" name="PaintingBug_CancelImmediatelyRebindsRestoredTextures" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_CancelImmediatelyRebindsRestoredTextures" methodname="PaintingBug_CancelImmediatelyRebindsRestoredTextures" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1829977051" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.007384" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1189" name="PaintingBug_ConcurrentStrokesCannotOverwriteCancellation" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_ConcurrentStrokesCannotOverwriteCancellation" methodname="PaintingBug_ConcurrentStrokesCannotOverwriteCancellation" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1639391815" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.002410" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1191" name="PaintingBug_EighthChannelAndExclusionsSurviveReloadAndRestore" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_EighthChannelAndExclusionsSurviveReloadAndRestore" methodname="PaintingBug_EighthChannelAndExclusionsSurviveReloadAndRestore" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="415098743" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.076114" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1187" name="PaintingBug_EmptyOperationsDoNotAllocateOrNotify" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_EmptyOperationsDoNotAllocateOrNotify" methodname="PaintingBug_EmptyOperationsDoNotAllocateOrNotify" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1056448469" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.002588" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1194" name="PaintingBug_LostGpuTextureRestoresCommittedData" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_LostGpuTextureRestoresCommittedData" methodname="PaintingBug_LostGpuTextureRestoresCommittedData" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="773867479" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.019041" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1195" name="PaintingBug_MultipleDabsKeepEveryBorderSampleContinuous" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_MultipleDabsKeepEveryBorderSampleContinuous" methodname="PaintingBug_MultipleDabsKeepEveryBorderSampleContinuous" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="261662359" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.047447" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1196" name="PaintingBug_PaletteReorderRemapsEveryGroupSharingProfile" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_PaletteReorderRemapsEveryGroupSharingProfile" methodname="PaintingBug_PaletteReorderRemapsEveryGroupSharingProfile" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="382056485" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.027961" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1197" name="PaintingBug_SaveFlushDoesNotSerializeTransientMaterial" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_SaveFlushDoesNotSerializeTransientMaterial" methodname="PaintingBug_SaveFlushDoesNotSerializeTransientMaterial" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1397811998" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.018632" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1188" name="PaintingBug_SharedPaintAssetIsRejected" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_SharedPaintAssetIsRejected" methodname="PaintingBug_SharedPaintAssetIsRejected" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1787122799" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.002812" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1192" name="PaintingBug_UndoDuringActiveEditorStrokeClosesTransaction" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaintingBug_UndoDuringActiveEditorStrokeClosesTransaction" methodname="PaintingBug_UndoDuringActiveEditorStrokeClosesTransaction" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="802965212" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.009654" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1206" name="PaletteReorder_PreservesBakedSlicePaintAndAlphamaps" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaletteReorder_PreservesBakedSlicePaintAndAlphamaps" methodname="PaletteReorder_PreservesBakedSlicePaintAndAlphamaps" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="986510846" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.011898" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1183" name="PerTileBindings_AreIndependentAndPreserveUnrelatedProperties" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PerTileBindings_AreIndependentAndPreserveUnrelatedProperties" methodname="PerTileBindings_AreIndependentAndPreserveUnrelatedProperties" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1582456761" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.006793" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1201" name="Preview_IsOwnerScoped_AndDoesNotWriteWorldWetness" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Preview_IsOwnerScoped_AndDoesNotWriteWorldWetness" methodname="Preview_IsOwnerScoped_AndDoesNotWriteWorldWetness" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="622740462" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.002702" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1180" name="ProfilesAndTiles_ValidateOneThroughEightLayers" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.ProfilesAndTiles_ValidateOneThroughEightLayers" methodname="ProfilesAndTiles_ValidateOneThroughEightLayers" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="2099177179" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.002204" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1202" name="Rules_HaveExplicitFeathersAndPreservedEndpoints" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Rules_HaveExplicitFeathersAndPreservedEndpoints" methodname="Rules_HaveExplicitFeathersAndPreservedEndpoints" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="353871921" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:09Z" duration="0.000298" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1208" name="RuntimeStroke_OperatesOnClonedData" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.RuntimeStroke_OperatesOnClonedData" methodname="RuntimeStroke_OperatesOnClonedData" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="753178223" result="Passed" start-time="2026-09-11 16:54:09Z" end-time="2026-09-11 16:54:12Z" duration="3.470302" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Default GameObject Tag: Player already registered
+]]></output>
+              </test-case>
+              <test-case id="1205" name="Sculpt_PaintContextPreservesFourTileBordersAndUndo" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Sculpt_PaintContextPreservesFourTileBordersAndUndo" methodname="Sculpt_PaintContextPreservesFourTileBordersAndUndo" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1342748189" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:12Z" duration="0.045073" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1209" name="Shaders_CompileAndRenderRequiredVariants" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Shaders_CompileAndRenderRequiredVariants" methodname="Shaders_CompileAndRenderRequiredVariants" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1583191862" result="Passed" start-time="2026-09-11 16:54:12Z" end-time="2026-09-11 16:54:13Z" duration="0.312703" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1198" name="Stroke_PaintsAcrossFourTileJunction_AndEraseRestoresAutomatic" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Stroke_PaintsAcrossFourTileJunction_AndEraseRestoresAutomatic" methodname="Stroke_PaintsAcrossFourTileJunction_AndEraseRestoresAutomatic" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="724790919" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.059388" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1210" name="TerrainHoles_ClipTheRenderedSurface" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.TerrainHoles_ClipTheRenderedSurface" methodname="TerrainHoles_ClipTheRenderedSurface" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="560588489" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.017263" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1211" name="SolLandscapeSnowRegressionTests" fullname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" classname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.005241" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1212" name="AccumulatedSnowCoverage_DoesNotChangeWithTimeOfDayTemperature" fullname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests.AccumulatedSnowCoverage_DoesNotChangeWithTimeOfDayTemperature" methodname="AccumulatedSnowCoverage_DoesNotChangeWithTimeOfDayTemperature" classname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" runstate="Runnable" seed="1059278471" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000774" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1213" name="SnowLifecycle_RemainsOwnedByEnvironmentSimulation" fullname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests.SnowLifecycle_RemainsOwnedByEnvironmentSimulation" methodname="SnowLifecycle_RemainsOwnedByEnvironmentSimulation" classname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" runstate="Runnable" seed="246084072" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000384" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1214" name="SolLightingDiagnosticsTests" fullname="Sol.Tests.Editor.SolLightingDiagnosticsTests" classname="Sol.Tests.Editor.SolLightingDiagnosticsTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.017536" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1215" name="BudgetTracksLightingGaugesAndSchedulerRequests" fullname="Sol.Tests.Editor.SolLightingDiagnosticsTests.BudgetTracksLightingGaugesAndSchedulerRequests" methodname="BudgetTracksLightingGaugesAndSchedulerRequests" classname="Sol.Tests.Editor.SolLightingDiagnosticsTests" runstate="Runnable" seed="1905117055" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.001487" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1216" name="FinalProfilerMarkersAndWindowMetricsRemainDiscoverable" fullname="Sol.Tests.Editor.SolLightingDiagnosticsTests.FinalProfilerMarkersAndWindowMetricsRemainDiscoverable" methodname="FinalProfilerMarkersAndWindowMetricsRemainDiscoverable" classname="Sol.Tests.Editor.SolLightingDiagnosticsTests" runstate="Runnable" seed="1062672718" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.015141" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1217" name="SolLightingFrameTests" fullname="Sol.Tests.Editor.SolLightingFrameTests" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.009283" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1230" name="CelestialBlend_AddsBothRadiancesAtCrossover" fullname="Sol.Tests.Editor.SolLightingFrameTests.CelestialBlend_AddsBothRadiancesAtCrossover" methodname="CelestialBlend_AddsBothRadiancesAtCrossover" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="1604308748" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.002238" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1231" name="CelestialBlend_FadesContinuouslyIntoAmbientOnlyTwilight" fullname="Sol.Tests.Editor.SolLightingFrameTests.CelestialBlend_FadesContinuouslyIntoAmbientOnlyTwilight" methodname="CelestialBlend_FadesContinuouslyIntoAmbientOnlyTwilight" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="699758507" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000211" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1229" name="CelestialBlend_UsesBlackKeyWhenBothBodiesAreUnavailable" fullname="Sol.Tests.Editor.SolLightingFrameTests.CelestialBlend_UsesBlackKeyWhenBothBodiesAreUnavailable" methodname="CelestialBlend_UsesBlackKeyWhenBothBodiesAreUnavailable" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="254264207" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000167" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1228" name="DirectionalResolution_AppliesWeatherOnlyToIntensity" fullname="Sol.Tests.Editor.SolLightingFrameTests.DirectionalResolution_AppliesWeatherOnlyToIntensity" methodname="DirectionalResolution_AppliesWeatherOnlyToIntensity" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="1475611950" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000585" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1218" name="DominantLight_HoldsItsPreviousChoiceInsideHysteresisBand" fullname="Sol.Tests.Editor.SolLightingFrameTests.DominantLight_HoldsItsPreviousChoiceInsideHysteresisBand" methodname="DominantLight_HoldsItsPreviousChoiceInsideHysteresisBand" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="1057205239" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000212" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1220" name="DominantLight_RejectsDisabledCandidates" fullname="Sol.Tests.Editor.SolLightingFrameTests.DominantLight_RejectsDisabledCandidates" methodname="DominantLight_RejectsDisabledCandidates" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="1258196702" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000120" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1219" name="DominantLight_SwitchesOnlyAfterHysteresisIsExceeded" fullname="Sol.Tests.Editor.SolLightingFrameTests.DominantLight_SwitchesOnlyAfterHysteresisIsExceeded" methodname="DominantLight_SwitchesOnlyAfterHysteresisIsExceeded" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="398170594" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000067" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1227" name="Lightning_RemainsSeparateFromStableCaptureState" fullname="Sol.Tests.Editor.SolLightingFrameTests.Lightning_RemainsSeparateFromStableCaptureState" methodname="Lightning_RemainsSeparateFromStableCaptureState" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="1372080428" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000380" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1232" name="TimeOfDay_DoesNotCommitDirectionalOrAmbientLighting" fullname="Sol.Tests.Editor.SolLightingFrameTests.TimeOfDay_DoesNotCommitDirectionalOrAmbientLighting" methodname="TimeOfDay_DoesNotCommitDirectionalOrAmbientLighting" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="2062915472" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.002645" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1226" name="WeatherAttenuation_IsBoundedAndDeterministic" fullname="Sol.Tests.Editor.SolLightingFrameTests.WeatherAttenuation_IsBoundedAndDeterministic" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.001033" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1221" name="WeatherAttenuation_IsBoundedAndDeterministic(-1.0f,1.0f)" fullname="Sol.Tests.Editor.SolLightingFrameTests.WeatherAttenuation_IsBoundedAndDeterministic(-1.0f,1.0f)" methodname="WeatherAttenuation_IsBoundedAndDeterministic" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="544339125" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000202" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1222" name="WeatherAttenuation_IsBoundedAndDeterministic(0.0f,1.0f)" fullname="Sol.Tests.Editor.SolLightingFrameTests.WeatherAttenuation_IsBoundedAndDeterministic(0.0f,1.0f)" methodname="WeatherAttenuation_IsBoundedAndDeterministic" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="90694379" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000033" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1223" name="WeatherAttenuation_IsBoundedAndDeterministic(0.5f,0.625f)" fullname="Sol.Tests.Editor.SolLightingFrameTests.WeatherAttenuation_IsBoundedAndDeterministic(0.5f,0.625f)" methodname="WeatherAttenuation_IsBoundedAndDeterministic" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="492518673" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000024" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1224" name="WeatherAttenuation_IsBoundedAndDeterministic(1.0f,0.25f)" fullname="Sol.Tests.Editor.SolLightingFrameTests.WeatherAttenuation_IsBoundedAndDeterministic(1.0f,0.25f)" methodname="WeatherAttenuation_IsBoundedAndDeterministic" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="628895238" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000022" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1225" name="WeatherAttenuation_IsBoundedAndDeterministic(2.0f,0.25f)" fullname="Sol.Tests.Editor.SolLightingFrameTests.WeatherAttenuation_IsBoundedAndDeterministic(2.0f,0.25f)" methodname="WeatherAttenuation_IsBoundedAndDeterministic" classname="Sol.Tests.Editor.SolLightingFrameTests" runstate="Runnable" seed="1154609585" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000021" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+            </test-suite>
+            <test-suite type="TestFixture" id="1233" name="SolLightingQualityProfileTests" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.032627" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1243" name="DemoControls_RouteQualityThroughTheLightingDirector" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.DemoControls_RouteQualityThroughTheLightingDirector" methodname="DemoControls_RouteQualityThroughTheLightingDirector" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="159862917" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.006430" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1241" name="MediumTier_AppliesItsShadowPolicyToUrp" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.MediumTier_AppliesItsShadowPolicyToUrp" methodname="MediumTier_AppliesItsShadowPolicyToUrp" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="233993890" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.015399" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1238" name="SetTier_ChangesRuntimeStateAndFiresOnlyForARealTransition" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.SetTier_ChangesRuntimeStateAndFiresOnlyForARealTransition" methodname="SetTier_ChangesRuntimeStateAndFiresOnlyForARealTransition" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="44904948" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000824" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1240" name="ShadowSliceCost_MatchesUrpAtlasPacking" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.ShadowSliceCost_MatchesUrpAtlasPacking" methodname="ShadowSliceCost_MatchesUrpAtlasPacking" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="1760933980" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000139" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1242" name="ShippingProfile_LoadsAsMedium" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.ShippingProfile_LoadsAsMedium" methodname="ShippingProfile_LoadsAsMedium" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="824835166" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.006716" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1237" name="TierSettings_ArePinnedToTheShippingBudgets" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.TierSettings_ArePinnedToTheShippingBudgets" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.001251" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1234" name="TierSettings_ArePinnedToTheShippingBudgets(Low,35.0f,2,1024,1024,48,4,0,8.0f)" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.TierSettings_ArePinnedToTheShippingBudgets(Low,35.0f,2,1024,1024,48,4,0,8.0f)" methodname="TierSettings_ArePinnedToTheShippingBudgets" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="412791493" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000313" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1235" name="TierSettings_ArePinnedToTheShippingBudgets(Medium,60.0f,3,2048,2048,96,12,4,4.0f)" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.TierSettings_ArePinnedToTheShippingBudgets(Medium,60.0f,3,2048,2048,96,12,4,4.0f)" methodname="TierSettings_ArePinnedToTheShippingBudgets" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="16079616" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000050" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1236" name="TierSettings_ArePinnedToTheShippingBudgets(High,100.0f,4,4096,4096,160,24,8,2.0f)" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.TierSettings_ArePinnedToTheShippingBudgets(High,100.0f,4,4096,4096,160,24,8,2.0f)" methodname="TierSettings_ArePinnedToTheShippingBudgets" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="1060915530" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000067" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1239" name="WaterTierOverride_DoesNotMutateTheAuthoredAssetTier" fullname="Sol.Tests.Editor.SolLightingQualityProfileTests.WaterTierOverride_DoesNotMutateTheAuthoredAssetTier" methodname="WaterTierOverride_DoesNotMutateTheAuthoredAssetTier" classname="Sol.Tests.Editor.SolLightingQualityProfileTests" runstate="Runnable" seed="1338861499" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.000451" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1244" name="SolProjectIntegrityTests" fullname="Sol.Tests.Editor.SolProjectIntegrityTests" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:15Z" duration="2.133568" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1247" name="AlwaysIncludedShaders_AllResolve" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.AlwaysIncludedShaders_AllResolve" methodname="AlwaysIncludedShaders_AllResolve" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="292446323" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:13Z" duration="0.001660" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1250" name="ElementaDemo_HasACompleteWater2Authority" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.ElementaDemo_HasACompleteWater2Authority" methodname="ElementaDemo_HasACompleteWater2Authority" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="1654628035" result="Passed" start-time="2026-09-11 16:54:13Z" end-time="2026-09-11 16:54:14Z" duration="1.277472" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1249" name="EnvironmentScenes_HaveNoMissingScripts" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.EnvironmentScenes_HaveNoMissingScripts" methodname="EnvironmentScenes_HaveNoMissingScripts" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="2083683371" result="Passed" start-time="2026-09-11 16:54:14Z" end-time="2026-09-11 16:54:15Z" duration="0.762004" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1246" name="EveryComputeShader_CompilesWithoutErrors" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.EveryComputeShader_CompilesWithoutErrors" methodname="EveryComputeShader_CompilesWithoutErrors" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="729186218" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.014527" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1248" name="EveryMaterial_ResolvesItsShader" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.EveryMaterial_ResolvesItsShader" methodname="EveryMaterial_ResolvesItsShader" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="1458189934" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.063373" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1251" name="EveryPrefab_HasNoMissingScripts" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.EveryPrefab_HasNoMissingScripts" methodname="EveryPrefab_HasNoMissingScripts" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="2095008645" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.003748" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1245" name="EveryShader_CompilesWithoutErrors" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.EveryShader_CompilesWithoutErrors" methodname="EveryShader_CompilesWithoutErrors" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="1699626529" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.007313" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1252" name="Renderer_CarriesTheRequiredFeaturesAndNoRetiredOnes" fullname="Sol.Tests.Editor.SolProjectIntegrityTests.Renderer_CarriesTheRequiredFeaturesAndNoRetiredOnes" methodname="Renderer_CarriesTheRequiredFeaturesAndNoRetiredOnes" classname="Sol.Tests.Editor.SolProjectIntegrityTests" runstate="Runnable" seed="1978272009" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.001675" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1253" name="SolReflectionProbeAnchorTests" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.028554" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1256" name="AnchorDefaultsToItsSiblingRealtimeProbe" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.AnchorDefaultsToItsSiblingRealtimeProbe" methodname="AnchorDefaultsToItsSiblingRealtimeProbe" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" seed="50778123" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.003630" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1254" name="GiCadenceIsClampedWhenAsyncReadbackIsUnavailable" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.GiCadenceIsClampedWhenAsyncReadbackIsUnavailable" methodname="GiCadenceIsClampedWhenAsyncReadbackIsUnavailable" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" seed="1835598703" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000129" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1255" name="PriorityScore_PrefersVisibleWaterRelevantAndStaleAnchors" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.PriorityScore_PrefersVisibleWaterRelevantAndStaleAnchors" methodname="PriorityScore_PrefersVisibleWaterRelevantAndStaleAnchors" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" seed="706595806" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000195" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1261" name="ProbeInvalidationThresholds_AreStable" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.ProbeInvalidationThresholds_AreStable" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.001717" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1257" name="ProbeInvalidationThresholds_AreStable(2.0f,0.039f,0.001f,False)" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.ProbeInvalidationThresholds_AreStable(2.0f,0.039f,0.001f,False)" methodname="ProbeInvalidationThresholds_AreStable" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" seed="444069844" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000714" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1258" name="ProbeInvalidationThresholds_AreStable(2.0f,0.041f,0.001f,True)" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.ProbeInvalidationThresholds_AreStable(2.0f,0.041f,0.001f,True)" methodname="ProbeInvalidationThresholds_AreStable" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" seed="1592924673" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000052" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1259" name="ProbeInvalidationThresholds_AreStable(1.9f,0.0f,0.0f,False)" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.ProbeInvalidationThresholds_AreStable(1.9f,0.0f,0.0f,False)" methodname="ProbeInvalidationThresholds_AreStable" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" seed="829334281" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000033" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1260" name="ProbeInvalidationThresholds_AreStable(2.1f,0.0f,0.0f,True)" fullname="Sol.Tests.Editor.SolReflectionProbeAnchorTests.ProbeInvalidationThresholds_AreStable(2.1f,0.0f,0.0f,True)" methodname="ProbeInvalidationThresholds_AreStable" classname="Sol.Tests.Editor.SolReflectionProbeAnchorTests" runstate="Runnable" seed="1633753292" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000025" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+            </test-suite>
+            <test-suite type="TestFixture" id="1262" name="SolSkyOverhaulTests" fullname="Sol.Tests.Editor.SolSkyOverhaulTests" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.109166" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1270" name="AltitudeAndWeatherTransitionsRemainContinuous" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.AltitudeAndWeatherTransitionsRemainContinuous" methodname="AltitudeAndWeatherTransitionsRemainContinuous" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="1482202623" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.001349" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1272" name="AtmosphereConvergenceIsIdempotentAtSharedRadiance" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.AtmosphereConvergenceIsIdempotentAtSharedRadiance" methodname="AtmosphereConvergenceIsIdempotentAtSharedRadiance" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="762587076" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.001241" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1269" name="GradientWeightsAreNormalizedAndHorizonIsContinuous" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.GradientWeightsAreNormalizedAndHorizonIsContinuous" methodname="GradientWeightsAreNormalizedAndHorizonIsContinuous" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="1669566664" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.001293" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1271" name="LightningChangesPresentedButNotStableAmbient" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.LightningChangesPresentedButNotStableAmbient" methodname="LightningChangesPresentedButNotStableAmbient" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="263672781" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000237" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1274" name="MigrationIsIdempotent" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.MigrationIsIdempotent" methodname="MigrationIsIdempotent" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="1471704697" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.070674" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1273" name="ProfileSwitchInvalidatesHistoryAndNullRestoresCompatibilityFallback" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ProfileSwitchInvalidatesHistoryAndNullRestoresCompatibilityFallback" methodname="ProfileSwitchInvalidatesHistoryAndNullRestoresCompatibilityFallback" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="1382442767" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.001146" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1268" name="ResolverIsFiniteAcrossSolarStates" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ResolverIsFiniteAcrossSolarStates" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.005027" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1263" name="ResolverIsFiniteAcrossSolarStates(-0.24f)" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ResolverIsFiniteAcrossSolarStates(-0.24f)" methodname="ResolverIsFiniteAcrossSolarStates" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="773552351" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000818" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1264" name="ResolverIsFiniteAcrossSolarStates(-0.05f)" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ResolverIsFiniteAcrossSolarStates(-0.05f)" methodname="ResolverIsFiniteAcrossSolarStates" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="508054163" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000246" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1265" name="ResolverIsFiniteAcrossSolarStates(0.0f)" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ResolverIsFiniteAcrossSolarStates(0.0f)" methodname="ResolverIsFiniteAcrossSolarStates" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="83301675" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000209" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1266" name="ResolverIsFiniteAcrossSolarStates(0.2f)" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ResolverIsFiniteAcrossSolarStates(0.2f)" methodname="ResolverIsFiniteAcrossSolarStates" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="902011978" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000204" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1267" name="ResolverIsFiniteAcrossSolarStates(1.0f)" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ResolverIsFiniteAcrossSolarStates(1.0f)" methodname="ResolverIsFiniteAcrossSolarStates" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="304424795" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.000195" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1276" name="SharedAtmosphereAndWaterContractsRemainWiredWithoutExtraPasses" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.SharedAtmosphereAndWaterContractsRemainWiredWithoutExtraPasses" methodname="SharedAtmosphereAndWaterContractsRemainWiredWithoutExtraPasses" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="616831557" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.020334" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1277" name="ShippedProfilesAndLunarCreditArePresent" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.ShippedProfilesAndLunarCreditArePresent" methodname="ShippedProfilesAndLunarCreditArePresent" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="943285807" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.001761" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1275" name="StellarBakerChecksumIsDeterministicAndEdgesUseContinuousDirections" fullname="Sol.Tests.Editor.SolSkyOverhaulTests.StellarBakerChecksumIsDeterministicAndEdgesUseContinuousDirections" methodname="StellarBakerChecksumIsDeterministicAndEdgesUseContinuousDirections" classname="Sol.Tests.Editor.SolSkyOverhaulTests" runstate="Runnable" seed="2061679518" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.004461" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1278" name="SolSkyPresentationTests" fullname="Sol.Tests.Editor.SolSkyPresentationTests" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.191949" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1279" name="BakedFaceOrientationMatchesGpuSamplingIncludingEdges" fullname="Sol.Tests.Editor.SolSkyPresentationTests.BakedFaceOrientationMatchesGpuSamplingIncludingEdges" methodname="BakedFaceOrientationMatchesGpuSamplingIncludingEdges" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="1664667267" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.044952" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1293" name="ForegroundMoonGpuCoverageMatchesSolarLighting" fullname="Sol.Tests.Editor.SolSkyPresentationTests.ForegroundMoonGpuCoverageMatchesSolarLighting" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.095819" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1287" name="ForegroundMoonGpuCoverageMatchesSolarLighting(30.0f,2.0f,0.0f,3.5f,4.5f,0.0f,0.0f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.ForegroundMoonGpuCoverageMatchesSolarLighting(30.0f,2.0f,0.0f,3.5f,4.5f,0.0f,0.0f)" methodname="ForegroundMoonGpuCoverageMatchesSolarLighting" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="1293538272" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.015522" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1288" name="ForegroundMoonGpuCoverageMatchesSolarLighting(30.0f,0.0f,0.0f,3.5f,4.5f,0.0f,0.0f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.ForegroundMoonGpuCoverageMatchesSolarLighting(30.0f,0.0f,0.0f,3.5f,4.5f,0.0f,0.0f)" methodname="ForegroundMoonGpuCoverageMatchesSolarLighting" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="19163803" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.013609" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1289" name="ForegroundMoonGpuCoverageMatchesSolarLighting(30.0f,0.0f,0.0f,4.0f,2.0f,0.0f,0.0f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.ForegroundMoonGpuCoverageMatchesSolarLighting(30.0f,0.0f,0.0f,4.0f,2.0f,0.0f,0.0f)" methodname="ForegroundMoonGpuCoverageMatchesSolarLighting" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="1096701809" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.016716" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1290" name="ForegroundMoonGpuCoverageMatchesSolarLighting(3.0f,2.0f,0.0f,3.5f,4.5f,1.0f,0.45f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.ForegroundMoonGpuCoverageMatchesSolarLighting(3.0f,2.0f,0.0f,3.5f,4.5f,1.0f,0.45f)" methodname="ForegroundMoonGpuCoverageMatchesSolarLighting" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="685206942" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.016069" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1291" name="ForegroundMoonGpuCoverageMatchesSolarLighting(5.0f,0.0f,1.5f,3.5f,4.5f,1.0f,0.8f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.ForegroundMoonGpuCoverageMatchesSolarLighting(5.0f,0.0f,1.5f,3.5f,4.5f,1.0f,0.8f)" methodname="ForegroundMoonGpuCoverageMatchesSolarLighting" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="553779129" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.015724" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1292" name="ForegroundMoonGpuCoverageMatchesSolarLighting(5.47f,0.48f,0.0f,3.5f,4.5f,1.0f,0.45f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.ForegroundMoonGpuCoverageMatchesSolarLighting(5.47f,0.48f,0.0f,3.5f,4.5f,1.0f,0.45f)" methodname="ForegroundMoonGpuCoverageMatchesSolarLighting" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="1965631759" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.016162" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="ParameterizedMethod" id="1286" name="MoonCenterTracksFullQuarterAndNewPhase" fullname="Sol.Tests.Editor.SolSkyPresentationTests.MoonCenterTracksFullQuarterAndNewPhase" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.017146" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1283" name="MoonCenterTracksFullQuarterAndNewPhase(-1.0f,1.0f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.MoonCenterTracksFullQuarterAndNewPhase(-1.0f,1.0f)" methodname="MoonCenterTracksFullQuarterAndNewPhase" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="858179239" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.005163" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1284" name="MoonCenterTracksFullQuarterAndNewPhase(0.0f,0.5f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.MoonCenterTracksFullQuarterAndNewPhase(0.0f,0.5f)" methodname="MoonCenterTracksFullQuarterAndNewPhase" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="205814607" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.007361" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1285" name="MoonCenterTracksFullQuarterAndNewPhase(1.0f,0.0f)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.MoonCenterTracksFullQuarterAndNewPhase(1.0f,0.0f)" methodname="MoonCenterTracksFullQuarterAndNewPhase" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="693714551" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.003528" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="ParameterizedMethod" id="1282" name="StarsTwinkleVisiblyWithStationaryCloudTime" fullname="Sol.Tests.Editor.SolSkyPresentationTests.StarsTwinkleVisiblyWithStationaryCloudTime" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.015347" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1280" name="StarsTwinkleVisiblyWithStationaryCloudTime(True)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.StarsTwinkleVisiblyWithStationaryCloudTime(True)" methodname="StarsTwinkleVisiblyWithStationaryCloudTime" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="1795512219" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.007290" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1281" name="StarsTwinkleVisiblyWithStationaryCloudTime(False)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.StarsTwinkleVisiblyWithStationaryCloudTime(False)" methodname="StarsTwinkleVisiblyWithStationaryCloudTime" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="701663013" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.007011" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="ParameterizedMethod" id="1296" name="SunAndMoonGpuDiscsDisappearBelowHorizon" fullname="Sol.Tests.Editor.SolSkyPresentationTests.SunAndMoonGpuDiscsDisappearBelowHorizon" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.015149" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1294" name="SunAndMoonGpuDiscsDisappearBelowHorizon(True)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.SunAndMoonGpuDiscsDisappearBelowHorizon(True)" methodname="SunAndMoonGpuDiscsDisappearBelowHorizon" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="895372519" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.006903" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1295" name="SunAndMoonGpuDiscsDisappearBelowHorizon(False)" fullname="Sol.Tests.Editor.SolSkyPresentationTests.SunAndMoonGpuDiscsDisappearBelowHorizon(False)" methodname="SunAndMoonGpuDiscsDisappearBelowHorizon" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="1805864866" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.007354" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1297" name="TwinkleClockIgnoresCloudSpeedAndFastForwardButRespectsPause" fullname="Sol.Tests.Editor.SolSkyPresentationTests.TwinkleClockIgnoresCloudSpeedAndFastForwardButRespectsPause" methodname="TwinkleClockIgnoresCloudSpeedAndFastForwardButRespectsPause" classname="Sol.Tests.Editor.SolSkyPresentationTests" runstate="Runnable" seed="749032076" result="Passed" start-time="2026-09-11 16:54:15Z" end-time="2026-09-11 16:54:15Z" duration="0.002139" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/xSoll/AppData/LocalLow/Solrponk/Elementa - Unified Gameplay Environment\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

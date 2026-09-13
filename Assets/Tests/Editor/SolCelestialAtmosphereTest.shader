@@ -9,7 +9,7 @@ Shader "Hidden/Sol/Tests/CelestialAtmosphere"
             #pragma vertex Vert
             #pragma fragment Frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "../../Earth-Sky-Water/Water/Shaders/SolAtmosphere.hlsl"
+            #include "../../Earth-Sky-Water/Shaders/Common/SolAtmosphere.hlsl"
             float4 _TestView;
             float _TestShadow;
             struct Attributes { float4 positionOS : POSITION; };

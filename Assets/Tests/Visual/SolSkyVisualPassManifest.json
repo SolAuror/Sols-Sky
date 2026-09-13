@@ -12,7 +12,7 @@
   "views": ["CoastGround", "WaterSurface", "Underwater", "CloudTopAerial"],
   "qualities": ["Low", "Medium", "High"],
   "rawOutput": "../SolSkyVisualPass_Raw/<profile>/<version>",
-  "referenceScene": "Assets/Scenes/Sols_Water2_Demo.unity",
+  "referenceScene": "Assets/Scenes/Elementa_Demo.unity",
   "resolution": "2560x1440",
   "performanceBudget": {
     "markers": ["Sol Skybox", "Sol Atmosphere"],

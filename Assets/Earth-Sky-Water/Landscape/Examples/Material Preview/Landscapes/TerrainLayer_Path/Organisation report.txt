@@ -1,0 +1,14 @@
+Destination: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/TerrainLayer_Path
+
+Moves (GUIDs preserved):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/TerrainLayer_Path.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/TerrainLayer_Path/Profiles/TerrainLayer_Path.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/TerrainLayer_Path Terrain.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/TerrainLayer_Path/TerrainData/TerrainLayer_Path Terrain.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:25.0733184Z. Reverse moves using Landscape.asset's move manifest.

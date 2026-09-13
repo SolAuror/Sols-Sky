@@ -123,6 +123,21 @@ public sealed class SolAtmosphereController : MonoBehaviour
     public Light CurrentDominantLight { get; private set; }
     public bool UsesVolumetricLighting => Quality != SolAtmosphereQuality.Low;
 
+    /// <summary>
+    /// Per-tier ceiling on marched samples. The authored step count is a request; this is
+    /// what the tier will actually pay for, and it is the single place the two callers below
+    /// -- the baseline resolve and the per-camera Volume override -- agree on. Medium keeps
+    /// the 16 it has always been pinned to; High is what gained headroom, so authoring a
+    /// count above 32 now buys steps instead of being clamped away. The shader's own
+    /// SOL_ATMOSPHERE_MAX_STEPS bounds the loop and must not be lower than the High value.
+    /// </summary>
+    internal static int MaxRaymarchStepsForQuality(SolAtmosphereQuality quality) => quality switch
+    {
+        SolAtmosphereQuality.High => 128,
+        SolAtmosphereQuality.Medium => 16,
+        _ => 8,
+    };
+
     public SolAtmosphereQuality ApplyCameraOverrides(VolumeStack stack)
     {
         // Normally cleared by endCameraRendering after the previous camera has actually
@@ -188,9 +203,10 @@ public sealed class SolAtmosphereController : MonoBehaviour
         params2.w = (float)quality;
         Vector4 volumetricParams = baseline.VolumetricParams;
         volumetricParams.y = Mathf.Min(baseline.RaymarchDistance, params0.z);
-        volumetricParams.z = quality == SolAtmosphereQuality.Medium
-            ? 16f
-            : baseline.VolumetricParams.z;
+        // A Volume may lower the tier but never raise the step budget past what the
+        // baseline already resolved: the override picks the cheaper of the two.
+        volumetricParams.z = Mathf.Min(
+            baseline.VolumetricParams.z, MaxRaymarchStepsForQuality(quality));
 
         return new CameraState(
             fogColor,
@@ -423,9 +439,10 @@ public sealed class SolAtmosphereController : MonoBehaviour
     float SettingsDirectionalScattering => HasSkyFrame ? SkyAtmosphere.DirectionalScattering : profile != null ? profile.directionalScatteringIntensity : 0.65f;
     float SettingsShadowedScattering => Mathf.Clamp01(HasSkyFrame ? SkyAtmosphere.ShadowedScattering : profile != null ? profile.shadowedScatteringStrength : 0.85f);
     float SettingsRaymarchDistance => Mathf.Max(1f, HasSkyFrame ? SkyAtmosphere.RaymarchDistance : profile != null ? profile.raymarchDistance : 500f);
-    int SettingsRaymarchSteps => Quality == SolAtmosphereQuality.Medium
-        ? 16
-        : Mathf.Clamp(HasSkyFrame ? SkyAtmosphere.RaymarchSteps : profile != null ? profile.raymarchStepCount : 32, 8, 32);
+    int SettingsRaymarchSteps => Mathf.Clamp(
+        HasSkyFrame ? SkyAtmosphere.RaymarchSteps : profile != null ? profile.raymarchStepCount : 32,
+        8,
+        MaxRaymarchStepsForQuality(Quality));
     float SettingsRaymarchJitter => Mathf.Clamp01(HasSkyFrame ? SkyAtmosphere.RaymarchJitter : profile != null ? profile.raymarchJitter : 0.15f);
     float SettingsBilateralDepthThreshold => Mathf.Max(0.01f, HasSkyFrame ? SkyAtmosphere.BilateralDepthThreshold : profile != null ? profile.bilateralDepthThreshold : 2f);
     float SettingsSpatialFilterStrength => Quality == SolAtmosphereQuality.High

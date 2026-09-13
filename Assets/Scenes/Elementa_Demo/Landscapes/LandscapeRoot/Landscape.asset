@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: d53256a98c2c45e482abb6c6e39508b7
+  sceneGuid: 970a509cd52153449bdbc3e7b5fe1ae1
+  landscapeName: LandscapeRoot
+  ownedAssets:
+  - {fileID: 15600000, guid: 322abeb27630d7b4295a6bd8d8e6f5bf, type: 2}
+  moves:
+  - guid: 322abeb27630d7b4295a6bd8d8e6f5bf
+    before: Assets/Demo_Landscape.asset
+    after: Assets/Scenes/Elementa_Demo/Landscapes/LandscapeRoot/TerrainData/Demo_Landscape.asset
+    utc: 2026-09-13T11:53:36.7936580Z

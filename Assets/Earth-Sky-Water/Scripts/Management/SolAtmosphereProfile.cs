@@ -50,7 +50,7 @@ public sealed class SolAtmosphereProfile : ScriptableObject
 
     [Header("High Quality Volumetrics")]
     [Min(1f)] public float raymarchDistance = 500f;
-    [Range(8, 32)] public int raymarchStepCount = 32;
+    [Range(8, 128)] public int raymarchStepCount = 32;
     [Range(0f, 1f)] public float raymarchJitter = 0.15f;
     [Min(0.01f)] public float bilateralDepthThreshold = 2f;
     [Range(0f, 1f)] public float spatialFilterStrength = 0.75f;

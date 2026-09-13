@@ -1,0 +1,105 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c6b44a7028e2de44ade2bf00b09abcb, type: 3}
+  m_Name: Grass_A
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeProfile
+  terrainData: {fileID: 0}
+  layers:
+  - materialId: 356bc067a7ab49a482cb1e53c0680dd5
+    maskConvention: 1
+    heightTexture: {fileID: 0}
+    ruleModel: 1
+    slopeRange: {x: 0, y: 90}
+    slopeFeather: 8
+    altitudeFeather: 20
+    useAltitudeRange: 0
+    tint: {r: 1, g: 1, b: 1, a: 1}
+    tintStrength: 0
+    adjustSmoothness: 0
+    smoothnessRemap: {x: 0, y: 1}
+    adjustOcclusion: 0
+    occlusionStrength: 1
+    macroVariation: 0
+    mesoVariation: 0
+    sandResponse: 0
+    liveSurfaceSettings: 1
+    textureSize: {x: 4, y: 4}
+    textureOffset: {x: 0, y: 0}
+    normalStrength: 1
+    terrainLayer: {fileID: 8574412962073106934, guid: 9f5392e6bc69178459f382f4bc344f99, type: 2}
+    stochasticTiling: 1
+    triplanarProjection: 0
+    mode: 1
+    paintProtection: 0
+    autoWeight: 1
+    weatherSnowSusceptibility: 0
+    permanentSnowSusceptibility: 0
+    slopeCenter: 35
+    slopeContrast: 8
+    slopeCeiling: 90
+    slopeCeilingFeather: 10
+    slopeBias: 0
+    slopeInfluence: 1
+    altitudeReference: 0
+    heightRange: {x: 0, y: 1000}
+    heightBias: 0
+    heightInfluence: 0
+    cavityScale: 12
+    cavityInfluence: 0
+  csArray: {fileID: 18700000, guid: 625dbe16e21843c4bb936beffca28aff, type: 2}
+  nohArray: {fileID: 18700000, guid: 9b6e26936d8680147a70b0fb7197537e, type: 2}
+  triplanarSharpness: 6
+  heightTransition: 0.36
+  snowColorTexture: {fileID: 2800000, guid: b175bf4646771e442936fb1a5e41ba88, type: 3}
+  snowNormalTexture: {fileID: 2800000, guid: 92c47a825f225e34a89b65679d7ae364, type: 3}
+  snowPackedTexture: {fileID: 2800000, guid: b6917b5545c1c9845a0ae1c8dbe41aeb, type: 3}
+  permanentSnowAltitudeRange: {x: 60, y: 105}
+  permanentSnowSlopeSheddingRange: {x: 50, y: 60}
+  snowTileSize: 4
+  snowNormalScale: 1
+  bakedUtc: 2026-09-10T22:06:54.3727301Z
+  bakedWidth: 2048
+  bakedHeight: 2048
+  bakedMipCount: 12
+  csStorageBytes: 44739456
+  nohStorageBytes: 44739456
+  lastBakeSummary: Shared library artwork preview
+  terrainDataGuid: 
+  bakeFingerprints:
+  - terrainLayerGuid: 9f5392e6bc69178459f382f4bc344f99
+    diffuseTextureGuid: b29a14a64587b1449bf1ef7d9a596af2
+    normalTextureGuid: bf98f3dd75aa78a4a9111514e5aafe0f
+    maskTextureGuid: aac5a641e6e77e948af25230e4d78dc7
+    dependencyHash: landscape-source-v3;(0.00, 0.00, 0.00, 0.00)(1.00, 1.00, 1.00,
+      1.00)(0.00, 0.00, 0.00, 0.00)(1.00, 1.00, 1.00, 0.17)baf335d62975e289316c81aa6c105a51;52377d2059b41fc81a001bf179ef6879;37b3b8fbfca642e9a684fa091f28740e;1;2048-;
+  version: 2
+  assetOwner: {fileID: 11400000, guid: ad55b965baaf5d342bd23f819adbb123, type: 2}
+  fallbackMaterialId: 356bc067a7ab49a482cb1e53c0680dd5
+  preserveLegacyFallback: 0
+  stochasticTiling: 1
+  triplanarProjection: 1
+  heightBlend: 1
+  colourVariation: 0
+  macroScale: 120
+  mesoScale: 20
+  artworkResolution: 2048
+  terrainShader: {fileID: 4800000, guid: a7977056f578fcd4db4a2cfb80045e52, type: 3}
+  paintShader: {fileID: 4800000, guid: 573f845336fb09a498e756e69cc39093, type: 3}
+  bakedMaterialIds:
+  - 356bc067a7ab49a482cb1e53c0680dd5
+  - abeb46b59f3546a4accc8968828a6236
+  - 0d6a88ab33924881a89e763088c357f3
+  - c97329cf34434f36b4fdb7a1bd5ecd25
+  - edf1129091a34b0dad717b21436837e9
+  - 9044563f15564de7817c2636a086d879
+  - 22b01d9f593749d498bc546d02fc0a0f
+  - f16ae0d7882142cca3c8cd9a04cde673

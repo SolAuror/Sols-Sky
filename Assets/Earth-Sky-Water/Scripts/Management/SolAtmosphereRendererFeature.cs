@@ -73,6 +73,12 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
         static readonly int HistoryTextureID = Shader.PropertyToID("_SolAtmosphereHistoryTexture");
         static readonly int PreviousViewProjectionID = Shader.PropertyToID("_SolAtmospherePreviousViewProjection");
         static readonly int TemporalParamsID = Shader.PropertyToID("_SolAtmosphereTemporalParams");
+        static readonly int JitterParamsID = Shader.PropertyToID("_SolAtmosphereJitterParams");
+
+        // Cycle length for the animated raymarch jitter. Any power of two decorrelates the
+        // pattern well past what the history weight can still see; keeping it small also
+        // keeps the offset exact in the float the shader multiplies it by.
+        const int JitterCycle = 64;
 
         Material _material;
         bool _debug;
@@ -86,6 +92,7 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
         {
             internal TextureHandle depth;
             internal Material material;
+            internal float jitterFrameOffset;
         }
 
         sealed class CompositePassData
@@ -181,25 +188,36 @@ public sealed class SolAtmosphereRendererFeature : ScriptableRendererFeature
             TextureDesc halfDesc = CreateHalfResolutionDescriptor(sourceDesc);
             TextureHandle volumetric = renderGraph.CreateTexture(halfDesc);
 
+            // Resolved before the raymarch records because the raymarch needs the answer:
+            // animating the jitter is only worth it when there is a temporal pass behind it
+            // to average the noise back out. Without one the same offset would just make the
+            // banding crawl. History allocation can fail, so ask rather than infer from tier.
+            bool temporalActive = quality == SolAtmosphereQuality.High
+                && SolEnvironmentCameraRegistry.EnsureAtmosphereHistory(
+                    cameraContext, cameraData.cameraTargetDescriptor);
+
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<RaymarchPassData>(
                 "Sol Atmosphere Directional Raymarch", out RaymarchPassData passData))
             {
                 passData.depth = depth;
                 passData.material = _material;
+                passData.jitterFrameOffset = temporalActive
+                    ? Time.frameCount % JitterCycle
+                    : 0f;
                 builder.UseTexture(depth, AccessFlags.Read);
                 builder.UseAllGlobalTextures(true);
                 builder.SetRenderAttachment(volumetric, 0, AccessFlags.Write);
                 builder.SetRenderFunc(static (RaymarchPassData data, RasterGraphContext context) =>
                 {
+                    data.material.SetVector(JitterParamsID,
+                        new Vector4(data.jitterFrameOffset, 0f, 0f, 0f));
                     Blitter.BlitTexture(context.cmd, new Vector4(1f, 1f, 0f, 0f),
                         data.material, RaymarchPassIndex);
                 });
             }
 
             TextureHandle temporalSource = volumetric;
-            if (quality == SolAtmosphereQuality.High
-                && SolEnvironmentCameraRegistry.EnsureAtmosphereHistory(
-                    cameraContext, cameraData.cameraTargetDescriptor))
+            if (temporalActive)
             {
                 TextureHandle history = renderGraph.ImportTexture(cameraContext.AtmosphereHistory);
                 TextureDesc temporalDesc = halfDesc;

@@ -1,493 +1,244 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
 namespace Sol.Environment.EditorTools
 {
-    /// <summary>
-    /// Drawing primitives shared by every control panel page.
-    ///
-    /// The grouped property editor is the reason this exists. Elementa's authoring assets
-    /// carry between seven and sixteen [Header] groups each, and a flat NextVisible dump of
-    /// one -- which is what the panel used to show -- is unreadable past the first screen.
-    /// Reading the headers back off the type reconstructs the grouping the asset already
-    /// declares, so a field added to a profile lands in the right section with no change on
-    /// this side.
-    /// </summary>
+    /// <summary>Native, themeable controls shared by all Elementa authoring pages.</summary>
     static class ElementaPanelGui
     {
-        static readonly Dictionary<Type, Dictionary<string, string>> HeaderCache = new();
-        static GUIStyle _sectionHeader;
-        static GUIStyle _pageTitle;
-        static GUIStyle _wrappedMini;
-        static GUIStyle _value;
-
-        static GUIStyle SectionHeaderStyle => _sectionHeader ??= new GUIStyle(EditorStyles.foldout)
+        public static VisualElement Row(VisualElement parent)
         {
-            fontStyle = FontStyle.Bold,
-        };
-
-        static GUIStyle PageTitleStyle => _pageTitle ??= new GUIStyle(EditorStyles.largeLabel)
-        {
-            fontStyle = FontStyle.Bold,
-            fontSize = 14,
-        };
-
-        static GUIStyle WrappedMiniStyle => _wrappedMini ??= new GUIStyle(EditorStyles.miniLabel)
-        {
-            wordWrap = true,
-        };
-
-        /// <summary>
-        /// Metric values are sentences as often as they are numbers - a Beaufort description, a
-        /// sea state, a base/thickness pair - so the value column takes whatever width is left
-        /// and wraps rather than clipping the end off.
-        /// </summary>
-        static GUIStyle ValueStyle => _value ??= new GUIStyle(EditorStyles.boldLabel)
-        {
-            alignment = TextAnchor.UpperRight,
-            wordWrap = true,
-        };
-
-        // -- Structure ---------------------------------------------------------------
-
-        public static void PageTitle(string title, string subtitle)
-        {
-            EditorGUILayout.LabelField(title, PageTitleStyle);
-            if (!string.IsNullOrEmpty(subtitle))
-                EditorGUILayout.LabelField(subtitle, WrappedMiniStyle);
-            Rule();
+            var row = new VisualElement(); row.AddToClassList("elementa-row"); parent.Add(row); return row;
         }
-
-        public static bool SectionHeader(
-            ElementaPanelContext context, string key, string label, bool defaultOpen)
+        public static Label Note(VisualElement parent, string text)
         {
-            EditorGUILayout.Space(6f);
-            bool open = context.State.IsSectionOpen(key, defaultOpen);
-            bool next = EditorGUILayout.Foldout(open, label, true, SectionHeaderStyle);
-            if (next == open)
-                return next;
-
-            // Opening a section adds controls the cached layout does not have, and closing one
-            // removes controls it does. Either way this pass is drawing a different page than
-            // the one that was laid out, so end it and repaint.
-            context.State.SetSectionOpen(key, next);
-            context.RefreshLayout();
-            return next;
+            var label = new Label(text); label.AddToClassList("elementa-note"); parent.Add(label); return label;
         }
-
-        public static void Rule()
+        public static VisualElement Section(VisualElement parent, string title, string scope = null)
         {
-            Rect rect = GUILayoutUtility.GetRect(1f, 1f, GUILayout.ExpandWidth(true));
-            rect.y += 2f;
-            EditorGUI.DrawRect(rect, new Color(0f, 0f, 0f, 0.25f));
-            EditorGUILayout.Space(3f);
+            var section = new VisualElement(); section.AddToClassList("elementa-section");
+            var heading = new Label(title); heading.AddToClassList("elementa-section-title"); section.Add(heading);
+            if (!string.IsNullOrEmpty(scope)) Note(section, scope);
+            parent.Add(section); return section;
         }
-
-        public static void Note(string text)
-            => EditorGUILayout.LabelField(text, WrappedMiniStyle);
-
-        // -- Readouts ----------------------------------------------------------------
-
-        public static void Metric(string label, string value, string tooltip = null)
+        public static Foldout Foldout(ElementaPanelPage page, VisualElement parent, string key,
+            string title, bool open = false, string note = null)
         {
-            using (new EditorGUILayout.HorizontalScope())
+            var foldout = new Foldout { text = title, name = key, value = page.Context.State.IsSectionOpen(key, open) };
+            foldout.AddToClassList("elementa-foldout");
+            foldout.RegisterValueChangedCallback(e => { if (e.target == foldout) page.Context.State.SetSectionOpen(key, e.newValue); });
+            parent.Add(foldout); if (!string.IsNullOrEmpty(note)) Note(foldout, note); return foldout;
+        }
+        public static Button Button(VisualElement parent, string text, Action action, string tooltip = null, bool enabled = true)
+        {
+            var button = new Button(action) { text = text, tooltip = tooltip, name = text };
+            button.SetEnabled(enabled); parent.Add(button); return button;
+        }
+        public static HelpBox Help(VisualElement parent, string message, HelpBoxMessageType severity = HelpBoxMessageType.Info)
+        {
+            var box = new HelpBox(message, severity); box.AddToClassList("elementa-help"); parent.Add(box); return box;
+        }
+        public static Label Metric(ElementaPanelPage page, VisualElement parent, string label,
+            Func<string> value, string tooltip = null)
+        {
+            var row = Row(parent); row.AddToClassList("elementa-metric");
+            var name = new Label(label) { tooltip = tooltip }; name.AddToClassList("elementa-metric-name"); row.Add(name);
+            var output = new Label(); output.AddToClassList("elementa-metric-value"); row.Add(output);
+            page.Track(() => { string next = value() ?? "—"; if (next != output.text) output.text = next; }); return output;
+        }
+        public static ProgressBar MetricBar(ElementaPanelPage page, VisualElement parent, string label,
+            Func<float> value, Func<string> description = null)
+        {
+            var bar = new ProgressBar { lowValue = 0, highValue = 1 }; bar.AddToClassList("elementa-metric-bar"); parent.Add(bar);
+            page.Track(() => { bar.value = Mathf.Clamp01(value()); bar.title = label + "  " + (description?.Invoke() ?? value().ToString("P0")); }); return bar;
+        }
+        public static string Describe(Object value)
+        {
+            if (value == null) return "None";
+            return value is Component c ? value.name + " · " + (IsPreviewTarget(c) ? "Editor preview" : c.gameObject.scene.name) : value.name;
+        }
+        public static bool IsPreviewTarget(Object value) => value is Component component &&
+            (!component.gameObject.scene.IsValid() || (component.hideFlags & HideFlags.DontSaveInEditor) != 0 ||
+             (component.gameObject.hideFlags & HideFlags.DontSaveInEditor) != 0);
+        public static VisualElement ObjectRow(VisualElement parent, string label, Object value)
+        {
+            var row = Row(parent); var text = new Label(label + "  ·  " + Describe(value));
+            text.AddToClassList("elementa-object-label"); text.tooltip = value != null ? AssetDatabase.GetAssetPath(value) : "Not assigned";
+            row.Add(text); Button(row, "Select", () => { Selection.activeObject = value; EditorGUIUtility.PingObject(value); }, enabled: value != null); return row;
+        }
+        public static VisualElement Source(ElementaPanelPage page, VisualElement parent, Object owner,
+            string propertyPath, string label, bool copy = true)
+        {
+            var source = Section(parent, label, owner is ScriptableObject
+                ? "Profile asset · changes affect every user of this asset" : (IsPreviewTarget(owner) ? "Live control · " : "Scene setting · ") + Describe(owner));
+            Field(page, source, owner, propertyPath, label);
+            var profile = page.Context.Serialized(owner)?.FindProperty(propertyPath)?.objectReferenceValue;
+            if (profile is ScriptableObject && copy)
             {
-                EditorGUILayout.LabelField(new GUIContent(label, tooltip),
-                    GUILayout.Width(168f));
-                EditorGUILayout.LabelField(value, ValueStyle,
-                    GUILayout.MinWidth(90f), GUILayout.ExpandWidth(true));
+                var row = Row(source); Note(row, "Shared asset · " + profile.name);
+                Button(row, "Make a copy", () => ElementaPanelActions.CopyProfile(page.Context, owner, propertyPath), enabled: !IsPreviewTarget(owner));
+                if (IsPreviewTarget(owner)) Note(source, "This director is generated for editor preview. Add a scene lighting director to retain a different profile assignment. Edits to the shared profile still persist.");
             }
+            return source;
         }
-
-        /// <summary>
-        /// A normalised channel with its own bar. Weather is nine simultaneous scalars, and
-        /// as nine formatted numbers it hides which one is actually moving.
-        /// </summary>
-        public static void MetricBar(string label, float value01, string value = null)
+        public static VisualElement Field(ElementaPanelPage page, VisualElement parent, Object target,
+            string path, string label = null, string tooltip = null, ElementaFieldRole role = ElementaFieldRole.Curated)
         {
-            using (new EditorGUILayout.HorizontalScope())
+            var serialized = page.Context.Serialized(target); if (serialized == null) return null;
+            serialized.UpdateIfRequiredOrScript(); var property = serialized.FindProperty(path);
+            if (property == null) { Help(parent, "Unavailable field: " + path, HelpBoxMessageType.Warning); return null; }
+            label ??= property.displayName; VisualElement field;
+            // Typed controls avoid duplicate Header decorators on curated fields.
+            switch (property.propertyType)
             {
-                EditorGUILayout.LabelField(label, GUILayout.Width(150f));
-                Rect rect = GUILayoutUtility.GetRect(60f, 14f, GUILayout.ExpandWidth(true));
-                rect.y += 2f;
-                rect.height = 10f;
-                EditorGUI.DrawRect(rect, new Color(0f, 0f, 0f, 0.22f));
-                Rect fill = rect;
-                fill.width = Mathf.Max(0f, rect.width * Mathf.Clamp01(value01));
-                EditorGUI.DrawRect(fill, Heat(Mathf.Clamp01(value01)));
-                EditorGUILayout.LabelField(
-                    value ?? value01.ToString("0.00"), GUILayout.Width(60f));
-            }
-        }
-
-        public static Color Heat(float t)
-            => Color.Lerp(new Color(0.24f, 0.38f, 0.52f), new Color(0.30f, 0.82f, 1f), t);
-
-        /// <summary>Read-only reference row with a click-through to the object itself.</summary>
-        public static void ObjectRow(
-            string label, UnityEngine.Object value, string missingHint = null)
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(true))
-                {
-                    // Explicit single-line height: an ObjectField given a tall rect switches to
-                    // its large-preview style, which is what turned the landscape array rows
-                    // into thumbnails with a second Select button drawn over them.
-                    EditorGUILayout.ObjectField(label, value,
-                        value != null ? value.GetType() : typeof(UnityEngine.Object), true,
-                        GUILayout.Height(EditorGUIUtility.singleLineHeight));
-                }
-                using (new EditorGUI.DisabledScope(value == null))
-                {
-                    if (GUILayout.Button("Select", GUILayout.Width(56f)))
+                case SerializedPropertyType.Float:
+                    if (property.numericType == SerializedPropertyNumericType.Double)
+                    { var precise = new DoubleField(label); precise.BindProperty(property); field = precise; break; }
+                    var range = Attribute<RangeAttribute>(target.GetType(), path);
+                    if (range != null) { var slider = new Slider(label, range.min, range.max) { showInputField = true }; slider.BindProperty(property); field = slider; }
+                    else
                     {
-                        Selection.activeObject = value;
-                        EditorGUIUtility.PingObject(value);
-                    }
-                }
-            }
-
-            if (value == null && !string.IsNullOrEmpty(missingHint))
-                Note(missingHint);
-        }
-
-        public static bool ActionButton(
-            string label, string tooltip, bool enabled = true, float width = 0f)
-        {
-            using (new EditorGUI.DisabledScope(!enabled))
-            {
-                return width > 0f
-                    ? GUILayout.Button(new GUIContent(label, tooltip), GUILayout.Width(width))
-                    : GUILayout.Button(new GUIContent(label, tooltip));
-            }
-        }
-
-        // -- Property editing --------------------------------------------------------
-
-        public static string SearchField(string filter)
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                string next = EditorGUILayout.TextField("Find field", filter ?? string.Empty);
-                if (GUILayout.Button("Clear", GUILayout.Width(50f)))
-                    next = string.Empty;
-                return next;
-            }
-        }
-
-        /// <summary>
-        /// Draws a serialized object as collapsible [Header] groups with a field filter.
-        /// While a filter is active every matching field is shown regardless of which groups
-        /// are collapsed, so finding one knob never means remembering which of sixteen
-        /// sections it lives in.
-        /// </summary>
-        /// <returns>True when the author changed something, so the caller can republish.</returns>
-        /// <summary>
-        /// Draws a serialized object as collapsible [Header] groups with a field filter.
-        /// While a filter is active every matching field is shown regardless of which groups
-        /// are collapsed, so finding one knob never means remembering which of sixteen
-        /// sections it lives in.
-        /// </summary>
-        /// <returns>True when the author changed something, so the caller can republish.</returns>
-        public static bool DrawGroupedProperties(
-            ElementaPanelContext context,
-            string keyPrefix,
-            SerializedObject serialized,
-            ref string filter)
-        {
-            if (serialized == null || serialized.targetObject == null)
-                return false;
-
-            serialized.Update();
-            filter = SearchField(filter);
-            bool filtering = !string.IsNullOrWhiteSpace(filter);
-
-            EditorGUI.BeginChangeCheck();
-            if (filtering)
-                DrawFiltered(serialized, filter);
-            else
-                DrawGroups(context, keyPrefix, serialized);
-
-            if (!EditorGUI.EndChangeCheck())
-                return false;
-
-            serialized.ApplyModifiedProperties();
-            return true;
-        }
-
-        static void DrawFiltered(SerializedObject serialized, string filter)
-        {
-            int shown = 0;
-            SerializedProperty property = serialized.GetIterator();
-            bool enterChildren = true;
-            while (property.NextVisible(enterChildren))
-            {
-                enterChildren = false;
-                if (property.propertyPath == "m_Script" || !Matches(property, filter))
-                    continue;
-
-                shown++;
-                using (new EditorGUI.IndentLevelScope())
-                    EditorGUILayout.PropertyField(property, true);
-            }
-
-            if (shown == 0)
-                EditorGUILayout.HelpBox("No field matches that name.", MessageType.None);
-        }
-
-        /// <summary>
-        /// One collapsible section per [Header] group.
-        ///
-        /// Unity draws the HeaderAttribute decorator itself on the group's first field and
-        /// there is no supported way to suppress it, so an open group does not print a title
-        /// of its own - it indents the body to clear the gutter and puts the fold arrow back
-        /// onto the decorator's own row, at the same half-line offset HeaderDrawer uses. A
-        /// closed group has no field drawn and therefore no decorator, so there the foldout
-        /// carries the title itself. Either way the title appears exactly once, on the row
-        /// with the arrow.
-        /// </summary>
-        static void DrawGroups(
-            ElementaPanelContext context, string keyPrefix, SerializedObject serialized)
-        {
-            List<PropertyGroup> groups = BuildGroups(serialized);
-            bool firstGroup = true;
-
-            for (int i = 0; i < groups.Count; i++)
-            {
-                PropertyGroup group = groups[i];
-                if (group.Header == null)
-                {
-                    // Fields declared before any header. Rare, and never a section.
-                    for (int p = 0; p < group.Properties.Count; p++)
-                        using (new EditorGUI.IndentLevelScope())
-                            EditorGUILayout.PropertyField(group.Properties[p], true);
-                    continue;
-                }
-
-                string key = keyPrefix + "/" + group.Header;
-
-                // The first group opens so the editor is never a wall of closed rows; the
-                // rest stay shut, because sixteen open groups is the flat dump again.
-                bool open = context.State.IsSectionOpen(key, firstGroup);
-                firstGroup = false;
-
-                EditorGUILayout.Space(6f);
-                if (!open)
-                {
-                    bool reopened = EditorGUILayout.Foldout(
-                        false, group.Header, true, SectionHeaderStyle);
-                    if (reopened)
+                        var number = new FloatField(label);
+                        var min = Attribute<MinAttribute>(target.GetType(), path);
+                        if (min != null) number.RegisterValueChangedCallback(e =>
+                        { if (e.newValue < min.min) { e.StopImmediatePropagation(); number.value = min.min; } });
+                        number.BindProperty(property); field = number;
+                    } break;
+                case SerializedPropertyType.Integer:
+                    if (property.numericType == SerializedPropertyNumericType.Int64)
+                    { var large = new LongField(label); large.BindProperty(property); field = large; break; }
+                    var integerRange = Attribute<RangeAttribute>(target.GetType(), path);
+                    if (integerRange != null)
+                    { var slider = new SliderInt(label, (int)integerRange.min, (int)integerRange.max) { showInputField = true }; slider.BindProperty(property); field = slider; }
+                    else
                     {
-                        context.State.SetSectionOpen(key, true);
-                        context.RefreshLayout();
-                    }
-
-                    continue;
-                }
-
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(group.Properties[0], true);
-                Rect headerRow = GUILayoutUtility.GetLastRect();
-                for (int p = 1; p < group.Properties.Count; p++)
-                    EditorGUILayout.PropertyField(group.Properties[p], true);
-                EditorGUI.indentLevel--;
-
-                // HeaderDrawer insets its label by half a line before drawing it, so matching
-                // that expression puts the arrow on the title's line rather than above it.
-                headerRow.y += EditorGUIUtility.singleLineHeight * 0.5f;
-                headerRow.height = EditorGUIUtility.singleLineHeight;
-                if (EditorGUI.Foldout(headerRow, true, GUIContent.none, true, SectionHeaderStyle))
-                    continue;
-
-                context.State.SetSectionOpen(key, false);
-                context.RefreshLayout();
+                        var integer = new IntegerField(label);
+                        var min = Attribute<MinAttribute>(target.GetType(), path);
+                        if (min != null) integer.RegisterValueChangedCallback(e =>
+                        { if (e.newValue < min.min) { e.StopImmediatePropagation(); integer.value = Mathf.CeilToInt(min.min); } });
+                        integer.BindProperty(property); field = integer;
+                    } break;
+                case SerializedPropertyType.Boolean:
+                    var toggle = new Toggle(label); toggle.BindProperty(property); field = toggle; break;
+                case SerializedPropertyType.Color:
+                    var usage = Attribute<ColorUsageAttribute>(target.GetType(), path);
+                    var color = new ColorField(label) { hdr = usage?.hdr ?? false, showAlpha = usage?.showAlpha ?? true };
+                    color.BindProperty(property); field = color; break;
+                case SerializedPropertyType.ObjectReference:
+                    var reference = new ObjectField(label) { objectType = FieldType(target.GetType(), path) ?? typeof(Object), allowSceneObjects = !EditorUtility.IsPersistent(target) };
+                    reference.BindProperty(property); field = reference; break;
+                case SerializedPropertyType.Enum:
+                    var type = FieldType(target.GetType(), path);
+                    if (type != null && type.IsEnum) { var enumeration = new EnumField(label, (Enum)Enum.ToObject(type, property.intValue)); enumeration.BindProperty(property); field = enumeration; }
+                    else { var fallback = new PropertyField(property, label); fallback.Bind(serialized); field = fallback; } break;
+                default:
+                    var native = new PropertyField(property, label); native.Bind(serialized); field = native; break;
             }
+            field.name = path; field.tooltip = tooltip ?? property.tooltip;
+            field.AddToClassList("elementa-field"); field.AddToClassList(BaseField<float>.alignedFieldUssClassName);
+            if (target is Sol.ToD.TimeOfDay time && (path.StartsWith("debug", StringComparison.Ordinal) || path == "timeOfDay" ||
+                time.SkyProfile != null && TimeOfDayEditor.ProfileOwned.Contains(path))) role = ElementaFieldRole.ReadOnly;
+            if (target is Sol.ToD.Calendar && (path.StartsWith("current", StringComparison.Ordinal) || path == "worldDayIndex" || path == "playerDaysElapsed"))
+                role = ElementaFieldRole.ReadOnly;
+            field.SetEnabled(role != ElementaFieldRole.ReadOnly && !path.EndsWith("bodyId", StringComparison.Ordinal));
+            parent.Add(field); page.Catalogue.Add(target, path, role, field); page.Watch(target); return field;
         }
-
-        sealed class PropertyGroup
+        public static void Fields(ElementaPanelPage page, VisualElement parent, Object target, params string[] paths)
         {
-            public PropertyGroup(string header)
-            {
-                Header = header;
-            }
-
-            public string Header { get; }
-
-            public List<SerializedProperty> Properties { get; } = new();
+            foreach (string spec in paths) { var pair = spec.Split('|'); Field(page, parent, target, pair[0], pair.Length > 1 ? pair[1] : null); }
         }
-
-        /// <summary>
-        /// Splits the object into its authored header groups. The properties are copied
-        /// because a SerializedObject iterator is a single moving cursor - keeping references
-        /// to it would leave every group pointing at the last field.
-        /// </summary>
-        static List<PropertyGroup> BuildGroups(SerializedObject serialized)
+        public static void Route(ElementaPanelPage page, VisualElement parent, Object target, string destination, params string[] paths)
+        { foreach (string path in paths) page.Catalogue.Add(target, path, ElementaFieldRole.Routed, parent, destination); }
+        public static void Advanced(ElementaPanelPage page, VisualElement parent, string key, string title, Object target, params string[] skip)
         {
-            Dictionary<string, string> headers = HeaderMap(serialized.targetObject.GetType());
-            List<PropertyGroup> groups = new();
-            PropertyGroup current = new(null);
-
-            SerializedProperty property = serialized.GetIterator();
-            bool enterChildren = true;
-            while (property.NextVisible(enterChildren))
+            if (target == null) return;
+            var foldout = Foldout(page, parent, key, title);
+            Note(foldout, (IsPreviewTarget(target) ? "Live control · " : target is Component ? "Scene setting · " : "Profile asset · ") + Describe(target));
+            GroupedProperties(page, foldout, key, target, new HashSet<string>(skip));
+        }
+        public static void GroupedProperties(ElementaPanelPage page, VisualElement parent, string key,
+            Object target, HashSet<string> skip = null, Func<string, bool> readOnly = null, Func<string, bool> include = null)
+        {
+            var serialized = page.Context.Serialized(target); if (serialized == null) return;
+            serialized.UpdateIfRequiredOrScript();
+            var filter = new ToolbarSearchField { value = page.Context.State.GetFilter(key), tooltip = "Find a field by label or serialized name", name = key + "-search" };
+            parent.Add(filter);
+            var groups = new List<(VisualElement Container, List<(VisualElement Field, string Name)> Fields)>();
+            VisualElement current = null; List<(VisualElement Field, string Name)> entries = null;
+            var property = serialized.GetIterator(); bool first = true;
+            while (property.NextVisible(first))
             {
-                enterChildren = false;
-                if (property.propertyPath == "m_Script")
-                    continue;
-
-                if (headers.TryGetValue(property.name, out string header))
+                first = false; string path = property.propertyPath; if (path == "m_Script") continue;
+                var header = Attribute<HeaderAttribute>(target.GetType(), path);
+                if (current == null || header != null)
                 {
-                    if (current.Properties.Count > 0)
-                        groups.Add(current);
-                    current = new PropertyGroup(header);
+                    current = Foldout(page, parent, key + "/" + (header?.header ?? "settings"), header?.header ?? "Settings");
+                    entries = new List<(VisualElement, string)>(); groups.Add((current, entries));
                 }
-
-                current.Properties.Add(property.Copy());
+                if ((skip?.Contains(path) ?? false) || page.Catalogue.Contains(target, path) || (include != null && !include(path))) continue;
+                var field = Field(page, current, target, path, role: readOnly?.Invoke(path) == true ? ElementaFieldRole.ReadOnly : ElementaFieldRole.Advanced);
+                entries.Add((field, property.displayName + " " + path));
             }
-
-            if (current.Properties.Count > 0)
-                groups.Add(current);
-            return groups;
-        }
-
-        static bool Matches(SerializedProperty property, string filter)
-            => property.displayName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0
-            || property.name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
-
-        static Dictionary<string, string> HeaderMap(Type type)
-        {
-            if (HeaderCache.TryGetValue(type, out Dictionary<string, string> cached))
-                return cached;
-
-            Dictionary<string, string> map = new();
-            for (Type current = type;
-                 current != null && current != typeof(UnityEngine.Object);
-                 current = current.BaseType)
+            void Filter(string text)
             {
-                FieldInfo[] fields = current.GetFields(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-                    | BindingFlags.DeclaredOnly);
-                foreach (FieldInfo field in fields)
+                bool searching = !string.IsNullOrWhiteSpace(text);
+                foreach (var group in groups)
                 {
-                    HeaderAttribute header = field.GetCustomAttribute<HeaderAttribute>();
-                    if (header != null && !map.ContainsKey(field.Name))
-                        map[field.Name] = header.header;
+                    int visible = 0;
+                    foreach (var entry in group.Fields)
+                    {
+                        bool match = !searching || entry.Name.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0;
+                        entry.Field.style.display = match ? DisplayStyle.Flex : DisplayStyle.None; if (match) visible++;
+                    }
+                    group.Container.style.display = visible > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                    if (group.Container is Foldout fold) fold.SetValueWithoutNotify(searching || page.Context.State.IsSectionOpen(fold.name, false));
                 }
             }
-
-            HeaderCache[type] = map;
-            return map;
+            filter.RegisterValueChangedCallback(e => { page.Context.State.SetFilter(key, e.newValue); Filter(e.newValue); }); Filter(filter.value);
         }
-
-        // -- Bespoke controls --------------------------------------------------------
-
-        /// <summary>
-        /// Compass dial for a world-space XZ heading, with the lagged cloud heading behind
-        /// it. A slider alone cannot show that 359 and 1 are adjacent, which is exactly the
-        /// edit an author makes when nudging a front around.
-        /// </summary>
-        public static float WindDial(float degrees, float cloudDegrees, float radius = 38f)
+        public static void Issues(ElementaPanelPage page, VisualElement parent, string subsystem = null)
         {
-            Rect rect = GUILayoutUtility.GetRect(
-                80f, radius * 2f + 24f, GUILayout.ExpandWidth(true));
-            Vector2 center = new(rect.x + rect.width * 0.5f, rect.y + radius + 8f);
-            int controlId = GUIUtility.GetControlID(
-                "ElementaWindDial".GetHashCode(), FocusType.Passive);
-            Event current = Event.current;
-
-            switch (current.GetTypeForControl(controlId))
+            var issuesRoot = new VisualElement { name = "issues" };
+            parent.Add(issuesRoot);
+            string signature = null;
+            page.Track(() =>
             {
-                case EventType.MouseDown:
-                    if (current.button == 0
-                        && Vector2.Distance(current.mousePosition, center) <= radius + 8f)
-                    {
-                        GUIUtility.hotControl = controlId;
-                        degrees = DirectionFromPointer(center, current.mousePosition);
-                        current.Use();
-                        GUI.changed = true;
-                    }
-                    break;
-                case EventType.MouseDrag:
-                    if (GUIUtility.hotControl == controlId)
-                    {
-                        degrees = DirectionFromPointer(center, current.mousePosition);
-                        current.Use();
-                        GUI.changed = true;
-                    }
-                    break;
-                case EventType.MouseUp:
-                    if (GUIUtility.hotControl == controlId)
-                    {
-                        GUIUtility.hotControl = 0;
-                        current.Use();
-                    }
-                    break;
-                case EventType.Repaint:
-                    Handles.BeginGUI();
-                    Color old = Handles.color;
-                    Handles.color = new Color(0.55f, 0.6f, 0.68f, 1f);
-                    Handles.DrawWireDisc(center, Vector3.forward, radius);
-                    Handles.DrawWireDisc(center, Vector3.forward, radius * 0.5f);
-                    Handles.color = new Color(0.75f, 0.55f, 1f, 1f);
-                    Handles.DrawAAPolyLine(2f, center, center + Bearing(cloudDegrees) * radius);
-                    Handles.color = new Color(0.2f, 0.85f, 1f, 1f);
-                    Handles.DrawAAPolyLine(3f, center, center + Bearing(degrees) * radius);
-                    Handles.color = old;
-                    Handles.EndGUI();
-                    GUI.Label(new Rect(center.x - 8f, rect.y - 4f, 22f, 18f), "Z+");
-                    GUI.Label(new Rect(center.x + radius + 2f, center.y - 9f, 24f, 18f), "X+");
-                    break;
-            }
-
-            return Mathf.Repeat(degrees, 360f);
-        }
-
-        static Vector2 Bearing(float degrees)
-            => new(Mathf.Cos(degrees * Mathf.Deg2Rad), -Mathf.Sin(degrees * Mathf.Deg2Rad));
-
-        static float DirectionFromPointer(Vector2 center, Vector2 pointer)
-        {
-            Vector2 delta = pointer - center;
-            return Mathf.Repeat(Mathf.Atan2(-delta.y, delta.x) * Mathf.Rad2Deg, 360f);
-        }
-
-        /// <summary>
-        /// One channel's window inside a shared transition, drawn against the whole
-        /// transition width. The ordering is the entire point of the timings asset and it is
-        /// not readable as fourteen delay/span numbers.
-        /// </summary>
-        public static void TimelineRow(
-            string label, float delay, float span, Color color, float master = -1f)
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField(label, GUILayout.Width(96f));
-                Rect rect = GUILayoutUtility.GetRect(80f, 16f, GUILayout.ExpandWidth(true));
-                rect.y += 2f;
-                rect.height = 12f;
-                EditorGUI.DrawRect(rect, new Color(0f, 0f, 0f, 0.22f));
-
-                float start = Mathf.Clamp(delay, 0f, 0.95f);
-                float end = Mathf.Min(1f, start + Mathf.Max(0.05f, span));
-                Rect bar = rect;
-                bar.x = rect.x + rect.width * start;
-                bar.width = Mathf.Max(2f, rect.width * (end - start));
-                EditorGUI.DrawRect(bar, color);
-
-                if (master >= 0f)
+                var issues = page.Context.Issues.Where(i => subsystem == null || i.Subsystem == subsystem).ToArray();
+                string next = string.Join("|", issues.Select(i => i.Id + i.Message)); if (signature == next) return;
+                signature = next; issuesRoot.Clear();
+                foreach (var issue in issues)
                 {
-                    Rect head = rect;
-                    head.x = rect.x + rect.width * Mathf.Clamp01(master);
-                    head.width = 2f;
-                    EditorGUI.DrawRect(head, Color.white);
+                    var row = new VisualElement(); row.AddToClassList("elementa-issue"); issuesRoot.Add(row);
+                    Help(row, issue.Symptom, issue.Severity == MessageType.Error ? HelpBoxMessageType.Error : issue.Severity == MessageType.Warning ? HelpBoxMessageType.Warning : HelpBoxMessageType.Info);
+                    var details = new Foldout { text = "Details", value = false }; Note(details, issue.Message); row.Add(details);
+                    var actions = Row(row);
+                    if (issue.Fix != null) Button(actions, issue.FixLabel, () => { issue.Fix(); page.Context.Resolve(true); page.Context.InvalidateIssues(); page.Context.RefreshLayout(); });
+                    if (issue.Subsystem != page.Title) Button(actions, "Open " + issue.Subsystem, () => page.Context.Window.ShowPage(issue.Subsystem));
                 }
-
-                EditorGUILayout.LabelField($"{start:0.00} - {end:0.00}", GUILayout.Width(78f));
+            });
+        }
+        public static T Attribute<T>(Type type, string path) where T : Attribute => FindField(type, path)?.GetCustomAttribute<T>();
+        static Type FieldType(Type type, string path) => FindField(type, path)?.FieldType;
+        static FieldInfo FindField(Type type, string path)
+        {
+            FieldInfo field = null; string[] pieces = path.Split('.');
+            for (int i = 0; i < pieces.Length; i++)
+            {
+                if (pieces[i] == "Array" && i + 1 < pieces.Length)
+                { type = type.IsArray ? type.GetElementType() : type.GetGenericArguments().FirstOrDefault(); i++; continue; }
+                field = null;
+                for (Type t = type; t != null && field == null; t = t.BaseType)
+                    field = t.GetField(pieces[i], BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (field == null) return null; type = field.FieldType;
             }
+            return field;
         }
     }
 }

@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: 4ef89e74242f48bb9a69097bdb000ac1
+  sceneGuid: 7a1ecafbcaf937e49a9edb23cb56780a
+  landscapeName: Tidal_Pools_B
+  ownedAssets:
+  - {fileID: 11400000, guid: 4302744697de9c54b938f76d117694dd, type: 2}
+  - {fileID: 15600000, guid: 0484e0c219656fc4a872bfcc2d4196d4, type: 2}
+  moves:
+  - guid: 4302744697de9c54b938f76d117694dd
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Tidal_Pools_B.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Tidal_Pools_B/Profiles/Tidal_Pools_B.asset
+    utc: 2026-09-13T11:53:32.2569440Z
+  - guid: 0484e0c219656fc4a872bfcc2d4196d4
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Tidal_Pools_B
+      Terrain.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Tidal_Pools_B/TerrainData/Tidal_Pools_B
+      Terrain.asset
+    utc: 2026-09-13T11:53:32.2569440Z

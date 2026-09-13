@@ -1,0 +1,14 @@
+Destination: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Cliff_Mossy_A
+
+Moves (GUIDs preserved):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Cliff_Mossy_A.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Cliff_Mossy_A/Profiles/Cliff_Mossy_A.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Cliff_Mossy_A Terrain.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Cliff_Mossy_A/TerrainData/Cliff_Mossy_A Terrain.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:35.0711364Z. Reverse moves using Landscape.asset's move manifest.

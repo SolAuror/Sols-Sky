@@ -1,263 +1,65 @@
-using Sol.ToD;
-using UnityEditor;
-using UnityEngine;
+using System.Collections.Generic;
+using UnityEngine.UIElements;
+using UI = Sol.Environment.EditorTools.ElementaPanelGui;
 
 namespace Sol.Environment.EditorTools
 {
-    /// <summary>
-    /// The volumetric cloud deck: its rendering profile, its quality budget, and the noise
-    /// textures it samples.
-    ///
-    /// Cloud shape arrives from three places at once - the sky profile's authored baseline,
-    /// the weather profile's formation override, and this rendering profile's scales and step
-    /// counts - and only the third is a renderer feature setting rather than scene state.
-    /// This page is where that split is visible.
-    /// </summary>
     sealed class ElementaCloudPage : ElementaPanelPage
     {
-        SerializedObject _serializedFeature;
-        SerializedObject _serializedProfile;
-
         public override string Title => "Clouds";
-
-        public override string Subtitle =>
-            "Cloud rendering profile, quality budget, advection and the baked noise the deck "
-            + "samples. Shape itself is authored on the sky and weather profiles.";
-
-        public override void Draw(ElementaPanelContext context)
+        public override string Subtitle => "Shape, movement and light.";
+        protected override void Build(ElementaPanelContext context, VisualElement root)
         {
-            SolCloudRendererFeature feature =
-                ElementaPanelDoctor.ResolveFeature<SolCloudRendererFeature>();
-
-            DrawLiveState(context);
-            DrawQuality(context);
-            DrawFeature(context, feature);
-            DrawBakers(context);
-            DrawProfileBody(context, feature);
-        }
-
-        // -- Live state --------------------------------------------------------------
-
-        void DrawLiveState(ElementaPanelContext context)
-        {
-            if (!context.Section("clouds/state", "Resolved Deck"))
-                return;
-
-            SolCloudController controller = SolCloudController.Active;
-            SolCloudState state = controller.CurrentState;
-
-            ElementaPanelGui.Metric("Dominant formation", state.DominantFormation.ToString());
-            ElementaPanelGui.MetricBar("Coverage", state.Coverage);
-            ElementaPanelGui.MetricBar("Erosion", state.Erosion);
-            ElementaPanelGui.Metric("Density", $"{state.Density:0.00}");
-            ElementaPanelGui.Metric("Base / thickness",
-                $"{state.BaseHeight:0} m  ·  {state.Thickness:0} m");
-            ElementaPanelGui.MetricBar("Vertical development", state.VerticalDevelopment);
-            ElementaPanelGui.MetricBar("Anvil", state.AnvilAmount);
-            ElementaPanelGui.MetricBar("Cirrus", state.CirrusAmount);
-            ElementaPanelGui.MetricBar("Edge softness", state.EdgeSoftness);
-            ElementaPanelGui.MetricBar("Base softness", state.BaseSoftness);
-            ElementaPanelGui.MetricBar("Shadow strength", state.ShadowStrength);
-
-            EditorGUILayout.Space(2f);
-            Vector4 blend = controller.FormationWeights;
-            ElementaPanelGui.MetricBar("Cumulus", blend.x);
-            ElementaPanelGui.MetricBar("Stratus", blend.y);
-            ElementaPanelGui.MetricBar("Nimbostratus", blend.z);
-            ElementaPanelGui.MetricBar("Cumulonimbus", blend.w);
-            ElementaPanelGui.Note(
-                "The renderer shapes density from these continuous weights, not from the "
-                + "dominant-formation label, which switches hard at the midpoint of a blend.");
-
-            EditorGUILayout.Space(2f);
-            ElementaPanelGui.Metric("History revision", controller.HistoryRevision.ToString());
-            ElementaPanelGui.Metric("Advection offsets",
-                $"weather {state.WeatherOffset.x:0} / {state.WeatherOffset.y:0}   "
-                + $"shape {state.ShapeOffset.x:0} / {state.ShapeOffset.y:0}");
-        }
-
-        // -- Quality -----------------------------------------------------------------
-
-        void DrawQuality(ElementaPanelContext context)
-        {
-            if (!context.Section("clouds/quality", "Quality"))
-                return;
-
-            SolCloudController controller = SolCloudController.Active;
-
-            // The controller keeps its override private, so there is no flag to read. The
-            // override is the only thing that can make the resolved quality differ from the
-            // authored one, so the difference itself is the signal - and without saying so the
-            // page reports "Active Medium" next to "Authored High" and looks broken.
-            bool differs = context.Time != null && controller.Quality != context.Time.CloudQuality;
-            ElementaPanelGui.Metric("Active quality", differs
-                ? $"{controller.Quality}  (not the authored value)"
-                : controller.Quality.ToString());
-
-            if (context.Time != null)
+            var target = new DropdownField("Editing", new List<string> { "Sky baseline", "Weather condition" }, context.State.cloudsWeather ? 1 : 0);
+            target.AddToClassList("elementa-field"); root.Add(target);
+            target.RegisterValueChangedCallback(e => { context.State.cloudsWeather = e.newValue == "Weather condition"; context.RefreshLayout(); });
+            if (context.State.cloudsWeather)
             {
-                SerializedObject serializedTime = new(context.Time);
-                serializedTime.Update();
-                SerializedProperty quality = serializedTime.FindProperty("cloudQuality");
-                if (quality != null)
+                var profile = ElementaCloudAuthoring.WeatherPicker(this, root);
+                if (profile != null)
                 {
-                    EditorGUI.BeginChangeCheck();
-                    EditorGUILayout.PropertyField(quality, new GUIContent("Authored quality"));
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        serializedTime.ApplyModifiedProperties();
-                        context.Refresh();
-                    }
+                    int index = context.Weather.IndexOfProfile(profile);
+                    UI.Source(this, root, context.Weather, $"profiles.Array.data[{index}].profile", "Weather profile");
+                    var preview = UI.Row(root);
+                    UI.Button(preview, "Preview condition", () => ElementaPanelActions.PreviewCondition(context, profile));
+                    UI.Note(preview, "Profile edits persist. Weather preview is temporary.");
+                    ElementaCloudAuthoring.Build(this, root, profile, true, "clouds/weather");
                 }
             }
-
-            using (new EditorGUILayout.HorizontalScope())
+            else
             {
-                EditorGUILayout.LabelField("Override", GUILayout.Width(60f));
-                if (GUILayout.Button("Low"))
-                    Override(context, SolCloudQuality.Low);
-                if (GUILayout.Button("Medium"))
-                    Override(context, SolCloudQuality.Medium);
-                if (GUILayout.Button("High"))
-                    Override(context, SolCloudQuality.High);
-                if (GUILayout.Button("Clear"))
+                if (context.Time != null)
                 {
-                    controller.ClearQualityOverride();
-                    context.Refresh();
+                    UI.Source(this, root, context.Time, "skyProfile", "Sky profile");
+                    UI.Metric(this, root, "Weather influence", () => context.Time != null ? context.Time.WeatherCloudiness.ToString("P0") : "—");
+                    UI.Button(root, "Open influencing weather", () => context.Window.ShowPage("Weather"));
+                    ElementaCloudAuthoring.Build(this, root, context.Time.SkyProfile, false, "clouds/baseline");
                 }
+                else UI.Help(root, "Assign a clock and sky profile in Scene setup.");
             }
-
-            if (differs)
-                EditorGUILayout.HelpBox(
-                    $"The deck is rendering at {controller.Quality} while the scene authors "
-                    + $"{context.Time.CloudQuality}. An override is in force - Clear returns it "
-                    + "to the authored tier. Overrides are runtime-only and never ship.",
-                    MessageType.Info);
-
-            ElementaPanelGui.Note(
-                "Changing tier invalidates the temporal history, so the first frames after a "
-                + "switch are noisier than the settled result. Judge a tier once it has "
-                + "reconverged, not on the frame it changes.");
-        }
-
-        static void Override(ElementaPanelContext context, SolCloudQuality quality)
-        {
-            SolCloudController.Active.SetQualityOverride(quality);
-            context.Refresh();
-        }
-
-        // -- Renderer feature --------------------------------------------------------
-
-        void DrawFeature(ElementaPanelContext context, SolCloudRendererFeature feature)
-        {
-            if (!context.Section("clouds/feature", "Renderer Feature"))
-                return;
-
-            if (feature == null)
+            var feature = ElementaPanelDoctor.ResolveFeature<SolCloudRendererFeature>();
+            var rendering = UI.Foldout(this, root, "clouds/profile", "Lighting & detail · shared rendering profile");
+            if (feature != null)
             {
-                EditorGUILayout.HelpBox(
-                    "No SolCloudRendererFeature is installed on any active renderer, so the "
-                    + "volumetric deck never renders and the sky shows its authored baseline "
-                    + "only.",
-                    MessageType.Warning);
-                return;
-            }
-
-            SerializedObject serialized = ResolveSerializedFeature(feature);
-            serialized.Update();
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.PropertyField(
-                serialized.FindProperty("profile"), new GUIContent("Rendering profile"));
-            EditorGUILayout.PropertyField(
-                serialized.FindProperty("renderInSceneView"),
-                new GUIContent("Render in Scene View"));
-            EditorGUILayout.PropertyField(
-                serialized.FindProperty("renderInReflectionCameras"),
-                new GUIContent("Render in reflections"));
-            EditorGUILayout.PropertyField(
-                serialized.FindProperty("debugLog"), new GUIContent("Log cloud decisions"));
-            if (EditorGUI.EndChangeCheck())
-            {
-                serialized.ApplyModifiedProperties();
-                EditorUtility.SetDirty(feature);
-                SolCloudController.Active.InvalidateHistory();
-                context.RefreshLayout();
-            }
-        }
-
-        // -- Bakers ------------------------------------------------------------------
-
-        void DrawBakers(ElementaPanelContext context)
-        {
-            if (!context.Section("clouds/bakers", "Baked Inputs", false))
-                return;
-
-            ElementaPanelGui.Note(
-                "The cloud deck samples baked packed noise and a weather map. Rebake after "
-                + "changing the generator; nothing about the deck's appearance is baked, only "
-                + "the noise it reads.");
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (ElementaPanelGui.ActionButton("Bake Noise Textures",
-                        "Regenerate the packed cloud noise and weather map textures.", true))
+                UI.Source(this, rendering, feature, "profile", "Rendering profile");
+                var profile = context.Serialized(feature).FindProperty("profile")?.objectReferenceValue as SolCloudRenderingProfile;
+                if (profile != null)
                 {
-                    SolCloudNoiseBaker.Bake();
-                    context.RefreshLayout();
+                    UI.Fields(this, rendering, profile, "multipleScatteringStrength|Interior light", "innerGlowStrength|Inner glow", "cloudAdvectionMultiplier|Cloud motion multiplier", "sculptingStrength|Silhouette detail");
+                    UI.Route(this, rendering, profile, "Quality", new List<string>(ElementaCloudAuthoring.QualityFields).ToArray());
+                    UI.GroupedProperties(this, rendering, "clouds/rendering", profile);
                 }
-
-                if (ElementaPanelGui.ActionButton("Export Structure Starter",
-                        "Write a starter authored-mesostructure texture to edit by hand.", true))
-                {
-                    SolCloudNoiseBaker.ExportAuthoredStructureStarter();
-                    context.RefreshLayout();
-                }
+                UI.Advanced(this, root, "clouds/component/feature", "Advanced · renderer setup", feature, "renderInSceneView", "renderInReflectionCameras", "debugLog");
             }
-        }
-
-        // -- Profile body ------------------------------------------------------------
-
-        void DrawProfileBody(ElementaPanelContext context, SolCloudRendererFeature feature)
-        {
-            if (feature == null)
-                return;
-
-            SerializedObject serialized = ResolveSerializedFeature(feature);
-            SolCloudRenderingProfile profile =
-                serialized.FindProperty("profile")?.objectReferenceValue as SolCloudRenderingProfile;
-            if (profile == null)
-                return;
-
-            ElementaPanelGui.Rule();
-            EditorGUILayout.LabelField($"Editing  {profile.name}", EditorStyles.boldLabel);
-            if (profile.debugView != SolCloudDebugView.FinalLighting)
-                EditorGUILayout.HelpBox(
-                    $"This profile is showing the {profile.debugView} debug view. The final "
-                    + "image is not what the scene view is drawing.",
-                    MessageType.Warning);
-
-            if (_serializedProfile == null || _serializedProfile.targetObject != profile)
-                _serializedProfile = new SerializedObject(profile);
-
-            if (!ElementaPanelGui.DrawGroupedProperties(
-                    context, "clouds/body", _serializedProfile, ref context.State.cloudFilter))
-                return;
-
-            EditorUtility.SetDirty(profile);
-
-            // Step counts, scales and history weights all describe the temporal accumulation,
-            // so an edit that keeps the old history would blend two different reconstructions.
-            SolCloudController.Active.InvalidateHistory();
-            context.Refresh();
-        }
-
-        // -- Shared ------------------------------------------------------------------
-
-        SerializedObject ResolveSerializedFeature(SolCloudRendererFeature feature)
-        {
-            if (_serializedFeature == null || _serializedFeature.targetObject != feature)
-                _serializedFeature = new SerializedObject(feature);
-            return _serializedFeature;
+            else UI.Help(rendering, "Cloud rendering is not installed. Use Overview to set it up.");
+            var baked = UI.Foldout(this, root, "clouds/bakers", "Baked inputs");
+            var actions = UI.Row(baked);
+            UI.Button(actions, "Bake noise textures", () => ElementaPanelActions.Tool(context, SolCloudNoiseBaker.Bake));
+            UI.Button(actions, "Export structure starter", () => ElementaPanelActions.Tool(context, SolCloudNoiseBaker.ExportAuthoredStructureStarter));
+            var why = UI.Foldout(this, root, "clouds/sources", "Why does it look this way?");
+            UI.ObjectRow(why, "Baseline", context.Time != null ? context.Time.SkyProfile : null);
+            UI.Metric(this, why, "Weather", () => context.Weather != null ? UI.Describe(context.Weather.TargetProfile) : "Sky baseline");
+            UI.Button(why, "Rendering quality and debug views", () => context.Window.ShowPage("Quality"));
         }
     }
 }

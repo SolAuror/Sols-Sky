@@ -1,0 +1,14 @@
+Destination: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/TerrainLayer_Stone2
+
+Moves (GUIDs preserved):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/TerrainLayer_Stone2.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/TerrainLayer_Stone2/Profiles/TerrainLayer_Stone2.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/TerrainLayer_Stone2 Terrain.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/TerrainLayer_Stone2/TerrainData/TerrainLayer_Stone2 Terrain.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:26.3294442Z. Reverse moves using Landscape.asset's move manifest.

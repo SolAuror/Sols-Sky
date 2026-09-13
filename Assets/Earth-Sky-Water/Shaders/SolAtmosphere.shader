@@ -8,7 +8,7 @@ Shader "Hidden/Sol/Atmosphere"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
         #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
-        #include "../Water/Shaders/SolAtmosphere.hlsl"
+        #include "Common/SolAtmosphere.hlsl"
 
         float SolRawDepthIsSky(float rawDepth)
         {
@@ -94,8 +94,24 @@ Shader "Hidden/Sol/Atmosphere"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            float SolInterleavedGradientNoise(float2 pixelPosition)
+            // Set per draw by SolAtmosphereRendererFeature rather than as a global: only the
+            // raymarch reads it, and the value depends on whether this camera's tier ended up
+            // with a temporal pass to average the animated noise away.
+            float4 _SolAtmosphereJitterParams; // frame offset, reserved
+
+            // Ceiling on the marched sample count. The tier the camera resolves to picks the
+            // value actually used; this only has to be high enough for the highest tier, and
+            // the loop below exits on stepCount, so raising it costs nothing at lower tiers.
+            #define SOL_ATMOSPHERE_MAX_STEPS 128
+
+            // Matches URP's InterleavedGradientNoise(pixCoord, frameCount): the frame index
+            // advances the lattice so the banding the jitter leaves behind moves every frame
+            // instead of standing still. A frameOffset of zero reproduces the static noise
+            // exactly, which is what the tiers without temporal accumulation still want --
+            // moving the pattern with nothing to average it over only trades bands for crawl.
+            float SolInterleavedGradientNoise(float2 pixelPosition, float frameOffset)
             {
+                pixelPosition += frameOffset * 5.588238;
                 return frac(52.9829189 * frac(dot(pixelPosition, float2(0.06711056, 0.00583715))));
             }
 
@@ -126,12 +142,13 @@ Shader "Hidden/Sol/Atmosphere"
                 float rayDistance = min(sceneDistance, _SolAtmosphereVolumetricParams.y);
                 float startDistance = min(rayDistance, _SolAtmosphereParams0.y);
                 float marchDistance = max(0.0, rayDistance - startDistance);
-                int stepCount = clamp((int)_SolAtmosphereVolumetricParams.z, 8, 32);
+                int stepCount = clamp((int)_SolAtmosphereVolumetricParams.z, 8, SOL_ATMOSPHERE_MAX_STEPS);
                 float stepLength = marchDistance / max(1, stepCount);
                 if (marchDistance <= 0.0001)
                     return half4(0.0, 0.0, 0.0, 1.0);
 
-                float jitter = SolInterleavedGradientNoise(uv * _ScaledScreenParams.xy * 0.5);
+                float jitter = SolInterleavedGradientNoise(
+                    uv * _ScaledScreenParams.xy * 0.5, _SolAtmosphereJitterParams.x);
                 float sampleOffset = lerp(0.5, jitter, _SolAtmosphereVolumetricParams.w);
                 float3 samplePosition = _WorldSpaceCameraPos
                     + viewDirection * (startDistance + stepLength * sampleOffset);
@@ -139,7 +156,7 @@ Shader "Hidden/Sol/Atmosphere"
                 float3 inScattering = 0.0;
 
                 [loop]
-                for (int stepIndex = 0; stepIndex < 32; stepIndex++)
+                for (int stepIndex = 0; stepIndex < SOL_ATMOSPHERE_MAX_STEPS; stepIndex++)
                 {
                     if (stepIndex >= stepCount)
                         break;

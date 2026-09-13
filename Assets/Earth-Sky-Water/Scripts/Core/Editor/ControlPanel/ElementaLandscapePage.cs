@@ -1,209 +1,70 @@
+using System.Collections.Generic;
 using Sol.Landscape;
-using UnityEditor;
+using Sol.Landscape.Editor;
 using UnityEngine;
+using UnityEngine.UIElements;
+using UI = Sol.Environment.EditorTools.ElementaPanelGui;
 
 namespace Sol.Environment.EditorTools
 {
-    /// <summary>
-    /// The terrain side of Elementa: the layer arrays, the live weight rules, and the wetness
-    /// and snow the weather drives across them.
-    ///
-    /// Only the layer artwork is baked, because compressing textures is not something a
-    /// fragment shader can do. Everything about how the terrain looks - which layer wins on a
-    /// slope, at an altitude, in a cavity - is resolved live, so a stale bake means the wrong
-    /// artwork, never the wrong rules. Saying which of the two is wrong is what this page is
-    /// for.
-    /// </summary>
-    sealed class ElementaLandscapePage : ElementaPanelPage
+    sealed partial class ElementaLandscapePage : ElementaPanelPage
     {
-        SerializedObject _serializedDriver;
-        SerializedObject _serializedConfig;
-
         public override string Title => "Landscape";
-
-        public override string Subtitle =>
-            "Terrain layer arrays, the auto-material contract, and the bake they depend on.";
-
-        public override void Draw(ElementaPanelContext context)
+        public override string Subtitle => "Terrain layers, material distribution and snow.";
+        protected override void Build(ElementaPanelContext context, VisualElement root)
         {
-            SolLandscapeDriver driver = context.Landscape;
-            if (driver == null)
+            if (BuildDesigner(context, root)) return;
+            var driver = context.Landscape;
+            if (driver == null) { UI.Help(root, "No Elementa landscape driver is loaded. Terrain keeps its own material."); return; }
+            var source = UI.Section(root, "Terrain", "Scene setting · " + UI.Describe(driver));
+            UI.Fields(this, source, driver, "landscapeTerrain|Terrain");
+            UI.Source(this, root, driver, "config", "Landscape config");
+            var config = driver.config;
+            if (config != null)
             {
-                EditorGUILayout.HelpBox(
-                    "No SolLandscapeDriver is loaded. Terrain in this scene renders with "
-                    + "whatever material it carries, outside Elementa's layer system.",
-                    MessageType.Info);
-                return;
+                int count = config.Layers?.Count ?? 0;
+                if (count > 0)
+                {
+                    var choices = new List<string>();
+                    for (int i = 0; i < count; i++) choices.Add((i + 1) + ". " + (config.Layers[i]?.terrainLayer != null ? config.Layers[i].terrainLayer.name : "Unassigned layer"));
+                    context.State.landscapeLayer = Mathf.Clamp(context.State.landscapeLayer, 0, count - 1);
+                    var layer = new DropdownField("Layer", choices, context.State.landscapeLayer); layer.AddToClassList("elementa-field"); root.Add(layer);
+                    layer.RegisterValueChangedCallback(e => { context.State.landscapeLayer = choices.IndexOf(e.newValue); context.RefreshLayout(); });
+                    string prefix = "layers.Array.data[" + context.State.landscapeLayer + "].";
+                    var rules = UI.Section(root, "Material distribution", "Profile asset · " + config.name);
+                    UI.Field(this, rules, config, prefix + "terrainLayer", "Layer artwork", role: ElementaFieldRole.ReadOnly);
+                    UI.Field(this, rules, config, prefix + "mode", "Layer mode");
+                    UI.Field(this, rules, config, prefix + "paintProtection", "Paint protection");
+                    var auto = new VisualElement(); rules.Add(auto);
+                    foreach (var spec in new[] { "autoWeight|Weight", "slopeCenter|Slope midpoint (°)", "slopeContrast|Slope transition (°)", "slopeInfluence|Slope influence", "altitudeReference|Height reference", "heightRange|Height range (m)", "heightInfluence|Height influence" })
+                    { var split = spec.Split('|'); UI.Field(this, auto, config, prefix + split[0], split[1]); }
+                    var note = UI.Note(rules, "Manual layers use painted terrain weights. Auto rules are inactive.");
+                    Track(() => { bool enabled = config.Layers[context.State.landscapeLayer]?.mode == SolLandscapeLayerMode.Auto; auto.SetEnabled(enabled); note.style.display = enabled ? DisplayStyle.None : DisplayStyle.Flex; });
+                    var detail = UI.Foldout(this, root, "landscape/layer/details", "Layer details · cavity, projection and snow");
+                    foreach (string field in new[] { "stochasticTiling", "triplanarProjection", "slopeCeiling", "slopeCeilingFeather", "slopeBias", "heightBias", "cavityScale", "cavityInfluence", "weatherSnowSusceptibility", "permanentSnowSusceptibility" }) UI.Field(this, detail, config, prefix + field);
+                }
+                var snow = UI.Foldout(this, root, "landscape/snow", "Snow and material blending");
+                UI.Fields(this, snow, config, "permanentSnowAltitudeRange|Permanent snow height (m)", "permanentSnowSlopeSheddingRange|Snow shedding slope (°)", "snowTileSize|Snow texture size (m)", "snowNormalScale|Snow normal strength", "heightTransition|Height blend transition", "triplanarSharpness|Projection sharpness");
+                var advanced = UI.Foldout(this, root, "landscape/advanced", "Advanced · artwork and layer order", note: "Layer order maps to texture-array slices. Rebuild textures after changing artwork or order.");
+                UI.GroupedProperties(this, advanced, "landscape/body", config, readOnly: path => path.StartsWith("baked") || path == "lastBakeSummary" || path == "csStorageBytes" || path == "nohStorageBytes" || path == "csArray" || path == "nohArray" || path == "terrainData");
             }
-
-            DrawDriver(context, driver);
-            DrawBake(context, driver);
-            DrawSurface(context);
-            DrawConfigBody(context, driver);
-        }
-
-        // -- Driver ------------------------------------------------------------------
-
-        void DrawDriver(ElementaPanelContext context, SolLandscapeDriver driver)
-        {
-            if (!context.Section("landscape/driver", "Driver"))
-                return;
-
-            SerializedObject serialized = ResolveSerialized(ref _serializedDriver, driver);
-            serialized.Update();
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.PropertyField(
-                serialized.FindProperty("landscapeTerrain"), new GUIContent("Terrain"));
-            EditorGUILayout.PropertyField(
-                serialized.FindProperty("config"), new GUIContent("Config"));
-            if (EditorGUI.EndChangeCheck())
+            var bake = UI.Foldout(this, root, "landscape/bake", "Texture rebuilding", config == null);
+            UI.Note(bake, "Rule changes update live. Texture artwork, import settings and layer order need a rebuild.");
+            UI.Metric(this, bake, "Status", () => config == null ? "No texture data" : context.Issues.Exists(i => i.Id == "landscape/stale") ? "Textures need rebuilding" : "Textures current");
+            var buttons = UI.Row(bake);
+            UI.Button(buttons, "Rebuild terrain textures", () => ElementaPanelActions.Tool(context, () => ElementaPanelDoctor.BakeLandscape(config)));
+            UI.Button(buttons, "Refresh terrain", () => { driver.Invalidate(); context.Refresh(); });
+            if (config != null)
             {
-                serialized.ApplyModifiedProperties();
-                driver.Invalidate();
-                context.RefreshLayout();
+                UI.ObjectRow(bake, "Colour / smoothness array", config.CSArray); UI.ObjectRow(bake, "Normal / occlusion / height array", config.NOHArray);
+                UI.Metric(this, bake, "Last rebuild", () => config.BakedUtc);
+                UI.Metric(this, bake, "Texture size", () => $"{config.BakedWidth} × {config.BakedHeight}, {config.BakedMipCount} mips");
+                UI.Metric(this, bake, "Storage", () => ((config.CSStorageBytes + config.NOHStorageBytes) / (1024f * 1024f)).ToString("0.0") + " MB");
             }
-
-            bool valid = driver.TryValidateContract(out string refusal);
-            if (!valid)
-            {
-                EditorGUILayout.HelpBox(
-                    $"The auto-material contract is not satisfied, so nothing is published to "
-                    + $"the terrain shader: {refusal}",
-                    MessageType.Warning);
-            }
-
-            ElementaPanelGui.Metric("Contract", valid ? "satisfied" : "refused");
-            ElementaPanelGui.Metric("Last publish writes", driver.LastPublishWriteCount.ToString());
-            ElementaPanelGui.Metric("Total writes", driver.TotalGlobalWriteCount.ToString());
-            if (driver.LastPublishRefused)
-                ElementaPanelGui.Metric("Last refusal", driver.LastRefusalReason ?? "unknown");
-
-            if (ElementaPanelGui.ActionButton("Republish",
-                    "Drop the cached publish state so the driver re-resolves and re-pushes on "
-                    + "the next tick.", true, 110f))
-            {
-                driver.Invalidate();
-                context.Refresh();
-            }
-        }
-
-        // -- Bake --------------------------------------------------------------------
-
-        void DrawBake(ElementaPanelContext context, SolLandscapeDriver driver)
-        {
-            if (!context.Section("landscape/bake", "Layer Arrays"))
-                return;
-
-            SolLandscapeConfig config = driver.config;
-            if (config == null)
-            {
-                EditorGUILayout.HelpBox(
-                    "No config, so there are no baked arrays to check. Baking creates one.",
-                    MessageType.Warning);
-                if (ElementaPanelGui.ActionButton("Bake Layer Arrays",
-                        "Pack every TerrainLayer's diffuse, normal and mask into the two BC7 "
-                        + "arrays the landscape shader samples.", true, 150f))
-                    Bake(context, null);
-                return;
-            }
-
-            Sol.Landscape.Editor.SolLandscapeStaleness staleness =
-                Sol.Landscape.Editor.SolLandscapeArrayBaker.GetStaleness(config);
-
-            EditorGUILayout.HelpBox(
-                staleness.IsStale
-                    ? $"The baked arrays no longer match the terrain: {staleness.Message}"
-                    : "The baked arrays match the terrain and its layer import settings.",
-                staleness.IsStale ? MessageType.Warning : MessageType.Info);
-
-            ElementaPanelGui.ObjectRow("CS array", config.CSArray);
-            ElementaPanelGui.ObjectRow("NOH array", config.NOHArray);
-            ElementaPanelGui.Metric("Baked", string.IsNullOrEmpty(config.BakedUtc)
-                ? "never" : config.BakedUtc);
-            ElementaPanelGui.Metric("Slice size",
-                $"{config.BakedWidth} x {config.BakedHeight}, {config.BakedMipCount} mips");
-            ElementaPanelGui.Metric("Storage",
-                $"{(config.CSStorageBytes + config.NOHStorageBytes) / (1024f * 1024f):0.0} MB");
-            ElementaPanelGui.Metric("Layers", config.Layers != null
-                ? config.Layers.Count.ToString() : "0");
-
-            if (!string.IsNullOrEmpty(config.LastBakeSummary))
-                ElementaPanelGui.Note(config.LastBakeSummary);
-
-            if (ElementaPanelGui.ActionButton("Bake Layer Arrays",
-                    "Repack the layer artwork. Needed after layer textures or their import "
-                    + "settings change, and after the layer order changes.", true, 150f))
-                Bake(context, config);
-        }
-
-        void Bake(ElementaPanelContext context, SolLandscapeConfig config)
-        {
-            ElementaPanelDoctor.BakeLandscape(config);
-            _serializedConfig = null;
-            context.RefreshLayout();
-        }
-
-        // -- Surface conditions ------------------------------------------------------
-
-        void DrawSurface(ElementaPanelContext context)
-        {
-            if (!context.Section("landscape/surface", "Wetness and Snow", false))
-                return;
-
-            SolSurfaceConditionState surface = context.Environment.Surface;
-            ElementaPanelGui.MetricBar("Wetness", surface.Wetness);
-            ElementaPanelGui.MetricBar("Snow cover", surface.SnowCover);
-            ElementaPanelGui.Metric("Temperature", $"{surface.TemperatureCelsius:0.0} °C");
-            ElementaPanelGui.MetricBar("Relative humidity", surface.RelativeHumidity);
-
-            SolWaterManager water = SolWaterManager.Instance;
-            if (water == null)
-            {
-                ElementaPanelGui.Note(
-                    "No SolWaterManager is loaded, so terrain wetness has no authority driving "
-                    + "it from rain and shoreline proximity.");
-                return;
-            }
-
-            ElementaPanelGui.Metric("Rain wetness weight", $"{water.terrainRainWetness:0.00}");
-            ElementaPanelGui.Metric("Shoreline wetness weight", $"{water.terrainWaterWetness:0.00}");
-            ElementaPanelGui.Metric("Shoreline range", $"{water.terrainWaterWetnessRange:0.00} m");
-            ElementaPanelGui.ObjectRow("Wetness terrain", water.terrainWetnessTerrain);
-            ElementaPanelGui.ObjectRow("Sand layer", water.terrainWetnessSandLayer);
-        }
-
-        // -- Config body -------------------------------------------------------------
-
-        void DrawConfigBody(ElementaPanelContext context, SolLandscapeDriver driver)
-        {
-            SolLandscapeConfig config = driver.config;
-            if (config == null)
-                return;
-
-            ElementaPanelGui.Rule();
-            EditorGUILayout.LabelField($"Editing  {config.name}", EditorStyles.boldLabel);
-            ElementaPanelGui.Note(
-                "Layer weights are resolved in the shader from slope, altitude and cavity. "
-                + "Changing a rule here needs no rebake; changing layer artwork does.");
-
-            if (!ElementaPanelGui.DrawGroupedProperties(
-                    context, "landscape/body",
-                    ResolveSerialized(ref _serializedConfig, config),
-                    ref context.State.landscapeFilter))
-                return;
-
-            EditorUtility.SetDirty(config);
-            driver.Invalidate();
-            context.Refresh();
-        }
-
-        // -- Shared ------------------------------------------------------------------
-
-        static SerializedObject ResolveSerialized(ref SerializedObject cache, Object target)
-        {
-            if (cache == null || cache.targetObject != target)
-                cache = new SerializedObject(target);
-            return cache;
+            var problem = UI.Help(root, "");
+            Track(() => { bool valid = driver.TryValidateContract(out string refusal); problem.style.display = valid ? DisplayStyle.None : DisplayStyle.Flex; problem.text = "Terrain settings are not being applied: " + refusal; });
+            UI.Advanced(this, root, "landscape/component/driver", "Advanced · landscape driver", driver, "landscapeTerrain", "config");
+            UI.Advanced(this, root, "landscape/component/wetness", "Advanced · surface wetness", context.Wetness);
         }
     }
 }

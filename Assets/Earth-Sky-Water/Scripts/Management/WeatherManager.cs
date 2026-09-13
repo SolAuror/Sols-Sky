@@ -15,11 +15,11 @@ using Sol.ToD;
 /// Drives:
 ///   - TimeOfDay.WeatherCloudiness / WeatherFogBoost / WeatherDim /
 ///     WeatherLightningFlash  (sky, clouds, fog, ambient, sun/moon dimming)
-///   - SolWaterManager.rainIntensity / legacy windStrength /
-///     globalWaveSpeedMultiplier / windDirection (optional slow wander)
+///   - the wind heading, wandered slowly between changes (driveWind)
 ///
-/// While this component is enabled it OWNS those SolWaterManager fields;
-/// disable driveWind / driveWaves to keep authoring them by hand.
+/// Water reads the resulting state through SolEnvironmentWorld rather than
+/// being written to directly. It used to also own a set of fields on the
+/// Water 1 manager; that system is retired and the write-through with it.
 ///
 /// Durations use civil world hours; lightning and all visual motion use the
 /// canonical Sol world-seconds clock. Both respect Unity time scale, the Sol
@@ -48,7 +48,6 @@ public class SolWeatherManager : MonoBehaviour
     // --- References -------------------------------------------------------
     [Header("References")]
     public TimeOfDay todManager;
-    public SolWaterManager waterManager;
 
     // --- Profiles ---------------------------------------------------------
     [Header("Profiles")]
@@ -95,15 +94,13 @@ public class SolWeatherManager : MonoBehaviour
 
     // --- Wind -------------------------------------------------------------
     [Header("Wind")]
-    [Tooltip("Let the weather system own SolWaterManager.windDirection / windStrength.")]
+    [Tooltip("Let the weather system own the wind heading, wandering it slowly between "
+        + "changes. Off pins the heading to whatever it was last set to.")]
     public bool driveWind = true;
 
     [Tooltip("Slow random wind direction wander, in degrees per game hour.")]
     [Range(0f, 90f)]
     public float windWanderDegPerHour = 8f;
-
-    [Tooltip("Let the weather system own SolWaterManager.globalWaveSpeedMultiplier.")]
-    public bool driveWaves = true;
 
     // --- Lightning --------------------------------------------------------
     [Header("Lightning")]
@@ -211,18 +208,6 @@ public class SolWeatherManager : MonoBehaviour
     float _previewRestoreHoursRemaining;
     float _previewRestoreWindAngleDeg;
 
-    struct OwnedWaterState
-    {
-        public float rain;
-        public Vector3 windDirection;
-        public float windStrength;
-        public float waveSpeedMultiplier;
-        public float waterTurbulence;
-    }
-
-    OwnedWaterState _ownedWaterState;
-    bool _hasOwnedWaterState;
-    const float LegacyWaterWindUnitMetresPerSecond = 8f;
 
     SolWeatherProfileAsset GetProfile(int index)
     {
@@ -305,9 +290,6 @@ public class SolWeatherManager : MonoBehaviour
 
         if (todManager == null) todManager = TimeOfDay.ResolveInstance();
         if (todManager != null) todManager.TimeSkipped += OnTimeSkipped;
-        if (waterManager == null) waterManager = SolWaterManager.Instance;
-        CaptureOwnedWaterState();
-
         _targetIndex = Mathf.Clamp(_targetIndex, 0, profiles.Length - 1);
         if (!_initialized)
         {
@@ -319,9 +301,10 @@ public class SolWeatherManager : MonoBehaviour
             _sequencer = SolWeatherRandom.FromSeed(climateSeed, SequencerSalt);
             _hoursRemaining = NextWeatherDuration();
 
-            if (waterManager != null && waterManager.windDirection.sqrMagnitude > 0.001f)
-                _windAngleDeg = Mathf.Atan2(waterManager.windDirection.z, waterManager.windDirection.x)
-                              * Mathf.Rad2Deg;
+            // The opening heading used to be seeded from the Water 1 manager's authored
+            // wind direction. With that system retired there is nothing upstream to read -
+            // the environment world derives its wind from this manager, not the other way
+            // round - so the wander starts from zero and drifts.
             _initialized = true;
         }
 
@@ -352,9 +335,6 @@ public class SolWeatherManager : MonoBehaviour
             todManager.WeatherWindDirection = Vector3.right;
             todManager.RefreshEnvironmentFromWeather();
         }
-        if (waterManager != null)
-            waterManager.lightningFlash = 0f;
-        RestoreOwnedWaterState();
         CurrentRainIntensity = 0f;
         CurrentDim = 0f;
         SolWeatherState previousState = CurrentState;
@@ -380,10 +360,6 @@ public class SolWeatherManager : MonoBehaviour
             if (todManager == null)
                 _referenceRetryTimer = 0.5f;
         }
-        if (waterManager == null) waterManager = SolWaterManager.Instance;
-        if (!_hasOwnedWaterState)
-            CaptureOwnedWaterState();
-
         // Edit mode presents the authored target profile rather than cycling. Advancing the
         // timeline outside play mode would consume the sequencer and change the scene's
         // weather while the author is working on it.
@@ -756,27 +732,6 @@ public class SolWeatherManager : MonoBehaviour
             // response lag. Do not overwrite it here with the instantaneous target.
             todManager.RefreshEnvironmentFromWeather();
         }
-
-        if (waterManager != null)
-        {
-            waterManager.rainIntensity = now.rain;
-            waterManager.lightningFlash = _flash;
-
-            if (driveWind)
-            {
-                waterManager.windDirection = windDirection;
-                // Water 1 is the sole legacy adapter seam. Its shaders still author
-                // wind in the old 0..3 unit, while every shared/Water2 path is m/s.
-                waterManager.windStrength = now.windSpeedMetresPerSecond
-                    / LegacyWaterWindUnitMetresPerSecond;
-            }
-
-            if (driveWaves)
-            {
-                waterManager.globalWaveSpeedMultiplier = now.waveMul;
-                waterManager.waterTurbulence = now.turbulence;
-            }
-        }
     }
 
     int PickNextIndex()
@@ -1002,41 +957,5 @@ public class SolWeatherManager : MonoBehaviour
         PublishTargetState();
         ApplyEffectiveState(0f, 0f);
         return true;
-    }
-
-    void CaptureOwnedWaterState()
-    {
-        if (_hasOwnedWaterState || waterManager == null)
-            return;
-
-        _ownedWaterState = new OwnedWaterState
-        {
-            rain = waterManager.rainIntensity,
-            windDirection = waterManager.windDirection,
-            windStrength = waterManager.windStrength,
-            waveSpeedMultiplier = waterManager.globalWaveSpeedMultiplier,
-            waterTurbulence = waterManager.waterTurbulence,
-        };
-        _hasOwnedWaterState = true;
-    }
-
-    void RestoreOwnedWaterState()
-    {
-        if (!_hasOwnedWaterState || waterManager == null)
-            return;
-
-        waterManager.rainIntensity = _ownedWaterState.rain;
-        if (driveWind)
-        {
-            waterManager.windDirection = _ownedWaterState.windDirection;
-            waterManager.windStrength = _ownedWaterState.windStrength;
-        }
-        if (driveWaves)
-        {
-            waterManager.globalWaveSpeedMultiplier = _ownedWaterState.waveSpeedMultiplier;
-            waterManager.waterTurbulence = _ownedWaterState.waterTurbulence;
-        }
-
-        _hasOwnedWaterState = false;
     }
 }

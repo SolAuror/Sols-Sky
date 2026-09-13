@@ -90,7 +90,7 @@ namespace Sol.ToD
 
         [Header("Atmosphere High Quality")]
         [Min(1f)] public float atmosphereRaymarchDistance = 500f;
-        [Range(8, 32)] public int atmosphereRaymarchStepCount = 32;
+        [Range(8, 128)] public int atmosphereRaymarchStepCount = 32;
         [Range(0f, 1f)] public float atmosphereRaymarchJitter = 0.15f;
         [Min(0.01f)] public float atmosphereBilateralDepthThreshold = 2f;
         [Range(0f, 1f)] public float atmosphereSpatialFilterStrength = 0.75f;

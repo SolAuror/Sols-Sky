@@ -1,0 +1,14 @@
+Destination: Assets/Scenes/Elementa_Demo/Landscapes/LandscapeRoot
+
+Moves (GUIDs preserved):
+Assets/Demo_Landscape.asset → Assets/Scenes/Elementa_Demo/Landscapes/LandscapeRoot/TerrainData/Demo_Landscape.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Examples/Example Profile.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:37.1114260Z. Reverse moves using Landscape.asset's move manifest.

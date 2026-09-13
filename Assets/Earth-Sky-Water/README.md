@@ -23,24 +23,25 @@ SolAtmosphereController         SolRainVfxController
         |                             |
         |-----------------------------|
                       v
-SolWaterManager
-  - global water shader state
-  - wind, rain, water level, wave time
-  - WaterTileGrid, WaterVolume, ripples, buoyancy, underwater overlay
+SolWaterWorld
+  - registered SolWaterBody surfaces (ocean, lake, river, pool, waterfall)
+  - SolWaterProfile look, SolWaterQualityProfile budget
+  - SolWaterRendererFeature: FFT spectrum, clipmap ocean, SSR, caustics,
+    volumetrics and underwater composition
+  - SolWaterQueryService for gameplay sampling, buoyancy and interaction
 ```
 
 ## Scene Setup
 
 1. Add `TimeOfDay`, `Calendar`, and `SolEnvironmentCoordinator` to one scene-owned system-manager GameObject. Assign the sun/moon prefabs and set the authored `Sol/Skybox` material in Lighting.
-2. Add `SolWaterManager`. Set `waterLevel`. Keep `windDirection` mostly horizontal, for example `(1, 0, 0.5)`.
-3. Add `WaterTileGrid` and assign a `Sol/Water` material. Leave `autoWaterVolume` enabled for a generated gameplay query volume.
-4. Add `WaterRippleManager`. Assign `Water/Shaders/Sol.RippleSim.shader` to `simShader` before making builds.
+2. Add `SolEnvironmentWorld`. It publishes the canonical tick that water, clouds and fog all read, including the wave clock and the lagged wind responses.
+3. Add `SolWaterWorld` and assign a `SolWaterProfile` and a `SolWaterQualityProfile`. It adds its own query service, planar reflection renderer, wetness authority and terrain shoreline builder.
+4. Mark each water surface with a `SolWaterBody`. Ocean is infinite and clipmap-rendered; lake, river, pool and waterfall are bounded and take their surface from a spline geometry component or a Renderer on the same object.
 5. Add `SolWeatherManager`. References auto-resolve if the managers are in the scene.
 6. Assign a `SolSkyProfile` to `TimeOfDay`; the shipped `Sol_Sky_Grounded` profile is the default and `Sol_Sky_Legacy` is the compatibility translation. Add `SolAtmosphereController` and `SolRainVfxController` to the same scene-owned manager. `SolAtmosphereProfile` remains a fallback only when no sky profile is assigned.
-7. Add `SolAtmosphereRendererFeature` and `UnderwaterRendererFeature` to the URP Renderer asset. Keep existing features such as SSAO. Assign the underwater overlay material.
-8. Add `UnderwaterVolumeController` to a persistent scene GameObject. Assign `playerTransform` for third-person cameras.
-9. Enable Depth Texture and Opaque Texture on the URP asset.
-10. Tag the gameplay camera as `MainCamera`, or assign cameras explicitly on the relevant controllers.
+7. Add `SolAtmosphereRendererFeature`, `SolCloudRendererFeature` and `SolWaterRendererFeature` to the URP Renderer asset. Keep existing features such as SSAO. Underwater composition is part of the water feature; there is no separate overlay feature or controller.
+8. Enable Depth Texture and Opaque Texture on the URP asset. The atmosphere, clouds and the water prepass read depth; water refraction and the underwater composition read the opaque copy.
+9. Tag the gameplay camera as `MainCamera`, or assign cameras explicitly on the relevant controllers.
 
 ## Adaptive Probe Volumes
 
@@ -102,22 +103,33 @@ Common entry points:
 | `SolWeatherState` | immutable effective cloud/rain/wind/fog/wave/lightning state |
 | `SolAtmosphereController` | analytic fog plus High-quality directional volumetric scattering and quality state |
 | `SolRainVfxController` | camera-following rain, shelter, and exposure |
-| `SolWaterManager` | global water level, wind, rain, and wave time |
-| `WaterVolume` | animated waterline and underwater queries |
-| `WaterTileGrid` | generated water mesh and optional managed volume |
-| `WaterRippleManager` | manual ripple emission |
-| `WaterRippleSource` | component-based ripple emission for moving objects |
-| `WaterBuoyancy` | Rigidbody floating |
-| `UnderwaterVolumeController` | underwater overlay state and events |
-| `Shared.Water.IWaterSystem` | small gameplay-facing water query interface |
+| `Sol.Water.SolWaterWorld` | water authority: registered bodies, shared profile, quality policy |
+| `Sol.Water.SolWaterBody` | marks an object as water; identity, type, extent, flow and level |
+| `Sol.Water.SolWaterProfile` | authored colour, optics, spectrum, shoreline, foam and caustics |
+| `Sol.Water.SolWaterQualityProfile` | tier plus clipmap, SSR, planar, volumetric and underwater budgets |
+| `Sol.Water.ISolWaterQueryService` | gameplay surface sampling, immediate or batched |
+| `Sol.Water.SolWaterBuoyancy` | Rigidbody floating against the sampled surface |
+| `Sol.Water.SolWaterInteractor` | wake and disturbance left by a moving object |
+| `Sol.Water.SolWaterInteractionZone` | ripple simulation region covering a body |
+| `Sol.Water.SolWaterWetness` | terrain wetness from rain and shoreline proximity |
+| `Sol.Water.SolTerrainShoreline` | realtime shoreline field built from terrain heightmaps |
+| `Sol.Water.Rendering.SolWaterRendererFeature` | ocean clipmap, FFT, SSR, caustics, volumetrics, underwater |
 
 ## Wave Sync Contract
 
-Visual waves are defined in `Water/Shaders/SolWaterWaves.hlsl` and mirrored in `SolWaterSurfaceSampler` inside `Water/WaterVolume.cs`.
+Gameplay and the GPU read the same surface rather than two mirrored formulas. The ocean
+spectrum is simulated by `SolWaterFFT.compute` and read back on the CPU by
+`SolWaterFftReadback`, so a query resolves against the displacement that was actually
+rendered. `SolWaterWaveEvaluator` evaluates the profile's authored Gerstner waves for
+bodies that carry them and for the Low quality tier, which disables the spectrum entirely.
 
-`WaterVolume.GetSurfaceHeight(worldPosition)` is the gameplay entry point for animated water height. If the shader wave formula changes, update the C# sampler in the same pass.
+`ISolWaterQueryService.TrySampleImmediate(position, out sample)` is the gameplay entry
+point; `RequestBatch` amortises many samples across a frame. Horizontal displacement is
+inverted by `SolWaterDisplacementInversion`, so a query at a world position finds the
+surface that ended up there rather than the one that started there.
 
-`WaterTileGrid` publishes the wave LOD fade center so the GPU shader and CPU sampler agree at distance. Without a grid, the sampler assumes full-detail waves.
+`SolWaterWorld.TrySampleApproximate` is the cheap path for callers that only need a
+plausible height, and reports its own confidence.
 
 ## Shader Globals
 
@@ -126,19 +138,18 @@ Visual waves are defined in `Water/Shaders/SolWaterWaves.hlsl` and mirrored in `
 | `_Sol_SunDirection`, `_Sol_SunColor` | `SolLightingDirector` | dominant water lighting compatibility feed |
 | `_Sol_DayFactor` | `SolLightingDirector` | night-to-day blend |
 | `_Sol_EclipseFactor` | `SolLightingDirector` | solar eclipse strength |
-| `_Sol_WindDirection`, `_Sol_WindStrength` | `SolWaterManager` | wave direction and amplitude bias |
-| `_Sol_WaveTime`, `_Sol_GlobalWaveSpeedMul` | `SolWaterManager` | shared water clock |
-| `_Sol_RainIntensity` | `SolWaterManager` | rain roughness, normals, reflections, droplets |
-| `_Sol_RainRoughnessBoost`, `_Sol_RainNormalBoost`, `_Sol_RainReflectionDampen` | `SolWaterManager` | configured rain response tuning |
-| `_Sol_GlobalWaterLevel` | `SolWaterManager` | global fallback water level |
+| `_SolWaterWind`, `_SolWaterWeather` | `SolWaterRendererFeature` | wind and weather forcing on the surface |
+| `_SolWaterWaveTime`, `_SolWaterSpectralParams` | `SolWaterRendererFeature` | wave clock and FFT cascade parameters |
+| `_SolWaterOptics`, `_SolWaterAbsorption` | `SolWaterRendererFeature` | scattering, absorption and depth colour |
+| `_SolWaterShoreline*` | `SolTerrainShoreline` | live shoreline distance, depth and breakers |
+| `_Sol_RainIntensity`, `_Sol_SurfaceWetness` | `SolWaterWetness` | rain response and terrain wetness |
+| `_Sol_GlobalWaterLevel` | `SolWaterWetness` | shoreline reference height for terrain wetness |
 | `_Sol_LightningFlash` | `SolLightingDirector` | reflection and surface strike illumination |
 | `_SolAtmosphere*` | `SolAtmosphereController` | analytic fog, noise, sun/moon scattering, High volumetric settings, quality, and lightning |
 | `_SolSky*` | `TimeOfDay` / `SolSkyFrame` | shared normalized radiance, directional twilight, altitude response, horizon, and stellar backdrop |
-| `_Sol_WaveFadeCenter` | `WaterTileGrid` | LOD and wave-fade origin |
-| `_Sol_Ripples*` | `WaterRippleManager` | analytic fallback ripples |
-| `_Sol_RippleSimTex`, `_Sol_RippleSimRegion`, `_Sol_RippleSimParams` | `WaterRippleManager` | GPU ripple sim |
-| `_WaterSurfaceY` | `WaterVolume` | underwater overlay surface height |
-| `_UnderwaterFactor`, `_UnderwaterDepth` | `UnderwaterVolumeController` | underwater overlay blend |
+| `_SolWaterInteraction*` | `SolWaterInteractionZone` | GPU ripple simulation region |
+| `_SolOceanPatchData` | `SolOceanClipmap` | per-patch instancing data for the ocean rings |
+| `_UnderwaterFactor`, `_UnderwaterDepth` | `SolWaterRendererFeature` | submersion contract, read by atmosphere and rain |
 
 ## Solar eclipses
 
@@ -155,7 +166,7 @@ The CPU rejects separated discs early, uses analytic circle overlap away from th
 - Managed local lights: add `SolEnvironmentLight` beside a point or spot light. Choose night-only, always-on, or a custom day-factor curve, then set its priority, shadow eligibility, and volumetric scattering.
 - Dynamic probes: add `SolReflectionProbeAnchor` beside each realtime probe. Captures are ranked by camera visibility/distance, water relevance, and staleness; only one individual-face capture runs at once.
 - APV authoring: use `Tools > Sol Environment > Configure Adaptive Probe Volumes` after adding an environment scene, then add that scene to `SolApvSetupUtility.EnvironmentScenePaths` so membership remains testable.
-- Environment authoring and diagnostics: open `Tools > Elementa > Control Panel`. Its Overview, Sky & Time, Weather, Wind & Sea, and Diagnostics tabs edit the same scene authorities and profile assets used at runtime; it owns no preview simulation state.
+- Environment authoring and diagnostics: open `Tools > Elementa > Control Panel`. Its Overview, Time, Sky, Weather, Clouds, Water, Landscape, Lighting and Diagnostics pages edit the same scene authorities and profile assets used at runtime; it owns no preview simulation state. Overview runs the scene and project health checks, and every page exposes the full serialized surface of the components it owns, so the inspector is not needed for authoring.
 - Visual validation: open `Tools > Elementa > Visual Validation > Capture Matrix` in Play Mode. One run captures exactly 432 converged states for a selected profile/version and writes raw images beside the Unity repository in `SolSkyVisualPass_Raw`.
 - Environment clocks: consume `WorldDeltaSeconds` for continuous motion, `WorldDeltaHours` for chronology, and `PresentationDeltaSeconds` only for bounded transitions/transient envelopes. All freeze when Sol time is not moving forward; presentation time deliberately ignores the 10x/100x Sol multiplier.
 - Day length: `TimeOfDay.DayRatio`; the four-season annual curve modifies `EffectiveDayRatio` and exposes `SunriseClockHour`/`SunsetClockHour`.
@@ -164,23 +175,23 @@ The CPU rejects separated discs early, uses analytic circle overlap away from th
 - Default weather identities: Clear is an open sky that varies from cloudless to lightly clouded; Fair holds the scattered-cumulus look Clear used to have; Fog is calm, bright and ground-hugging; Overcast is a dry deck; Drizzle, Rain and Storm escalate precipitation, wind and mist; Snow and Blizzard are the frozen branch, with Blizzard obscuring brightly rather than darkening.
 - Cloud cover varies per world day. Each profile's `cloudCoverageVariance` scales `SolWeatherManager.DailyCoverageOffset`, a stable hash of the date crossfaded across the day boundary, so the same weather never renders identically twice.
 - Profile tuning: use `cloudiness` for coverage, `cloudErosion` for edge breakup, `fogBoost` for extinction, `mistiness` for low height distribution, and `skyObscuration` only for additional sky-wide masking. `waterTurbulence` controls geometric disorder, foam, roughness, and drift.
-- Water look: edit `M_Ocean` wave amplitude, frequency, steepness, detail, normals, foam, and reflection settings.
+- Water look: edit the `SolWaterProfile` assigned to the water world or to an individual body. Colour, surface optics, refraction, sun glitter, reflections, the wave spectrum, shoreline response, foam and caustics are all authored there.
+- Water cost: set the `SolWaterQualityProfile` tier. It fixes the FFT resolution and cascade count; Low disables the spectrum entirely and drives the surface from the profile's authored Gerstner waves. Clipmap resolution, ring count and horizon distance are the biggest ocean vertex costs.
 - Storm water polish: strong-wind steering saturates before wave headings collapse, and fixed wave-family phase offsets plus restrained crest foam keep side views from resolving into uniform white rows.
-- Lunar water response: `TimeOfDay.LunarTideFactor` peaks at new/full moon; `SolWaterManager.lunarResponseStrength` applies subtle visual swell/foam/reflection changes without changing mean water height.
-- Water mesh cost: lower `WaterTileGrid.tileResolution`, `gridRadius`, or `fullDetailRings`.
-- Ripples: tune `WaterRippleManager.simResolution`, `simNormalStrength`, `simWaveSpeed`, and `simDamping`.
-- Floating objects: tune `WaterBuoyancy.buoyancy`, `submersionDepth`, and `floatPoints`.
+- Lunar water response: `TimeOfDay.LunarTideFactor` peaks at new and full moon.
+- Sea state: the developed sea follows wind on a twenty-minute lag, the slowest response in the stack. After a wind change the surface is still building; the control panel's Water page reports how far along it is.
+- Ripples: add a `SolWaterInteractionZone` over a body and a `SolWaterInteractor` on anything that should leave a wake.
+- Floating objects: add `SolWaterBuoyancy` beside a Rigidbody.
 
 ## Gotchas
 
-- Assign `Sol.RippleSim.shader` on `WaterRippleManager` before builds; relying on `Shader.Find` is editor-only fallback behavior.
+- The ocean material is authored as an asset with GPU instancing enabled, rather than created from a shader at runtime. Built-in shader stripping keeps the instancing variant only for shaders a material asset enables it on, and without it the clipmap collapses to nothing in a player build, silently and only in builds.
 - `TimeOfDay` writes to a hidden runtime skybox clone and restores the authored material when the scene authority releases.
 - Edit mode does not drive RenderSettings or skybox properties; use Play mode for the live environment preview so scene saves cannot serialize a temporary clone or preview state.
-- Multiple `WaterVolume` instances at different heights all push `_WaterSurfaceY`; the last writer wins for the overlay global.
-- `SolWeatherManager` owns weather-driven water and sky fields while enabled.
-- `WaterTileGrid` is `[ExecuteAlways]` and creates helper children named `_Tiles` and `_WaterVolume`.
+- Where bodies overlap, the highest `priority` containing a query position wins; the ocean is always the last resort. Only one body may be typed Ocean.
+- `SolWeatherManager` owns weather-driven sky fields while enabled. Water reads the resulting state through `SolEnvironmentWorld` rather than being written to directly.
+- Shoreline data is rebuilt from the live terrain heightmaps whenever either side moves. Nothing about it is baked, so there is no shoreline bake step to forget.
 - New materials may need to be selected once in the Inspector so Unity syncs shader keywords.
 - Environment shader globals are still scene-wide; true per-volume water state and per-camera underwater state are deferred.
 - APV placement is authored, but probe coefficients are not shipped until **Bake Probe Volumes** is run against final static geometry. The one-time runtime warning is expected before that bake.
-- The demo's generated water content is intentionally retained until an authored prefab/asset workflow is chosen.
 - Surface atmosphere and underwater rendering still use one active camera/global state. True multi-camera and local-volume scoping remain deferred.

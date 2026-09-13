@@ -38,8 +38,9 @@ public sealed class SolWeatherProfileAsset : ScriptableObject
         + "identical every time it occurs. 0 pins the profile to its authored cover.")]
     [Range(0f, 1f)] public float cloudCoverageVariance;
 
-    [Tooltip("Precipitation intensity pushed to SolWaterManager (0 = dry, 1 = downpour). "
-        + "Temperature and snowBias decide how much of it falls as snow rather than rain.")]
+    [Tooltip("Precipitation intensity (0 = dry, 1 = downpour), published through the "
+        + "environment state. Temperature and snowBias decide how much of it falls as "
+        + "snow rather than rain.")]
     [Range(0f, 1f)] public float rainIntensity;
 
     [Tooltip("Shifts the temperature rain/snow split. 0 = temperature decides, "
@@ -69,7 +70,8 @@ public sealed class SolWeatherProfileAsset : ScriptableObject
     [Tooltip("Storm darkening applied to sun/moon, ambient, sky, and clouds.")]
     [Range(0f, 1f)] public float dim;
 
-    [Tooltip("Global wave speed multiplier pushed to SolWaterManager.")]
+    [Tooltip("Global wave speed multiplier, published through the environment state and "
+        + "integrated into the wave clock.")]
     [Range(0f, 3f)] public float waveSpeedMultiplier = 1f;
 
     [Tooltip("Art-directed water disorder: wave detail, steepness, swell, foam, roughness, and drift.")]

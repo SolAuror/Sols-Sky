@@ -25,7 +25,7 @@ public static class SolWeatherProfileMigration
     {
         "Assets/Scenes/Sc_Sols_FiniteBodies.unity",
         "Assets/Scenes/Sols_Lights.unity",
-        "Assets/Scenes/Sols_Water2_Demo.unity",
+        "Assets/Scenes/Elementa_Demo.unity",
         "Assets/Prefabs/Sols System Manager.prefab",
     };
 

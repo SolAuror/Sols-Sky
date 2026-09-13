@@ -21,7 +21,7 @@ Shader "Sol/RainParticle"
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "../Water/Shaders/SolAtmosphere.hlsl"
+            #include "Common/SolAtmosphere.hlsl"
 
             struct Attributes
             {

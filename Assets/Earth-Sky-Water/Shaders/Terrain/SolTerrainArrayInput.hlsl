@@ -46,6 +46,25 @@ SAMPLER(sampler_Sol_LandscapeSnowNormal);
 TEXTURE2D(_Sol_LandscapeSnowPacked);
 SAMPLER(sampler_Sol_LandscapeSnowPacked);
 
+TEXTURE2D(_Sol_LandscapePaint0); SAMPLER(sampler_Sol_LandscapePaint0);
+TEXTURE2D(_Sol_LandscapePaint1);
+TEXTURE2D(_Sol_LandscapePaint2);
+TEXTURE2D(_Sol_LandscapePaint3);
+TEXTURE2D(_Sol_LandscapePaint4);
+TEXTURE2D(_Sol_LandscapePaint5);
+float4 _Sol_LandscapePaintFlags;
+float4 _Sol_LandscapeLayerTint[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeLayerSurface[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeRuleRanges[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeRuleSettings[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeLayerVariation[SOL_LANDSCAPE_MAX_LAYERS];
+float _Sol_LandscapeSandLayers[SOL_LANDSCAPE_MAX_LAYERS];
+float _Sol_LandscapeSliceIndices[SOL_LANDSCAPE_MAX_LAYERS];
+float4 _Sol_LandscapeVariationScales;
+float4 _Sol_LandscapeGroupOrigin;
+float4 _Sol_LandscapeWetPreview;
+float _Sol_LandscapeGrouped, _Sol_LandscapeFallback, _Sol_LandscapeUseFallback;
+
 float4 _Sol_LandscapeControlTexelSize;
 float4 _Sol_LandscapeLayerST[SOL_LANDSCAPE_MAX_LAYERS];
 float _Sol_LandscapeNormalScale[SOL_LANDSCAPE_MAX_LAYERS];

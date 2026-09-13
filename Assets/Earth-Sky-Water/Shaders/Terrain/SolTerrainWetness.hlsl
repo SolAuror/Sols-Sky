@@ -63,7 +63,7 @@ float SolTerrainShorelineProximity(float3 positionWS)
     return 1.0 - smoothstep(0.0, max(0.01, _Sol_TerrainShorelineParams.y), inland);
 }
 
-float SolTerrainWetness(float3 positionWS)
+float SolTerrainWetnessEffective(float3 positionWS, float surfaceWetness)
 {
     float shorelineRange = max(_Sol_TerrainWetness.z, 0.001);
     float heightProximity = saturate(
@@ -72,10 +72,12 @@ float SolTerrainWetness(float3 positionWS)
     // AND near it across the ground. Multiplying instead would darken the whole band
     // twice over and never reach full wetness at the waterline itself.
     float waterProximity = min(heightProximity, SolTerrainShorelineProximity(positionWS));
-    float rainWetness = saturate(_Sol_SurfaceWetness * _Sol_TerrainWetness.x);
+    float rainWetness = saturate(surfaceWetness * _Sol_TerrainWetness.x);
     float waterWetness = waterProximity * saturate(_Sol_TerrainWetness.y);
     return saturate(rainWetness + waterWetness);
 }
+
+float SolTerrainWetness(float3 positionWS) { return SolTerrainWetnessEffective(positionWS, _Sol_SurfaceWetness); }
 
 half SolTerrainSandWeight(float3 positionWS)
 {
@@ -88,14 +90,16 @@ half SolTerrainSandWeight(float3 positionWS)
     return saturate(dot(layerWeights, (half4)_Sol_TerrainSandChannel));
 }
 
-void SolApplyTerrainWetness(
+void SolApplyTerrainWetnessEffective(
     float3 positionWS,
+    float surfaceWetness,
+    half sandWeight,
     inout half3 albedo,
     inout half metallic,
     inout half smoothness,
     inout half occlusion)
 {
-    half wetness = (half)SolTerrainWetness(positionWS);
+    half wetness = (half)SolTerrainWetnessEffective(positionWS, surfaceWetness);
 
     // Keep the authored URP terrain smoothness untouched while dry. The demo
     // layer remaps intentionally keep this value low; inverting it globally
@@ -105,11 +109,15 @@ void SolApplyTerrainWetness(
     // mirror-like sparkle when driven toward physically ideal water smoothness
     // without a dedicated specular anti-aliasing pass.
     smoothness = saturate(smoothness);
-    half wetSand = wetness * SolTerrainSandWeight(positionWS);
+    half wetSand = wetness * sandWeight;
     albedo *= lerp(1.0h, kWetAlbedoDarkening, wetness);
     albedo *= 1.0h - wetSand * (half)saturate(_Sol_TerrainWetness.w);
     half wetSmoothness = (half)saturate(_Sol_TerrainWetSmoothness);
     smoothness = lerp(smoothness, max(smoothness, wetSmoothness), wetness);
 }
 
+void SolApplyTerrainWetness(float3 positionWS, inout half3 albedo, inout half metallic, inout half smoothness, inout half occlusion)
+{
+    SolApplyTerrainWetnessEffective(positionWS, _Sol_SurfaceWetness, SolTerrainSandWeight(positionWS), albedo, metallic, smoothness, occlusion);
+}
 #endif

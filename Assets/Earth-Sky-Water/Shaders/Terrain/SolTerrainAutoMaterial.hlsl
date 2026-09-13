@@ -36,6 +36,62 @@ float SolEvaluateLandscapeCavity(float3 positionWS, float3 geometricNormalWS)
     return -curvature;
 }
 
+float SolLandscapeRange(float value, float low, float high, float feather)
+{
+    return smoothstep(low - feather, low, value) * (1 - smoothstep(high, high + feather, value));
+}
+float2 SolLandscapePaintUV(float2 terrainUV)
+{
+    return (terrainUV * (_Sol_LandscapePaintFlags.z - 1) + .5) / _Sol_LandscapePaintFlags.z;
+}
+void SolLandscapeReadPaint(float2 terrainUV, bool exclusion, out float4 low, out float4 high)
+{
+    low = high = 0;
+    float2 uv = SolLandscapePaintUV(terrainUV);
+    if (exclusion && _Sol_LandscapePaintFlags.y > .5)
+    {
+        low = SAMPLE_TEXTURE2D(_Sol_LandscapePaint2, sampler_Sol_LandscapePaint0, uv);
+        high = SAMPLE_TEXTURE2D(_Sol_LandscapePaint3, sampler_Sol_LandscapePaint0, uv);
+    }
+    if (!exclusion && _Sol_LandscapePaintFlags.x > .5)
+    {
+        low = SAMPLE_TEXTURE2D(_Sol_LandscapePaint0, sampler_Sol_LandscapePaint0, uv);
+        high = SAMPLE_TEXTURE2D(_Sol_LandscapePaint1, sampler_Sol_LandscapePaint0, uv);
+    }
+}
+float SolLandscapeChannel(float4 low, float4 high, int index)
+{
+    if (index == 0) return low.r;
+    if (index == 1) return low.g;
+    if (index == 2) return low.b;
+    if (index == 3) return low.a;
+    if (index == 4) return high.r;
+    if (index == 5) return high.g;
+    if (index == 6) return high.b;
+    return high.a;
+}
+void SolLandscapeReadRemoval(float2 terrainUV, out float4 low, out float4 high)
+{
+    low = high = 0;
+    if (_Sol_LandscapePaintFlags.w > .5)
+    {
+        float2 uv = SolLandscapePaintUV(terrainUV);
+        low = SAMPLE_TEXTURE2D(_Sol_LandscapePaint4, sampler_Sol_LandscapePaint0, uv);
+        high = SAMPLE_TEXTURE2D(_Sol_LandscapePaint5, sampler_Sol_LandscapePaint0, uv);
+    }
+}
+float SolLandscapeRemoval(float4 low, float4 high, int index)
+{
+    return index == (int)_Sol_LandscapeFallback || _Sol_LandscapeRuleSettings[index].z > .5
+        ? 0 : saturate(SolLandscapeChannel(low, high, index));
+}
+float SolLandscapeNoise(float2 p)
+{
+    float2 cell = floor(p), f = frac(p); f = f*f*(3-2*f);
+    float4 n = frac(sin(float4(dot(cell,float2(127.1,311.7)), dot(cell+float2(1,0),float2(127.1,311.7)), dot(cell+float2(0,1),float2(127.1,311.7)), dot(cell+1,float2(127.1,311.7))))*43758.5453);
+    return lerp(lerp(n.x,n.y,f.x),lerp(n.z,n.w,f.x),f.y)*2-1;
+}
+
 float SolEvaluateLandscapeProceduralWeight(
     int layerIndex,
     float slopeDegrees,
@@ -66,6 +122,13 @@ float SolEvaluateLandscapeProceduralWeight(
     float heightResponse = SolEvaluateLandscapeResponseCurve(heightInput, heightParams.z);
     float heightRule = SolEvaluateLandscapeDirectedResponse(heightResponse, heightParams.w);
 
+    if (_Sol_LandscapeRuleSettings[layerIndex].x > .5)
+    {
+        float4 range = _Sol_LandscapeRuleRanges[layerIndex];
+        slopeRule = SolLandscapeRange(slopeDegrees, range.x, range.y, range.z);
+        heightRule = _Sol_LandscapeRuleSettings[layerIndex].y > .5
+            ? SolLandscapeRange(altitude, heightParams.x, heightParams.y, range.w) : 1;
+    }
     float4 cavityParams = _Sol_LandscapeAutoCavityParams[layerIndex];
     float cavityResponse = clamp(signedCavity * max(cavityParams.x, 0.0f), -1.0f, 1.0f);
     float cavityRule = max(0.0f, 1.0f + cavityResponse * clamp(cavityParams.y, -1.0f, 1.0f));
@@ -82,6 +145,10 @@ void SolResolveLandscapeAutoMaterial(
     float3 geometricNormalWS,
     out float2 manualAutoWeights)
 {
+    float4 exclusion0, exclusion1, removal0, removal1;
+    float2 terrainUV = (positionWS.xz - _Sol_LandscapeTerrainOriginSize.xy) * _Sol_LandscapeTerrainOriginSize.zw;
+    SolLandscapeReadPaint(terrainUV, true, exclusion0, exclusion1);
+    SolLandscapeReadRemoval(terrainUV, removal0, removal1);
     float manualWeight = 0.0f;
     float paintedAutoWeight = 0.0f;
     float anyAutoLayer = 0.0f;
@@ -90,6 +157,7 @@ void SolResolveLandscapeAutoMaterial(
     for (int sumIndex = 0; sumIndex < SOL_LANDSCAPE_LAYER_COUNT; ++sumIndex)
     {
         float autoLayer = step(0.5f, _Sol_LandscapeLayerModes[sumIndex]);
+        weights[sumIndex] *= 1 - SolLandscapeRemoval(removal0, removal1, sumIndex);
         float paintedWeight = weights[sumIndex];
         manualWeight += paintedWeight * (1.0f - autoLayer);
         paintedAutoWeight += paintedWeight * autoLayer;
@@ -102,6 +170,12 @@ void SolResolveLandscapeAutoMaterial(
     // already is the answer.
     if (anyAutoLayer < 0.5f)
     {
+        if (_Sol_LandscapePaintFlags.w > .5)
+        {
+            [unroll] for (int i = 0; i < SOL_LANDSCAPE_LAYER_COUNT; i++)
+                weights[i] = manualWeight > kSolAutoMaterialWeightEpsilon ? weights[i] / manualWeight : (i == (int)_Sol_LandscapeFallback ? 1 : 0);
+            manualWeight = 1;
+        }
         manualAutoWeights = float2(saturate(manualWeight), 0.0f);
         return;
     }
@@ -118,6 +192,8 @@ void SolResolveLandscapeAutoMaterial(
             slopeDegrees,
             positionWS.y,
             signedCavity);
+        float exclusion = evaluateIndex == (int)_Sol_LandscapeFallback || _Sol_LandscapeRuleSettings[evaluateIndex].z > .5 ? 0 : SolLandscapeChannel(exclusion0, exclusion1, evaluateIndex);
+        authoredProceduralWeight *= (1 - exclusion) * (1 - SolLandscapeRemoval(removal0, removal1, evaluateIndex));
         proceduralWeights[evaluateIndex] = authoredProceduralWeight;
         float autoLayer = step(0.5f, _Sol_LandscapeLayerModes[evaluateIndex]);
         proceduralWeight += authoredProceduralWeight * autoLayer;
@@ -144,6 +220,13 @@ void SolResolveLandscapeAutoMaterial(
         return;
     }
 
+    if (_Sol_LandscapeUseFallback > .5 || _Sol_LandscapePaintFlags.y > .5 || _Sol_LandscapePaintFlags.w > .5)
+    {
+        [unroll] for (int fallback = 0; fallback < SOL_LANDSCAPE_LAYER_COUNT; fallback++)
+            if (_Sol_LandscapeLayerModes[fallback] > .5) weights[fallback] = 0;
+        weights[(int)_Sol_LandscapeFallback] += autoBudget;
+        return;
+    }
     // No Auto rule claims the budget. Re-normalize the painted Auto weights back
     // onto that same budget so the shader degrades to today's painted behaviour,
     // never to black and never through a divide by zero.

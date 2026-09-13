@@ -14,14 +14,18 @@ namespace Sol.Environment.EditorTools
     /// <summary>One thing that is wrong with the scene or project, and the fix for it.</summary>
     readonly struct ElementaIssue
     {
+        public readonly string Id;
+        public readonly string Subsystem;
+        public readonly string Symptom;
         public readonly MessageType Severity;
         public readonly string Message;
         public readonly string FixLabel;
         public readonly Action Fix;
 
         public ElementaIssue(
-            MessageType severity, string message, string fixLabel = null, Action fix = null)
+            string id, string subsystem, string symptom, MessageType severity, string message, string fixLabel = null, Action fix = null)
         {
+            Id = id; Subsystem = subsystem; Symptom = symptom;
             Severity = severity;
             Message = message;
             FixLabel = fixLabel;
@@ -68,21 +72,21 @@ namespace Sol.Environment.EditorTools
         {
             if (context.Time == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Error,
+                issues.Add(new ElementaIssue("authority/clock", "Overview", "No environment clock", MessageType.Error,
                     "No TimeOfDay authority is loaded. Nothing in Elementa has a clock to read.",
                     HasSystemManagerPrefab ? "Add System Manager" : null,
                     HasSystemManagerPrefab ? InstantiateSystemManager : null));
             }
             else if (context.TimeAuthorities.Length > 1)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("authority/multiple-clocks", "Overview", "Multiple clocks are loaded", MessageType.Warning,
                     $"{context.TimeAuthorities.Length} TimeOfDay authorities are loaded across "
                     + "scenes. Confirm which one this panel should be editing."));
             }
 
             if (context.Weather == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("authority/weather", "Weather", "No weather manager", MessageType.Warning,
                     "No SolWeatherManager is loaded. Sky, fog, rain, wind and water fall back "
                     + "to the authored TimeOfDay values.",
                     HasSystemManagerPrefab ? "Add System Manager" : null,
@@ -96,7 +100,7 @@ namespace Sol.Environment.EditorTools
 
             if (context.World == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("authority/world", "Overview", "No environment simulation", MessageType.Warning,
                     "No SolEnvironmentWorld is loaded, so wind lag, the wave clock and the sea "
                     + "state come from the fair-weather stand-in rather than the simulation.",
                     "Add Environment World",
@@ -105,7 +109,7 @@ namespace Sol.Environment.EditorTools
 
             if (context.Coordinator == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Info,
+                issues.Add(new ElementaIssue("authority/coordinator", "Overview", "Environment restoration is unavailable", MessageType.Info,
                     "No SolEnvironmentCoordinator is loaded. RenderSettings and the skybox "
                     + "clone will not be restored when the scene closes.",
                     HasSystemManagerPrefab ? "Add System Manager" : null,
@@ -114,7 +118,7 @@ namespace Sol.Environment.EditorTools
 
             if (context.Time != null && context.Time.SkyProfile == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("sky/profile", "Sky", "Sky is using inline compatibility values", MessageType.Warning,
                     "TimeOfDay has no sky profile, so the scene is running on the hidden inline "
                     + "compatibility values. Migrate it to author the sky as an asset.",
                     "Open Sky page",
@@ -127,7 +131,7 @@ namespace Sol.Environment.EditorTools
             SolWeatherSelection[] profiles = context.Weather.profiles;
             if (profiles == null || profiles.Length == 0)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("weather/empty-list", "Weather", "No weather conditions configured", MessageType.Warning,
                     "The weather manager has no profiles, so automatic selection has nothing "
                     + "to choose between.",
                     "Sync selection lists",
@@ -142,7 +146,7 @@ namespace Sol.Environment.EditorTools
 
             if (empty > 0)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("weather/empty-entry", "Weather", "Weather entries are missing profiles", MessageType.Warning,
                     $"{empty} of {profiles.Length} weather selection entries carry no profile "
                     + "asset. Those entries can be rolled and resolve to nothing.",
                     "Sync selection lists",
@@ -156,7 +160,7 @@ namespace Sol.Environment.EditorTools
 
             if (context.Weather.autoCycle && totalWeight <= 0f)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("weather/zero-weights", "Weather", "Automatic weather has no selectable conditions", MessageType.Warning,
                     "Auto cycling is on but every profile weight is zero, so no weather can "
                     + "ever be selected."));
             }
@@ -177,9 +181,8 @@ namespace Sol.Environment.EditorTools
             AddIfMissing(issues, serialized, "todManager",
                 "The weather manager's TimeOfDay reference points at a deleted object, so it "
                 + "has no clock, season or world day to key its climate model off.");
-            AddIfMissing(issues, serialized, "waterManager",
-                "The weather manager's SolWaterManager reference points at a deleted object, "
-                + "so Drive Wind and Drive Waves have nothing to write to.");
+            // waterManager is deliberately not checked: it is the Water 1 hook, and this
+            // stack drives waves through the environment world instead.
         }
 
         static void AddIfMissing(
@@ -195,7 +198,7 @@ namespace Sol.Environment.EditorTools
             // Capture the target, not the SerializedObject: the repair runs on a later frame,
             // by which point this one is stale.
             UnityEngine.Object target = serialized.targetObject;
-            issues.Add(new ElementaIssue(MessageType.Warning, message,
+            issues.Add(new ElementaIssue("weather/missing-clock-reference", "Weather", "Weather references a deleted clock", MessageType.Warning, message,
                 "Clear the reference",
                 () =>
                 {
@@ -215,7 +218,7 @@ namespace Sol.Environment.EditorTools
             UniversalRenderPipelineAsset pipeline = ResolvePipeline();
             if (pipeline == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Error,
+                issues.Add(new ElementaIssue("pipeline/urp", "Quality", "Elementa requires URP", MessageType.Error,
                     "The active render pipeline is not a Universal Render Pipeline asset. "
                     + "Elementa's atmosphere, cloud and water features cannot run."));
                 return;
@@ -223,7 +226,7 @@ namespace Sol.Environment.EditorTools
 
             if (!pipeline.supportsCameraDepthTexture)
             {
-                issues.Add(new ElementaIssue(MessageType.Error,
+                issues.Add(new ElementaIssue("pipeline/depth", "Quality", "Camera depth texture is disabled", MessageType.Error,
                     $"{pipeline.name} has the camera depth texture disabled. Atmosphere, "
                     + "clouds and the water prepass all read it.",
                     "Enable depth texture",
@@ -232,7 +235,7 @@ namespace Sol.Environment.EditorTools
 
             if (!pipeline.supportsCameraOpaqueTexture)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("pipeline/opaque", "Quality", "Camera opaque texture is disabled", MessageType.Warning,
                     $"{pipeline.name} has the camera opaque texture disabled. Water "
                     + "refraction and the underwater composition read it.",
                     "Enable opaque texture",
@@ -241,7 +244,7 @@ namespace Sol.Environment.EditorTools
 
             if (ResolveFeature<SolAtmosphereRendererFeature>() == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Error,
+                issues.Add(new ElementaIssue("pipeline/atmosphere", "Quality", "Atmosphere renderer is missing", MessageType.Error,
                     "No SolAtmosphereRendererFeature is installed on any active renderer, so "
                     + "height fog and aerial scattering never render.",
                     "Install feature",
@@ -250,14 +253,14 @@ namespace Sol.Environment.EditorTools
 
             if (ResolveFeature<SolCloudRendererFeature>() == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("pipeline/clouds", "Quality", "Cloud renderer is missing", MessageType.Warning,
                     "No SolCloudRendererFeature is installed, so the volumetric cloud deck "
                     + "does not render and the sky shows its authored baseline only."));
             }
 
             if (context.Water != null && ResolveFeature<SolWaterRendererFeature>() == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Error,
+                issues.Add(new ElementaIssue("pipeline/water", "Quality", "Water renderer is missing", MessageType.Error,
                     "A SolWaterWorld is loaded but no SolWaterRendererFeature is installed, so "
                     + "no water surface will be drawn."));
             }
@@ -270,7 +273,7 @@ namespace Sol.Environment.EditorTools
             SolSkyProfile sky = context.Time != null ? context.Time.SkyProfile : null;
             if (sky != null && sky.stellarBackdrop == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Info,
+                issues.Add(new ElementaIssue("sky/backdrop", "Sky", "No baked stellar backdrop", MessageType.Info,
                     $"{sky.name} has no stellar backdrop cubemap, so the night sky falls back "
                     + "to the procedural star grid.",
                     "Bake backdrop",
@@ -281,14 +284,14 @@ namespace Sol.Environment.EditorTools
             {
                 if (context.Water.DefaultProfile == null)
                 {
-                    issues.Add(new ElementaIssue(MessageType.Warning,
+                    issues.Add(new ElementaIssue("water/default", "Water", "World default profile is missing", MessageType.Warning,
                         "The water world has no default profile, so any body without its own "
                         + "profile has no authored optics, spectrum or shoreline."));
                 }
 
                 if (context.Water.QualityProfile == null)
                 {
-                    issues.Add(new ElementaIssue(MessageType.Info,
+                    issues.Add(new ElementaIssue("water/quality", "Quality", "Water uses built-in quality defaults", MessageType.Info,
                         "The water world has no quality profile. Built-in defaults are used, "
                         + "which no scene can tune."));
                 }
@@ -301,7 +304,7 @@ namespace Sol.Environment.EditorTools
                 SolLandscapeConfig config = context.Landscape.config;
                 if (config == null)
                 {
-                    issues.Add(new ElementaIssue(MessageType.Warning,
+                    issues.Add(new ElementaIssue("landscape/config", "Landscape", "Landscape configuration is missing", MessageType.Warning,
                         "The landscape driver has no config, so no layer arrays or blend "
                         + "parameters reach the terrain shader."));
                 }
@@ -311,7 +314,7 @@ namespace Sol.Environment.EditorTools
                         Sol.Landscape.Editor.SolLandscapeArrayBaker.GetStaleness(config);
                     if (staleness.IsStale)
                     {
-                        issues.Add(new ElementaIssue(MessageType.Warning,
+                        issues.Add(new ElementaIssue("landscape/stale", "Landscape", "Landscape textures need rebuilding", MessageType.Warning,
                             $"Landscape layer arrays are stale: {staleness.Message}",
                             "Bake layer arrays",
                             () => BakeLandscape(config)));
@@ -320,21 +323,21 @@ namespace Sol.Environment.EditorTools
 
                 if (!context.Landscape.TryValidateContract(out string refusal))
                 {
-                    issues.Add(new ElementaIssue(MessageType.Warning,
+                    issues.Add(new ElementaIssue("landscape/contract", "Landscape", "Landscape cannot publish", MessageType.Warning,
                         $"The landscape auto-material contract is not satisfied: {refusal}"));
                 }
             }
 
             if (context.Lighting != null && context.Lighting.QualityProfile == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Info,
+                issues.Add(new ElementaIssue("lighting/quality", "Quality", "Lighting uses a saved fallback tier", MessageType.Info,
                     "The lighting director has no quality profile, so shadow, light and probe "
                     + "budgets are not being enforced from an asset."));
             }
 
             if (!SolSkyLightingScheduler.IsApvDataAvailable())
             {
-                issues.Add(new ElementaIssue(MessageType.Info,
+                issues.Add(new ElementaIssue("lighting/apv", "Lighting", "Adaptive probe data is unavailable", MessageType.Info,
                     "No Adaptive Probe Volume data is loaded, so indirect sky lighting falls "
                     + "back to ambient probes.",
                     "Configure APV",
@@ -347,7 +350,7 @@ namespace Sol.Environment.EditorTools
             IReadOnlyList<SolWaterBody> bodies = context.Water.Bodies;
             if (bodies == null || bodies.Count == 0)
             {
-                issues.Add(new ElementaIssue(MessageType.Info,
+                issues.Add(new ElementaIssue("water/no-bodies", "Water", "No water surfaces are registered", MessageType.Info,
                     "The water world has no registered bodies. Nothing marks any surface as "
                     + "water yet."));
                 return;
@@ -363,7 +366,7 @@ namespace Sol.Environment.EditorTools
                     oceans++;
                 if (!body.Id.IsValid)
                 {
-                    issues.Add(new ElementaIssue(MessageType.Warning,
+                    issues.Add(new ElementaIssue("water/body-id/" + body.GetInstanceID(), "Water", "A water body has no stable ID", MessageType.Warning,
                         $"Water body \"{body.name}\" has no stable id, so saves and streamed "
                         + "cells cannot address it."));
                 }
@@ -371,7 +374,7 @@ namespace Sol.Environment.EditorTools
 
             if (oceans > 1)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("water/oceans", "Water", "Multiple ocean bodies compete", MessageType.Warning,
                     $"{oceans} bodies are typed Ocean. Only one infinite clipmap surface can "
                     + "win a query, so the others are unreachable."));
             }
@@ -388,7 +391,7 @@ namespace Sol.Environment.EditorTools
                 SerializedProperty mode = serialized.FindProperty("debugMode");
                 if (mode != null && mode.enumValueIndex != (int)SolWaterDebugMode.Disabled)
                 {
-                    issues.Add(new ElementaIssue(MessageType.Warning,
+                    issues.Add(new ElementaIssue("debug/water", "Quality", "Water is showing a debug view", MessageType.Warning,
                         $"The water renderer feature is showing the "
                         + $"{(SolWaterDebugMode)mode.enumValueIndex} debug view instead of the "
                         + "final image.",
@@ -406,7 +409,7 @@ namespace Sol.Environment.EditorTools
                 .FindProperty("profile")?.objectReferenceValue as SolCloudRenderingProfile;
             if (profile == null)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("clouds/rendering-profile", "Clouds", "Clouds use built-in rendering defaults", MessageType.Warning,
                     "The cloud renderer feature has no rendering profile, so the cloud deck "
                     + "runs on built-in fallbacks nothing can tune."));
                 return;
@@ -414,7 +417,7 @@ namespace Sol.Environment.EditorTools
 
             if (profile.debugView != SolCloudDebugView.FinalLighting)
             {
-                issues.Add(new ElementaIssue(MessageType.Warning,
+                issues.Add(new ElementaIssue("debug/clouds", "Quality", "Clouds are showing a debug view", MessageType.Warning,
                     $"{profile.name} is showing the {profile.debugView} debug view instead of "
                     + "the final image.",
                     "Reset to final",

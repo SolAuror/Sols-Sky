@@ -8,7 +8,7 @@ Shader "Hidden/Sol/VolumetricClouds"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
         #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
-        #include "../Water/Shaders/SolCelestialLighting.hlsl"
+        #include "Common/SolCelestialLighting.hlsl"
 
         TEXTURE2D(_SolCloudShapeTexture);
         SAMPLER(sampler_SolCloudShapeTexture);

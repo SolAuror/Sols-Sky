@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: 598734cc4d96461492543a82c47d6f5b
+  sceneGuid: 7a1ecafbcaf937e49a9edb23cb56780a
+  landscapeName: Stone_A
+  ownedAssets:
+  - {fileID: 11400000, guid: b5394112def821d4fa764e71a571c7ec, type: 2}
+  - {fileID: 15600000, guid: 33c610edd8fab964fa2c1186bc492fed, type: 2}
+  moves:
+  - guid: b5394112def821d4fa764e71a571c7ec
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Stone_A.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Stone_A/Profiles/Stone_A.asset
+    utc: 2026-09-13T11:53:33.5221793Z
+  - guid: 33c610edd8fab964fa2c1186bc492fed
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Stone_A Terrain.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Stone_A/TerrainData/Stone_A
+      Terrain.asset
+    utc: 2026-09-13T11:53:33.5221793Z

@@ -1,0 +1,1 @@
+Primary migration: original config unchanged, maximum alpha difference 0, copied terrain/collider data. Separate connected validation copy: 9 tiles; 7 neighboring palettes deliberately normalized by texture identity with unmatched contributions assigned to fallback. Group validation passed. Compare retained before/after primary dry reference captures.

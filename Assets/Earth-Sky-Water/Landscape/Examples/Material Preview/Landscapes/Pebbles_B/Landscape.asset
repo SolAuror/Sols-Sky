@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: b2f3acecc7b64d778a23cb31cae8cbe8
+  sceneGuid: 7a1ecafbcaf937e49a9edb23cb56780a
+  landscapeName: Pebbles_B
+  ownedAssets:
+  - {fileID: 11400000, guid: c1c5eda43a9e87742a4c4045c4477aa8, type: 2}
+  - {fileID: 15600000, guid: 9230501d1011dd646855e48534a840c4, type: 2}
+  moves:
+  - guid: c1c5eda43a9e87742a4c4045c4477aa8
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Pebbles_B.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Pebbles_B/Profiles/Pebbles_B.asset
+    utc: 2026-09-13T11:53:21.0376661Z
+  - guid: 9230501d1011dd646855e48534a840c4
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Pebbles_B
+      Terrain.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Pebbles_B/TerrainData/Pebbles_B
+      Terrain.asset
+    utc: 2026-09-13T11:53:21.0376661Z

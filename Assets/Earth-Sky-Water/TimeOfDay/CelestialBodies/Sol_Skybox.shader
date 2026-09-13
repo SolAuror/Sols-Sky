@@ -123,7 +123,7 @@
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Hashes.hlsl"
-            #include "../../Water/Shaders/SolSkyCommon.hlsl"
+            #include "../../Shaders/Common/SolSkyCommon.hlsl"
 
             // ────────────────────────────────────────
             // OkLab perceptual color space

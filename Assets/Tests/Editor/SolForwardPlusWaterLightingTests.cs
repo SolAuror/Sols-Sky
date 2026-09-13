@@ -11,7 +11,7 @@ namespace Sol.Tests.Editor
         public void SharedHelper_ImplementsBothForwardPlusLoops()
         {
             string source = ReadAsset(
-                "Earth-Sky-Water/Water/Shaders/SolForwardPlusWaterLighting.hlsl");
+                "Earth-Sky-Water/Shaders/Common/SolForwardPlusWaterLighting.hlsl");
 
             StringAssert.Contains("#if USE_CLUSTER_LIGHT_LOOP", source);
             StringAssert.Contains("URP_FP_DIRECTIONAL_LIGHTS_COUNT", source);
@@ -19,7 +19,6 @@ namespace Sol.Tests.Editor
             StringAssert.Contains("light.distanceAttenuation * light.shadowAttenuation", source);
         }
 
-        [TestCase("Earth-Sky-Water/Water/Shaders/Sol.Water.shader")]
         [TestCase("Earth-Sky-Water/Shaders/Water2/SolOcean.shader")]
         public void WaterShaders_CompileAndUseTheClusteredSpecularHelper(string assetPath)
         {
@@ -33,14 +32,6 @@ namespace Sol.Tests.Editor
             Assert.IsNotNull(shader);
             Assert.IsFalse(ShaderUtil.ShaderHasError(shader),
                 $"{unityPath} has an import or shader compile error.");
-        }
-
-        [Test]
-        public void LegacyWater_NoLongerAddsLocalLightDiffuse()
-        {
-            string source = ReadAsset(
-                "Earth-Sky-Water/Water/Shaders/Sol.Water.shader");
-            StringAssert.DoesNotContain("addNdotL * addAtten * shallowCol", source);
         }
 
         static string ReadAsset(string relativePath)

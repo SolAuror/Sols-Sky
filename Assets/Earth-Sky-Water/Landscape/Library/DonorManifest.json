@@ -1,0 +1,268 @@
+{
+  "materials": [
+    {
+      "name": "Grass_A",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\Visual Design Cafe\\Nature Renderer Demo\\Realistic\\Art\\Ground\\Source Assets",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_A/Grass_A_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_A/Grass_A_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_A/Grass_A_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0,
+        "w": 0.16680042
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Grass_Soil_A",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\Visual Design Cafe\\Nature Renderer Demo\\Realistic\\Art\\Ground\\Source Assets",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_Soil_A/Grass_Soil_A_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_Soil_A/Grass_Soil_A_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_Soil_A/Grass_Soil_A_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.19080001,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 0.74017644,
+        "z": 0.20920002,
+        "w": 0.5829992
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Heather_A",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\Visual Design Cafe\\Nature Renderer Demo\\Realistic\\Art\\Ground\\Source Assets",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Heather_A/Heather_A_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Heather_A/Heather_A_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Heather_A/Heather_A_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0,
+        "w": 0.0
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Pebbles_B",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\Visual Design Cafe\\Nature Renderer Demo\\Realistic\\Art\\Ground\\Source Assets",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Pebbles_B/Pebbles_B_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Pebbles_B/Pebbles_B_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Pebbles_B/Pebbles_B_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0,
+        "w": 0.3
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Cliff_Mossy_E",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\Visual Design Cafe\\Nature Renderer Demo\\Realistic\\Art\\Ground\\Source Assets",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Cliff_Mossy_E/Cliff_Mossy_E_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Cliff_Mossy_E/Cliff_Mossy_E_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Cliff_Mossy_E/Cliff_Mossy_E_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.0,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0,
+        "w": 0.6150762
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Black_Sand_A",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\TerrainDemoScene_URP\\Terrain\\Textures\\Black_Sand_A",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Black_Sand_A/Black_Sand_A_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Black_Sand_A/Black_Sand_A_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Black_Sand_A/Black_Sand_A_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0,
+        "w": 1.0
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Black_Sand_Rocks_B",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\TerrainDemoScene_URP\\Terrain\\Textures\\Black_Sand_Rocks_B",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Black_Sand_Rocks_B/Black_Sand_Rocks_B_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Black_Sand_Rocks_B/Black_Sand_Rocks_B_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Black_Sand_Rocks_B/Black_Sand_Rocks_B_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.30399993,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 0.6960001,
+        "w": 1.0
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Grass_Moss_A",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\TerrainDemoScene_URP\\Terrain\\Textures\\Grass_Moss_A",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_Moss_A/Grass_Moss_A_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_Moss_A/Grass_Moss_A_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_Moss_A/Grass_Moss_A_mask.png",
+      "height": "Assets/Earth-Sky-Water/Landscape/Library/Working/Grass_Moss_A/Grass_Moss_A_height.png",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0,
+        "w": 1.0
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Rock_Jagged_B",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\TerrainDemoScene_URP\\Terrain\\Textures\\Rock_Jagged_B",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Rock_Jagged_B/Rock_Jagged_B_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Rock_Jagged_B/Rock_Jagged_B_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Rock_Jagged_B/Rock_Jagged_B_mask.png",
+      "height": "",
+      "conversionVersion": "tiff-rgba-height16-v3",
+      "maskRemapMin": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 0
+      },
+      "maskRemapMax": {
+        "x": 1,
+        "y": 1,
+        "z": 1,
+        "w": 1
+      }
+    },
+    {
+      "name": "Tidal_Pools_B",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\TerrainDemoScene_URP\\Terrain\\Textures\\Tidal_Pools_B",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Tidal_Pools_B/Tidal_Pools_B_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Tidal_Pools_B/Tidal_Pools_B_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Tidal_Pools_B/Tidal_Pools_B_mask.png",
+      "height": "",
+      "maskRemapMin": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.084,
+        "w": 0.0
+      },
+      "maskRemapMax": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 0.916,
+        "w": 0.6118685
+      },
+      "conversionVersion": "tiff-rgba-height16-v3"
+    },
+    {
+      "name": "Stone_A",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\TerrainDemoScene_URP\\Prefabs\\Rocks\\Textures\\Stone_A",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Stone_A/Stone_A_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Stone_A/Stone_A_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Stone_A/Stone_A_mask.png",
+      "height": "Assets/Earth-Sky-Water/Landscape/Library/Working/Stone_A/Stone_A_height.png",
+      "conversionVersion": "tiff-rgba-height16-v3",
+      "maskRemapMin": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 0
+      },
+      "maskRemapMax": {
+        "x": 1,
+        "y": 1,
+        "z": 1,
+        "w": 1
+      }
+    },
+    {
+      "name": "Cliff_Mossy_A",
+      "source": "B:\\Projects\\Unity\\AssetUnpacking\\Random Unpacking\\RandomUnpacking\\Assets\\TerrainDemoScene_URP\\Prefabs\\Rocks\\Textures\\Cliff_Mossy_A",
+      "convention": "HdrpMaskMap",
+      "colour": "Assets/Earth-Sky-Water/Landscape/Library/Working/Cliff_Mossy_A/Cliff_Mossy_A_colour.png",
+      "normal": "Assets/Earth-Sky-Water/Landscape/Library/Working/Cliff_Mossy_A/Cliff_Mossy_A_normal.png",
+      "mask": "Assets/Earth-Sky-Water/Landscape/Library/Working/Cliff_Mossy_A/Cliff_Mossy_A_mask.png",
+      "height": "Assets/Earth-Sky-Water/Landscape/Library/Working/Cliff_Mossy_A/Cliff_Mossy_A_height.png",
+      "conversionVersion": "tiff-rgba-height16-v3",
+      "maskRemapMin": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "w": 0
+      },
+      "maskRemapMax": {
+        "x": 1,
+        "y": 1,
+        "z": 1,
+        "w": 1
+      }
+    }
+  ]
+}

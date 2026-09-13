@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Unity.Collections;
 using UnityEditor;
@@ -37,8 +38,6 @@ namespace Sol.Landscape.Editor
     {
         private const string OutputFolder = "Assets/Earth-Sky-Water/Landscape";
         private const string ConfigPath = OutputFolder + "/SolLandscapeConfig.asset";
-        private const string CSArrayPath = OutputFolder + "/SolLandscapeCSArray.asset";
-        private const string NOHArrayPath = OutputFolder + "/SolLandscapeNOHArray.asset";
         private const TextureFormat ArrayFormat = TextureFormat.BC7;
 
         private static readonly Color32 FlatNormal = new Color32(128, 128, 255, 255);
@@ -54,6 +53,7 @@ namespace Sol.Landscape.Editor
 
         internal static SolLandscapeConfig BakeTarget(SolLandscapeConfig requestedConfig = null)
         {
+            if (requestedConfig is SolLandscapeProfile profile) return BakeProfile(profile);
             TerrainData terrainData = ResolveTargetTerrainData(requestedConfig);
 
             TerrainLayer[] layers = terrainData.terrainLayers;
@@ -78,9 +78,12 @@ namespace Sol.Landscape.Editor
                 csArray.Apply(updateMipmaps: false, makeNoLongerReadable: true);
                 nohArray.Apply(updateMipmaps: false, makeNoLongerReadable: true);
 
-                Texture2DArray persistedCS = PersistArray(csArray, CSArrayPath);
+                string ownerPath = requestedConfig != null ? AssetDatabase.GetAssetPath(requestedConfig) : ConfigPath;
+                if (string.IsNullOrEmpty(ownerPath)) throw new InvalidOperationException("Save the landscape config before baking.");
+                string destination = Path.GetDirectoryName(ownerPath).Replace('\\','/') + "/" + Path.GetFileNameWithoutExtension(ownerPath);
+                Texture2DArray persistedCS = PersistArray(csArray, AssetDatabase.GenerateUniqueAssetPath(destination + " CS.asset"));
                 csArray = null;
-                Texture2DArray persistedNOH = PersistArray(nohArray, NOHArrayPath);
+                Texture2DArray persistedNOH = PersistArray(nohArray, AssetDatabase.GenerateUniqueAssetPath(destination + " NOH.asset"));
                 nohArray = null;
 
                 AssertArrayColourSpaces(persistedCS, persistedNOH);
@@ -139,6 +142,7 @@ namespace Sol.Landscape.Editor
 
         internal static SolLandscapeStaleness GetStaleness(SolLandscapeConfig config)
         {
+            if (config is SolLandscapeProfile profile) return ProfileStaleness(profile);
             return GetStaleness(config, config != null && config.TerrainData != null
                 ? config.TerrainData.terrainLayers
                 : Array.Empty<TerrainLayer>());
@@ -235,6 +239,102 @@ namespace Sol.Landscape.Editor
 
             return new SolLandscapeStaleness(false,
                 "Baked arrays match layer count, order, texture GUIDs, and per-slice dependency hashes.");
+        }
+
+        internal static SolLandscapeConfig BakeProfile(SolLandscapeProfile profile)
+        {
+            string path = AssetDatabase.GetAssetPath(profile);
+            if (string.IsNullOrEmpty(path)) throw new InvalidOperationException("Save the profile before rebuilding textures.");
+            if (profile.Layers.Count < 1 || profile.Layers.Count > 8) throw new InvalidOperationException("Palette must have 1–8 materials.");
+            int size = Mathf.Clamp(Mathf.ClosestPowerOfTwo(profile.artworkResolution), 64, 4096);
+            var layout = new SourceLayout(size, size, CalculateMipCount(size, size));
+            var cs = CreateArray(size, size, profile.Layers.Count, false, profile.name + " CS");
+            var noh = CreateArray(size, size, profile.Layers.Count, true, profile.name + " NOH");
+            try
+            {
+                for (int i = 0; i < profile.Layers.Count; i++)
+                {
+                    var entry = profile.Layers[i]; var layer = entry.terrainLayer;
+                    if (layer == null || layer.diffuseTexture == null) throw new InvalidOperationException($"Layer {i} has no colour artwork.");
+                    AssertDiffuseImporter(layer.diffuseTexture, i);
+                    if (layer.normalMapTexture != null) AssertNormalImporter(layer.normalMapTexture, i);
+                    if (layer.maskMapTexture != null) AssertMaskImporter(layer.maskMapTexture, i);
+                    if (entry.heightTexture != null) AssertMaskImporter(entry.heightTexture, i);
+                    var colour = ReadResized(layer.diffuseTexture, size, new Color32(128,128,128,255));
+                    var normal = ReadResized(layer.normalMapTexture, size, FlatNormal);
+                    var mask = ReadResized(layer.maskMapTexture, size, MidGreyMask);
+                    var heights = entry.heightTexture != null ? ReadResized(entry.heightTexture, size, MidGreyMask) : null;
+                    bool flip = layer.normalMapTexture != null && GetNormalFlipGreen(layer.normalMapTexture);
+                    for (int pixel = 0; pixel < colour.Length; pixel++)
+                    {
+                        var c = colour[pixel]; var m = mask[pixel]; var n = normal[pixel];
+                        byte smooth = FloatToByte(Mathf.Lerp(layer.maskMapRemapMin.w, layer.maskMapRemapMax.w,
+                            (entry.maskConvention == SolLandscapeMaskConvention.HdrpMaskMap ? m.a : m.r) / 255f));
+                        float height = heights != null ? heights[pixel].r / 255f : entry.maskConvention == SolLandscapeMaskConvention.HdrpMaskMap ? .5f : m.b / 255f;
+                        colour[pixel] = new Color32(FloatToByte(Mathf.Lerp(layer.diffuseRemapMin.x,layer.diffuseRemapMax.x,c.r/255f)),
+                            FloatToByte(Mathf.Lerp(layer.diffuseRemapMin.y,layer.diffuseRemapMax.y,c.g/255f)),
+                            FloatToByte(Mathf.Lerp(layer.diffuseRemapMin.z,layer.diffuseRemapMax.z,c.b/255f)),smooth);
+                        normal[pixel] = new Color32(n.r, flip ? (byte)(255-n.g) : n.g,
+                            FloatToByte(Mathf.Lerp(layer.maskMapRemapMin.y,layer.maskMapRemapMax.y,m.g/255f)),
+                            FloatToByte(entry.heightTexture == null && entry.maskConvention == SolLandscapeMaskConvention.HdrpMaskMap ? .5f : Mathf.Lerp(layer.maskMapRemapMin.z,layer.maskMapRemapMax.z,height)));
+                    }
+                    WriteCompressedSlice(cs, i, BuildMipChain(colour,size,size,true),layout,"CS");
+                    WriteCompressedSlice(noh, i, BuildMipChain(normal,size,size,false),layout,"NOH");
+                }
+                AssertArrayColourSpaces(cs,noh); cs.Apply(false,true); noh.Apply(false,true);
+                // Stage a complete pair at unique profile-owned paths. The previous valid pair remains untouched.
+                string directory = SolLandscapeAssetLocations.NewBakeFolder(profile);
+                string csPath = AssetDatabase.GenerateUniqueAssetPath(directory + "/" + profile.name + " CS.asset");
+                string nohPath = AssetDatabase.GenerateUniqueAssetPath(directory + "/" + profile.name + " NOH.asset");
+                AssetDatabase.CreateAsset(cs, csPath);
+                try { AssetDatabase.CreateAsset(noh, nohPath); }
+                catch { AssetDatabase.DeleteAsset(csPath); throw; }
+                Undo.RecordObject(profile,"Rebuild landscape textures");
+                profile.RecordBake(null, profile.Layers.Select(e=>e.terrainLayer).ToArray(),cs,noh,"",ProfileFingerprints(profile),
+                    DateTime.UtcNow.ToString("O"),CalculateBC7ChainBytes(size,size,profile.Layers.Count),CalculateBC7ChainBytes(size,size,profile.Layers.Count),
+                    $"{size} × {size}, {profile.Layers.Count} materials, BC7; source converter v3");
+                SolLandscapeAssetLocations.Register(profile.assetOwner,cs); SolLandscapeAssetLocations.Register(profile.assetOwner,noh);
+                if(profile.assetOwner!=null) AssetDatabase.SaveAssetIfDirty(profile.assetOwner);
+                profile.RecordPaletteBake(); cs=null; noh=null; EditorUtility.SetDirty(profile); AssetDatabase.SaveAssetIfDirty(profile);
+                return profile;
+            }
+            finally { if(cs != null && !EditorUtility.IsPersistent(cs)) UnityEngine.Object.DestroyImmediate(cs); if(noh != null && !EditorUtility.IsPersistent(noh)) UnityEngine.Object.DestroyImmediate(noh); }
+        }
+        static Color32[] ReadResized(Texture2D source, int size, Color32 fallback)
+        {
+            if (source == null) return CreateSolidPixels(size*size,fallback);
+            var texture = new Texture2D(2,2,TextureFormat.RGBA32,false,true);
+            try
+            {
+                if (!ImageConversion.LoadImage(texture,File.ReadAllBytes(AssetDatabase.GetAssetPath(source))))
+                    throw new InvalidOperationException("Use normalized PNG working artwork: " + AssetDatabase.GetAssetPath(source));
+                var pixels=texture.GetPixels32(); if(texture.width==size && texture.height==size) return pixels;
+                var output=new Color32[size*size];
+                for(int y=0;y<size;y++) for(int x=0;x<size;x++) output[y*size+x]=pixels[Mathf.Min(texture.height-1,y*texture.height/size)*texture.width+Mathf.Min(texture.width-1,x*texture.width/size)];
+                return output;
+            }
+            finally { UnityEngine.Object.DestroyImmediate(texture); }
+        }
+        static List<SolLandscapeBakeFingerprint> ProfileFingerprints(SolLandscapeProfile profile)
+        {
+            var result=new List<SolLandscapeBakeFingerprint>();
+            foreach(var entry in profile.Layers)
+            {
+                var layer=entry.terrainLayer; var hash=new StringBuilder(DependencyHashFor(layer));
+                hash.Append((int)entry.maskConvention).Append(';').Append(profile.artworkResolution); AppendDependencyHash(hash,entry.heightTexture);
+                result.Add(new SolLandscapeBakeFingerprint(GuidFor(layer),GuidFor(layer.diffuseTexture),GuidFor(layer.normalMapTexture),GuidFor(layer.maskMapTexture),hash.ToString()));
+            }
+            return result;
+        }
+        static SolLandscapeStaleness ProfileStaleness(SolLandscapeProfile profile)
+        {
+            if(profile.CSArray==null || profile.NOHArray==null) return new SolLandscapeStaleness(true,"Rebuild the profile's artwork.");
+            if(profile.Layers.Any(e=>e==null || e.terrainLayer==null)) return new SolLandscapeStaleness(true,"A palette material is missing.");
+            var current=ProfileFingerprints(profile);
+            if(current.Count!=profile.BakeFingerprints.Count) return new SolLandscapeStaleness(true,"Palette size changed.");
+            for(int i=0;i<current.Count;i++) if(current[i].TerrainLayerGuid!=profile.BakeFingerprints[i].TerrainLayerGuid || current[i].DependencyHash!=profile.BakeFingerprints[i].DependencyHash)
+                return new SolLandscapeStaleness(true,$"Artwork or conversion changed at material {i+1}.");
+            return new SolLandscapeStaleness(false,"Artwork current. Rules and local paint update live.");
         }
 
         private static SourceLayout ValidateSourceLayout(IReadOnlyList<TerrainLayer> layers)
@@ -710,7 +810,8 @@ namespace Sol.Landscape.Editor
         private static string DependencyHashFor(TerrainLayer layer)
         {
             var builder = new StringBuilder();
-            AppendDependencyHash(builder, layer);
+            builder.Append("landscape-source-v3;");
+            builder.Append(layer.diffuseRemapMin).Append(layer.diffuseRemapMax).Append(layer.maskMapRemapMin).Append(layer.maskMapRemapMax);
             AppendDependencyHash(builder, layer.diffuseTexture);
             AppendDependencyHash(builder, layer.normalMapTexture);
             AppendDependencyHash(builder, layer.maskMapTexture);

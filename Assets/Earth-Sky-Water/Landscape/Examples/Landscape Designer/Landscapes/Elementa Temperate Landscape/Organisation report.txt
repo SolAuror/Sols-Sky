@@ -1,0 +1,21 @@
+Destination: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape
+
+Moves (GUIDs preserved):
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 0.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/TerrainData/Terrain 0 0.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 0 Paint.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/Paint/Terrain 0 0 Paint.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 0.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/TerrainData/Terrain 1 0.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 0 Paint.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/Paint/Terrain 1 0 Paint.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 1.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/TerrainData/Terrain 0 1.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 1 Paint.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/Paint/Terrain 0 1 Paint.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 1.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/TerrainData/Terrain 1 1.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 1 Paint.asset → Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa Temperate Landscape/Paint/Terrain 1 1 Paint.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Examples/Example Profile.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:15.4063152Z. Reverse moves using Landscape.asset's move manifest.

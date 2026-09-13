@@ -58,10 +58,7 @@ namespace Sol.Landscape.Editor
             SolLandscapeDriver[] drivers = Object.FindObjectsByType<SolLandscapeDriver>(
                 FindObjectsInactive.Include,
                 FindObjectsSortMode.None);
-            if (drivers.Length == 0)
-            {
-                return;
-            }
+            foreach (var group in Object.FindObjectsByType<SolLandscapeGroup>(FindObjectsSortMode.None)) group.Invalidate();
 
             for (int i = 0; i < drivers.Length; i++)
             {

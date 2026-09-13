@@ -1,0 +1,14 @@
+Destination: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_Moss_A
+
+Moves (GUIDs preserved):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Grass_Moss_A.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_Moss_A/Profiles/Grass_Moss_A.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Grass_Moss_A Terrain.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_Moss_A/TerrainData/Grass_Moss_A Terrain.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Volcanic Coast CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Volcanic Coast NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:30.0665505Z. Reverse moves using Landscape.asset's move manifest.

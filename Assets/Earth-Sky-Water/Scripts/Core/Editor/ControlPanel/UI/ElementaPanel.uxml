@@ -1,0 +1,33 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+  <ui:VisualElement class="elementa-shell">
+    <ui:VisualElement class="elementa-chrome elementa-row">
+      <ui:Label text="Elementa" class="elementa-brand" />
+      <ui:Label name="scene" class="elementa-scene" />
+      <ui:Button name="scene-setup" text="Scene setup" />
+      <ui:Label name="animation" class="elementa-note" />
+    </ui:VisualElement>
+    <ui:VisualElement class="elementa-transport">
+      <ui:VisualElement class="elementa-row elementa-clock-row">
+        <ui:Label text="Time" />
+        <ui:Slider name="clock" low-value="0" high-value="23.999" tooltip="Live clock control. Weather preview does not restore time." />
+        <ui:Label name="clock-label" text="--:--" />
+      </ui:VisualElement>
+      <ui:VisualElement class="elementa-row elementa-weather-status">
+        <ui:Label name="preview-label" text="Scene weather" />
+        <ui:Button name="end-preview" text="End weather preview" />
+      </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:DropdownField name="page-picker" class="elementa-page-picker" />
+    <ui:VisualElement class="elementa-body">
+      <ui:VisualElement name="sidebar" class="elementa-sidebar" />
+      <ui:VisualElement class="elementa-content">
+        <ui:VisualElement class="elementa-page-heading">
+          <ui:Label name="page-title" class="elementa-page-title" />
+          <ui:Label name="page-subtitle" class="elementa-note" />
+        </ui:VisualElement>
+        <ui:ScrollView name="page-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="elementa-page-scroll" />
+      </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:Label text="Profile and scene edits use Unity saving · weather preview is temporary" class="elementa-footer" />
+  </ui:VisualElement>
+</ui:UXML>

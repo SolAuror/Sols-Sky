@@ -1,0 +1,94 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using NUnit.Framework;
+using Sol.Landscape;
+using Sol.Landscape.Editor;
+using Sol.Environment.EditorTools;
+using UnityEditor;
+using UnityEngine;
+
+// Native asset creation verification lives only in the scratch Unity project.
+public sealed class LandscapeFirstPaintScratchTests
+{
+    [Test] public void DemoSharedMaterialMigration_CreatesNineEditableTilesAndUndoRedoWorks()
+    {
+        const string folder="Assets/LandscapeMigrationScratch";
+        Assert.That(AssetDatabase.IsValidFolder(folder),Is.False);
+        AssetDatabase.CreateFolder("Assets","LandscapeMigrationScratch");
+        var scene=UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/Elementa_Demo.unity",UnityEditor.SceneManagement.OpenSceneMode.Additive);
+        SolLandscapeGroup group=null;GameObject cameraObject=null;
+        try
+        {
+            var driver=scene.GetRootGameObjects().SelectMany(g=>g.GetComponentsInChildren<SolLandscapeDriver>()).Single();
+            var terrains=SolLandscapeAuthoring.MigrationTiles(driver,true);Assert.That(terrains.Length,Is.EqualTo(9));
+            var originals=terrains.Select(t=>t.terrainData).ToArray();var palette=driver.config.Layers.Select(e=>e.terrainLayer).ToArray();
+            Assert.That(SolLandscapeAuthoring.CanMigrate(driver,true,false,out var rejected),Is.False,rejected);
+            Assert.That(SolLandscapeAuthoring.CanMigrate(driver,true,true,out var reason),Is.True,reason);
+            group=SolLandscapeAuthoring.Migrate(driver,folder+"/Profile.asset",true,true);
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(group.gameObject,scene);
+            Assert.That(group.Validate(out reason),Is.True,reason);Assert.That(group.tiles.Count,Is.EqualTo(9));
+            for(int i=0;i<9;i++){Assert.That(terrains[i].terrainData,Is.Not.SameAs(originals[i]));Assert.That(terrains[i].terrainData.terrainLayers,Is.EqualTo(palette));}
+            Undo.FlushUndoRecordObjects();Undo.PerformUndo();
+            for(int i=0;i<9;i++)Assert.That(terrains[i].terrainData,Is.SameAs(originals[i]));Assert.That(driver.enabled,Is.True);
+            Undo.PerformRedo();group=UnityEngine.Object.FindObjectsByType<SolLandscapeGroup>(FindObjectsSortMode.None).Single(g=>g.profile!=null&&AssetDatabase.GetAssetPath(g.profile).StartsWith(folder));
+            Assert.That(group.Validate(out reason),Is.True,reason);Assert.That(driver.enabled,Is.False);
+            using(var stroke=new SolLandscapeStroke()){stroke.BeginStroke(group,SolLandscapePaintOperation.Paint,1);stroke.ApplyDab(terrains[0].transform.position+terrains[0].terrainData.size*.5f,50,1);stroke.CommitStroke();}
+            Assert.That(group.tiles.Any(t=>t.paint!=null && t.paint.HasOverrides),Is.True);
+            group.Publish();
+            var bounds=new Bounds(terrains[0].transform.position,Vector3.zero);foreach(var terrain in terrains){bounds.Encapsulate(terrain.transform.position);bounds.Encapsulate(terrain.transform.position+terrain.terrainData.size);}
+            cameraObject=new GameObject("Migrated demo verification camera");var camera=cameraObject.AddComponent<Camera>();camera.orthographic=true;camera.orthographicSize=bounds.size.z*.55f;camera.aspect=1.6f;camera.farClipPlane=bounds.size.y+10000;
+            camera.transform.position=new Vector3(bounds.center.x,bounds.max.y+3000,bounds.center.z);camera.transform.rotation=Quaternion.Euler(90,0,0);
+            SolLandscapeValidation.Capture(camera,Path.GetFullPath("../landscape-migration-nine-tiles.png"));
+        }
+        finally
+        {
+            if(cameraObject!=null)UnityEngine.Object.DestroyImmediate(cameraObject);
+            if(group!=null){foreach(var tile in group.tiles)if(tile.paint!=null && !EditorUtility.IsPersistent(tile.paint))UnityEngine.Object.DestroyImmediate(tile.paint);UnityEngine.Object.DestroyImmediate(group.gameObject);}
+            UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene,true);Undo.ClearAll();AssetDatabase.DeleteAsset(folder);
+        }
+    }
+    [Test] public void FirstStrokeCreatesTwoAssets_SavesWithoutMouseUp_ThenUndoesAndRedoes()
+    {
+        const string folder="Assets/LandscapeFirstPaintScratch";
+        Assert.That(AssetDatabase.IsValidFolder(folder),Is.False,"Use a fresh scratch fixture folder.");
+        var tests=new Sol.Tests.Editor.SolLandscapeDesignerTests();
+        var flags=BindingFlags.Instance|BindingFlags.NonPublic;
+        var group=(SolLandscapeGroup)tests.GetType().GetMethod("Fixture",flags).Invoke(tests,new object[]{2,1,2});
+        AssetDatabase.CreateFolder("Assets","LandscapeFirstPaintScratch");
+        ElementaControlPanel window=null;SolLandscapeStroke stroke=null;
+        try
+        {
+            AssetDatabase.CreateAsset(group.profile,folder+"/Profile.asset");
+            foreach(var tile in group.tiles)tile.paint=null;
+            window=ScriptableObject.CreateInstance<ElementaControlPanel>();window.Context.State.landscapeGroup=group;
+            var page=window.Pages.Single(p=>p.Id=="landscape");page.BuildContent(window.Context);
+            Undo.IncrementCurrentGroup();int undo=Undo.GetCurrentGroup();
+            stroke=new SolLandscapeStroke();
+            stroke.BeforeTileChange+=tile=>{SolLandscapeAuthoring.EnsurePaintAsset(group,tile);Undo.RegisterCompleteObjectUndo(tile.paint,"First stroke");EditorUtility.SetDirty(tile.paint);};
+            stroke.Committed+=data=>EditorUtility.SetDirty(data);
+            page.GetType().GetField("stroke",flags).SetValue(page,stroke);page.GetType().GetField("undoGroup",flags).SetValue(page,undo);
+            stroke.BeginStroke(group,SolLandscapePaintOperation.Paint,1);stroke.ApplyDab(new Vector3(64,0,32),12,1,.9f);
+            Assert.That(stroke.IsActive,Is.True,"CreateAsset must not finish ApplyDab reentrantly.");
+            AssetDatabase.SaveAssets();Assert.That(stroke.IsActive,Is.False);
+            for(int i=0;i<2;i++)
+            {
+                var paint=group.tiles[i].paint;string assetPath=AssetDatabase.GetAssetPath(paint);
+                Assert.That(File.Exists(assetPath),Is.True);
+                var loaded=UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(Path.GetFullPath(assetPath));
+                try {Assert.That(((SolLandscapePaintData)loaded[0]).Bytes(0)[(32*64+(i==0?63:0))*4+1],Is.EqualTo(255));}
+                finally{foreach(var obj in loaded)UnityEngine.Object.DestroyImmediate(obj);}
+            }
+            Undo.FlushUndoRecordObjects();Undo.PerformUndo();Assert.That(group.tiles.All(t=>t.paint==null),Is.True);
+            Undo.PerformRedo();Assert.That(group.tiles.All(t=>t.paint!=null && t.paint.HasOverrides),Is.True,string.Join("; ",group.tiles.Select(t=>t.paint==null?"null":t.paint.name+" override="+t.paint.HasOverrides)));
+            for(int i=0;i<2;i++)Assert.That(group.tiles[i].paint.Bytes(0)[(32*64+(i==0?63:0))*4+1],Is.EqualTo(255));
+            page.Dispose();
+        }
+        finally
+        {
+            if(window!=null)UnityEngine.Object.DestroyImmediate(window);stroke?.Dispose();
+            Undo.ClearAll();AssetDatabase.DeleteAsset(folder);tests.TearDown();
+        }
+    }
+}

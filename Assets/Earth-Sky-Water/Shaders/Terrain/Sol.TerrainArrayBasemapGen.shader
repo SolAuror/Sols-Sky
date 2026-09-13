@@ -14,7 +14,7 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
 
         #include "SolTerrainArrayInput.hlsl"
 
-        #define SOL_LANDSCAPE_BASEMAP_LAYER_COUNT 6
+        #define SOL_LANDSCAPE_BASEMAP_LAYER_COUNT 8
         struct SolBasemapAttributes
         {
             float4 positionOS : POSITION;
@@ -35,14 +35,17 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
             return output;
         }
 
-        half SolBasemapRawWeight(half4 control0, half2 control1, int layerIndex)
+        half SolBasemapRawWeight(half4 control0, half4 control1, int layerIndex)
         {
+            if (layerIndex >= _Sol_LandscapeLayerCount) return 0;
             if (layerIndex == 0) return control0.r;
             if (layerIndex == 1) return control0.g;
             if (layerIndex == 2) return control0.b;
             if (layerIndex == 3) return control0.a;
             if (layerIndex == 4) return control1.r;
             if (layerIndex == 5) return control1.g;
+                if (layerIndex == 6) return control1.b;
+                if (layerIndex == 7) return control1.a;
             return 0.0h;
         }
 
@@ -55,10 +58,10 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
                 _Sol_LandscapeControl0,
                 sampler_Sol_LandscapeControl0,
                 controlUV);
-            half2 control1 = SAMPLE_TEXTURE2D(
+            half4 control1 = SAMPLE_TEXTURE2D(
                 _Sol_LandscapeControl1,
                 sampler_Sol_LandscapeControl1,
-                controlUV).rg;
+                controlUV);
 
             // Basemaps deliberately evaluate every layer. A layer-selection error here would bake into
             // all distant terrain. The production material's height-blend keyword is mirrored so
@@ -72,6 +75,8 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
             [unroll]
             for (int heightLayerIndex = 0; heightLayerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++heightLayerIndex)
             {
+                paintedWeights[heightLayerIndex] = splatHeights[heightLayerIndex] = 0;
+                if (heightLayerIndex >= _Sol_LandscapeLayerCount) continue;
                 float paintedWeight = (float)SolBasemapRawWeight(control0, control1, heightLayerIndex);
                 float4 layerST = _Sol_LandscapeLayerST[heightLayerIndex];
                 float2 layerUV = terrainUV * layerST.xy + layerST.zw;
@@ -113,6 +118,7 @@ Shader "Hidden/Sol/Terrain/Array Basemap Gen"
             [unroll]
             for (int sampleLayerIndex = 0; sampleLayerIndex < SOL_LANDSCAPE_BASEMAP_LAYER_COUNT; ++sampleLayerIndex)
             {
+                if (sampleLayerIndex >= _Sol_LandscapeLayerCount) continue;
                 half weight = (half)(blendedWeights[sampleLayerIndex] * inverseBlendedWeight);
                 float4 layerST = _Sol_LandscapeLayerST[sampleLayerIndex];
                 float2 layerUV = terrainUV * layerST.xy + layerST.zw;

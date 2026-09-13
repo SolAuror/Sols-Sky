@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: 481223bee7904b07b38ddfe811be9f07
+  sceneGuid: 7a1ecafbcaf937e49a9edb23cb56780a
+  landscapeName: Black_Sand_Rocks_B
+  ownedAssets:
+  - {fileID: 11400000, guid: 450029f4a04edda4fab8bb592d5d5fc3, type: 2}
+  - {fileID: 15600000, guid: e237d7d0499551644aa8fb5a1f054f83, type: 2}
+  moves:
+  - guid: 450029f4a04edda4fab8bb592d5d5fc3
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Black_Sand_Rocks_B.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Black_Sand_Rocks_B/Profiles/Black_Sand_Rocks_B.asset
+    utc: 2026-09-13T11:53:28.5060592Z
+  - guid: e237d7d0499551644aa8fb5a1f054f83
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Black_Sand_Rocks_B
+      Terrain.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Black_Sand_Rocks_B/TerrainData/Black_Sand_Rocks_B
+      Terrain.asset
+    utc: 2026-09-13T11:53:28.5060592Z

@@ -15,13 +15,13 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
   m_Fog: 0
-  m_FogColor: {r: 0.66, g: 0.78, b: 0.92, a: 1}
+  m_FogColor: {r: 0.6603858, g: 0.7804559, b: 0.92053777, a: 1}
   m_FogMode: 3
   m_FogDensity: 0.0012205607
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.1995, g: 0.4515, b: 0.86099994, a: 1}
-  m_AmbientEquatorColor: {r: 0.693, g: 0.81899995, b: 0.96599996, a: 1}
+  m_AmbientSkyColor: {r: 0.19926979, g: 0.450979, b: 0.86000645, a: 1}
+  m_AmbientEquatorColor: {r: 0.69340503, g: 0.81947863, b: 0.9665646, a: 1}
   m_AmbientGroundColor: {r: 0.122849986, g: 0.189, b: 0.25515, a: 1}
   m_AmbientIntensity: 1
   m_AmbientMode: 1
@@ -10789,37 +10789,6 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &1877558419227163697
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4069933975666731442}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7e9d08887ce7f474db7662cdc1cde781, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  useGpuSim: 1
-  simShader: {fileID: 4800000, guid: 41d63216f4dc86f4a9cc6772236e075f, type: 3}
-  simResolution: 512
-  simRegionSize: 60
-  simFocus: {fileID: 0}
-  simWaveSpeed: 0.35
-  simDamping: 0.985
-  simNormalStrength: 6
-  injectionRadius: 0.6
-  injectionAmplitude: 0.25
-  rainRipples: 1
-  rainMaxDropsPerStep: 6
-  rainDropletStrength: 0.05
-  rainDropletRadius: 0.25
-  debugAutoSplash: 0
-  debugShowSimTexture: 0
-  rippleSpeed: 5
-  rippleFrequency: 20
-  rippleLifetime: 3
 --- !u!114 &2429409229724221009
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10879,10 +10848,8 @@ GameObject:
   - component: {fileID: 2429409229724221009}
   - component: {fileID: 7289805970471111700}
   - component: {fileID: 5836892427009264645}
-  - component: {fileID: 1877558419227163697}
   - component: {fileID: 5135230030128566432}
   - component: {fileID: 5135230030128566435}
-  - component: {fileID: 6629655432892147619}
   - component: {fileID: 5665088069232259141}
   - component: {fileID: 5665088069232259140}
   - component: {fileID: 8723318279177309096}
@@ -11024,7 +10991,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SolWeatherManager
   todManager: {fileID: 7289805970471111700}
-  waterManager: {fileID: 0}
   profiles:
   - profile: {fileID: 11400000, guid: 52b54904ba7364c4e9b5fea9cfa55dc7, type: 2}
     weight: 4
@@ -11115,29 +11081,8 @@ MonoBehaviour:
   avoidRepeat: 1
   driveWind: 1
   windWanderDegPerHour: 8
-  driveWaves: 1
   strikeIntervalSeconds: {x: 4, y: 15}
   doubleStrikeChance: 0.35
---- !u!114 &6629655432892147619
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4069933975666731442}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d4c80cddf8e99114bb201f3fdffb78ad, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  trackedCamera: {fileID: 100002}
-  playerTransform: {fileID: 0}
-  blendSpeed: 10
-  exitBlendSpeed: 24
-  fullSubmersionDepth: 0.4
-  surfaceEnterBias: 0.05
-  playerFallbackSurfaceGrace: 0.05
-  debugLog: 0
 --- !u!4 &6831264185162237298
 Transform:
   m_ObjectHideFlags: 0

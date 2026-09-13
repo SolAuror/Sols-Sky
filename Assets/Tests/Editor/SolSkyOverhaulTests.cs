@@ -152,7 +152,7 @@ namespace Sol.Tests.Editor
         public void SharedAtmosphereAndWaterContractsRemainWiredWithoutExtraPasses()
         {
             string atmosphere = File.ReadAllText(
-                "Assets/Earth-Sky-Water/Water/Shaders/SolAtmosphere.hlsl");
+                "Assets/Earth-Sky-Water/Shaders/Common/SolAtmosphere.hlsl");
             string atmosphereShader = File.ReadAllText(
                 "Assets/Earth-Sky-Water/Shaders/SolAtmosphere.shader");
             string water = File.ReadAllText(

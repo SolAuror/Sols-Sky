@@ -54,22 +54,6 @@ namespace Sol.Tests.Editor
             }
         }
 
-        [Test]
-        public void ShippingWaterPrefab_RegistersItsExistingRealtimeProbe()
-        {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-                "Assets/Earth-Sky-Water/Water/Shaders/WaterTile.prefab");
-
-            Assert.IsNotNull(prefab);
-            ReflectionProbe probe = prefab.GetComponentInChildren<ReflectionProbe>(true);
-            SolReflectionProbeAnchor anchor =
-                prefab.GetComponentInChildren<SolReflectionProbeAnchor>(true);
-            Assert.IsNotNull(probe);
-            Assert.IsNotNull(anchor);
-            Assert.AreSame(probe, anchor.Source);
-            Assert.AreEqual(1f, anchor.WaterRelevance, 1e-5f);
-        }
-
         [TestCase(2f, 0.039f, 0.001f, false)]
         [TestCase(2f, 0.041f, 0.001f, true)]
         [TestCase(1.9f, 0f, 0f, false)]

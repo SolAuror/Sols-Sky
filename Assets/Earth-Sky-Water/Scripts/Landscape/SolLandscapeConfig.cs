@@ -5,6 +5,9 @@ using UnityEngine.Serialization;
 
 namespace Sol.Landscape
 {
+    public enum SolLandscapeMaskConvention { SolPacked, HdrpMaskMap }
+    public enum SolLandscapeRuleModel { Legacy, Ranges }
+    public enum SolLandscapePaintProtection { RockMaterials, Off, On }
     public enum SolLandscapeLayerMode : byte
     {
         Manual,
@@ -20,6 +23,27 @@ namespace Sol.Landscape
     [Serializable]
     public sealed class SolLandscapeLayerEntry
     {
+        [HideInInspector] public string materialId;
+        public SolLandscapeMaskConvention maskConvention;
+        public Texture2D heightTexture;
+        public SolLandscapeRuleModel ruleModel;
+        public Vector2 slopeRange = new Vector2(0, 90);
+        [Min(0.01f)] public float slopeFeather = 8;
+        [Min(0.01f)] public float altitudeFeather = 20;
+        public bool useAltitudeRange;
+        public Color tint = Color.white;
+        [Range(0, 1)] public float tintStrength;
+        public bool adjustSmoothness;
+        public Vector2 smoothnessRemap = new Vector2(0, 1);
+        public bool adjustOcclusion;
+        [Range(0, 2)] public float occlusionStrength = 1;
+        [Range(0, 1)] public float macroVariation;
+        [Range(0, 1)] public float mesoVariation;
+        public bool sandResponse;
+        public bool liveSurfaceSettings;
+        public Vector2 textureSize = new Vector2(4, 4);
+        public Vector2 textureOffset;
+        [Min(0)] public float normalStrength = 1;
         [Tooltip("The array slice index is this entry's position in the list.")]
         public TerrainLayer terrainLayer;
 
@@ -32,6 +56,21 @@ namespace Sol.Landscape
         [Header("Auto-material contract")]
         [Tooltip("Manual keeps this layer's painted alphamap channel authoritative. Auto drives it from the rules below, live in the shader, sharing whatever weight the Manual layers do not claim.")]
         public SolLandscapeLayerMode mode = SolLandscapeLayerMode.Auto;
+
+        [Tooltip("Rock Materials protects Auto layers whose artwork name contains stone, rock or cliff. On protects any Auto material; Off allows local overrides. Protected coverage still follows the automatic rules.")]
+        public SolLandscapePaintProtection paintProtection;
+        public bool ProtectAutomaticCoverage
+        {
+            get
+            {
+                if(mode!=SolLandscapeLayerMode.Auto || paintProtection==SolLandscapePaintProtection.Off)return false;
+                if(paintProtection==SolLandscapePaintProtection.On)return true;
+                string artwork=terrainLayer!=null?terrainLayer.name:string.Empty;
+                return artwork.IndexOf("stone",StringComparison.OrdinalIgnoreCase)>=0
+                    || artwork.IndexOf("rock",StringComparison.OrdinalIgnoreCase)>=0
+                    || artwork.IndexOf("cliff",StringComparison.OrdinalIgnoreCase)>=0;
+            }
+        }
 
         [Tooltip("Base multiplier for this layer's evaluated procedural claim.")]
         [Range(0f, 1f)] public float autoWeight = 1f;
@@ -113,7 +152,7 @@ namespace Sol.Landscape
     }
 
     [CreateAssetMenu(menuName = "Sol/Landscape/Config", fileName = "SolLandscapeConfig")]
-    public sealed class SolLandscapeConfig : ScriptableObject
+    public class SolLandscapeConfig : ScriptableObject
     {
         [SerializeField] private TerrainData terrainData;
 
@@ -182,6 +221,18 @@ namespace Sol.Landscape
         public string LastBakeSummary => lastBakeSummary;
         public string TerrainDataGuid => terrainDataGuid;
         public IReadOnlyList<SolLandscapeBakeFingerprint> BakeFingerprints => bakeFingerprints;
+
+        public void SetLayers(IEnumerable<SolLandscapeLayerEntry> entries)
+        {
+            layers = new List<SolLandscapeLayerEntry>(entries);
+        }
+
+        public void CopyFrom(SolLandscapeConfig source)
+        {
+            JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(source), this);
+            foreach (var entry in layers)
+                if (string.IsNullOrEmpty(entry.materialId)) entry.materialId = Guid.NewGuid().ToString("N");
+        }
 
         public void RecordBake(
             TerrainData sourceTerrainData,

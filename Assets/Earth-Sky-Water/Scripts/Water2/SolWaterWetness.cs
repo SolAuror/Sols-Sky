@@ -7,13 +7,12 @@ namespace Sol.Water
     /// Publishes the terrain wetness shader contract consumed by
     /// <c>Shaders/Terrain/SolTerrainWetness.hlsl</c>.
     ///
-    /// These globals are also written by the legacy <c>SolWaterManager</c>, from its own
-    /// duplicated set of inspector fields. Earlier comments here claimed a one-way Water 2
-    /// converter disabled that component, but no such converter exists in the project, so
-    /// with both alive the two authorities wrote the same seven globals every frame -- this
-    /// one from LateUpdate, the legacy one from Update -- and the terrain's rain response
-    /// and shoreline height flipped between two independent sources. <see cref="Active"/>
-    /// makes the hand-off explicit: the legacy manager checks it and yields.
+    /// This is the sole authority for those globals. A retired Water 1 manager used to
+    /// write the same seven from its own duplicated inspector fields, so the terrain's rain
+    /// response and shoreline height flipped between two independent sources every frame --
+    /// that one from LateUpdate, the legacy one from Update. <see cref="Active"/> was the
+    /// hand-off the legacy manager checked before yielding; it is kept because the shader
+    /// contract still needs a published-or-not signal.
     ///
     /// <c>SolEnvironmentCoordinator</c> already captures and restores every global written
     /// here, so this only has to publish.
@@ -96,9 +95,8 @@ namespace Sol.Water
         Vector4 _originInvSize;
 
         /// <summary>
-        /// The live wetness authority, or null when Water 2 is not publishing. The legacy
-        /// <c>SolWaterManager</c> reads this to decide whether to yield the terrain
-        /// wetness and water level globals.
+        /// The live wetness authority, or null when Water 2 is not publishing. Consumers
+        /// read it to tell an unpublished frame from a genuinely dry one.
         /// </summary>
         public static SolWaterWetness Active { get; private set; }
 

@@ -165,8 +165,6 @@ namespace Sol.Tests.Editor
         {
             string timeOfDay = File.ReadAllText(
                 "Assets/Earth-Sky-Water/TimeOfDay/TimeofDay.cs");
-            string waterManager = File.ReadAllText(
-                "Assets/Earth-Sky-Water/Scripts/Management/WaterManager.cs");
             string director = File.ReadAllText(
                 "Assets/Earth-Sky-Water/Scripts/Lighting/SolLightingDirector.cs");
 
@@ -175,8 +173,6 @@ namespace Sol.Tests.Editor
             Assert.That(timeOfDay, Does.Not.Contain("RenderSettings.sun ="));
             Assert.That(timeOfDay, Does.Not.Contain("RenderSettings.ambientMode ="));
             Assert.That(timeOfDay, Does.Not.Contain("RenderSettings.ambientLight ="));
-            Assert.That(waterManager, Does.Not.Contain("_SolSunDirectionID"));
-            Assert.That(waterManager, Does.Not.Contain("_SolLightningFlashID"));
 
             Assert.That(director, Does.Contain("ApplyDirectional(frame.Sun)"));
             Assert.That(director, Does.Contain("ApplyDirectional(frame.Moon)"));

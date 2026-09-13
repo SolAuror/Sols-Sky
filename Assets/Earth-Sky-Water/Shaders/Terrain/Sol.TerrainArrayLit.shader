@@ -3,9 +3,9 @@ Shader "Sol/Terrain/Array Lit"
     Properties
     {
         [HideInInspector] _TerrainHolesTexture("Holes Map", 2D) = "white" {}
-        [Enum(Dirt,0,Grass,1,Stone2,2,Stone1,3,Path,4,Sand,5)] _Sol_LandscapeWeightDebugLayer("Diagnostic Layer", Float) = 0
+        [IntRange] _Sol_LandscapeWeightDebugLayer("Diagnostic Layer", Range(0,7)) = 0
         [Toggle(_SOL_LANDSCAPE_DEBUG)] _Sol_LandscapeDebug("Enable Diagnostics", Float) = 0
-        [Enum(Off,0,LayerWeight,1,ManualAutoSplit,2,ResolvedWeight,3,SnowCoverage,4)] _Sol_LandscapeDebugMode("Diagnostic View", Float) = 0
+        [Enum(Sol.Landscape.SolLandscapeDebugView)] _Sol_LandscapeDebugMode("Diagnostic View", Float) = 0
         [Toggle(_SOL_LANDSCAPE_BLEND_HEIGHT)] _Sol_LandscapeBlendHeight("Height Blend (Production)", Float) = 1
         [Toggle(_SOL_LANDSCAPE_STOCHASTIC)] _Sol_LandscapeStochasticTiling("Stochastic Tiling (per-layer opt-in)", Float) = 0
         [Toggle(_SOL_LANDSCAPE_TRIPLANAR)] _Sol_LandscapeTriplanarProjection("Triplanar Projection (per-layer opt-in)", Float) = 0
@@ -64,12 +64,12 @@ Shader "Sol/Terrain/Array Lit"
             #pragma multi_compile _ DYNAMICLIGHTMAP_ON
             #pragma multi_compile_fragment _ DEBUG_DISPLAY
 
-            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_BLEND_HEIGHT
-            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_DEBUG
+            #pragma multi_compile_local_fragment _ _SOL_LANDSCAPE_BLEND_HEIGHT
+            #pragma multi_compile_local_fragment _ _SOL_LANDSCAPE_DEBUG
             // Master switch. Off costs nothing at all; on, each layer's own config flag decides
             // whether it pays three samples per array instead of one.
-            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_STOCHASTIC
-            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_TRIPLANAR
+            #pragma multi_compile_local_fragment _ _SOL_LANDSCAPE_STOCHASTIC
+            #pragma multi_compile_local_fragment _ _SOL_LANDSCAPE_TRIPLANAR
 
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
@@ -130,14 +130,15 @@ Shader "Sol/Terrain/Array Lit"
             ZWrite On
 
             HLSLPROGRAM
+            #define SOL_LANDSCAPE_DEPTH_NORMALS 1
             #pragma target 4.5
             #pragma vertex SolTerrainArrayDepthNormalsVertex
             #pragma fragment SolTerrainArrayDepthNormalsFragment
 
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_BLEND_HEIGHT
-            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_STOCHASTIC
-            #pragma shader_feature_local_fragment _SOL_LANDSCAPE_TRIPLANAR
+            #pragma multi_compile_local_fragment _ _SOL_LANDSCAPE_BLEND_HEIGHT
+            #pragma multi_compile_local_fragment _ _SOL_LANDSCAPE_STOCHASTIC
+            #pragma multi_compile_local_fragment _ _SOL_LANDSCAPE_TRIPLANAR
             #pragma multi_compile_instancing
             #pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
 

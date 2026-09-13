@@ -1,0 +1,14 @@
+Destination: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_A
+
+Moves (GUIDs preserved):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Grass_A.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_A/Profiles/Grass_A.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Grass_A Terrain.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_A/TerrainData/Grass_A Terrain.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:17.5866727Z. Reverse moves using Landscape.asset's move manifest.

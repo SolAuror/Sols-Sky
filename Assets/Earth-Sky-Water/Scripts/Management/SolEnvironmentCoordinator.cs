@@ -30,15 +30,9 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
     {
         Shader.PropertyToID("_Sol_DayFactor"),
         Shader.PropertyToID("_Sol_EclipseFactor"),
-        Shader.PropertyToID("_Sol_WindStrength"),
-        Shader.PropertyToID("_Sol_GlobalWaveSpeedMul"),
-        Shader.PropertyToID("_Sol_WaveTime"),
         Shader.PropertyToID("_Sol_RainIntensity"),
         Shader.PropertyToID("_Sol_SurfaceWetness"),
         Shader.PropertyToID("_Sol_GlobalWaterLevel"),
-        Shader.PropertyToID("_Sol_RainRoughnessBoost"),
-        Shader.PropertyToID("_Sol_RainNormalBoost"),
-        Shader.PropertyToID("_Sol_RainReflectionDampen"),
         Shader.PropertyToID("_Sol_TerrainWetSmoothness"),
         Shader.PropertyToID("_Sol_LightningFlash"),
         Shader.PropertyToID("_SolAtmosphereActive"),
@@ -49,18 +43,12 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
         Shader.PropertyToID("_SolSkyFrameActive"),
         Shader.PropertyToID("_SolSkyStellarBackdropActive"),
         Shader.PropertyToID("_SolCloudActive"),
-        Shader.PropertyToID("_Sol_RippleSpeed"),
-        Shader.PropertyToID("_Sol_RippleFrequency"),
-        Shader.PropertyToID("_Sol_RippleLifetime"),
-        Shader.PropertyToID("_Sol_RippleTime"),
-        Shader.PropertyToID("_WaterSurfaceY"),
         Shader.PropertyToID("_UnderwaterFactor"),
         Shader.PropertyToID("_UnderwaterDepth"),
     };
 
     static readonly int[] IntIds =
     {
-        Shader.PropertyToID("_Sol_RippleCount"),
         Shader.PropertyToID("_SolAtmosphereLocalVolumeCount"),
         Shader.PropertyToID("_SolAtmosphereLocalLightCount"),
     };
@@ -68,12 +56,7 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
     static readonly int[] VectorIds =
     {
         Shader.PropertyToID("_Sol_SunDirection"),
-        Shader.PropertyToID("_Sol_WindDirection"),
-        Shader.PropertyToID("_Sol_WaterDynamics"),
         Shader.PropertyToID("_Sol_TerrainWetness"),
-        Shader.PropertyToID("_Sol_WaveFadeCenter"),
-        Shader.PropertyToID("_Sol_RippleSimRegion"),
-        Shader.PropertyToID("_Sol_RippleSimParams"),
         Shader.PropertyToID("_SolAtmosphereParams0"),
         Shader.PropertyToID("_SolAtmosphereParams1"),
         Shader.PropertyToID("_SolAtmosphereParams2"),
@@ -108,7 +91,6 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
 
     static readonly int[] TextureIds =
     {
-        Shader.PropertyToID("_Sol_RippleSimTex"),
         Shader.PropertyToID("_Sol_TerrainSandMask"),
         Shader.PropertyToID("_Sol_TerrainShorelineData"),
         Shader.PropertyToID("_CloudNoiseTex"),
@@ -119,7 +101,6 @@ public sealed class SolEnvironmentCoordinator : MonoBehaviour
 
     static readonly int[] VectorArrayIds =
     {
-        Shader.PropertyToID("_Sol_Ripples"),
         Shader.PropertyToID("_SolAtmosphereLocalVolumeData0"),
         Shader.PropertyToID("_SolAtmosphereLocalVolumeData1"),
         Shader.PropertyToID("_SolAtmosphereLocalLightData0"),

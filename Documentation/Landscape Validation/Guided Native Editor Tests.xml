@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="8" result="Passed" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:26Z" duration="16.3590206">
+  <test-suite type="TestSuite" id="1000" name="Elementa - Unified Gameplay Environment" fullname="Elementa - Unified Gameplay Environment" runstate="Runnable" testcasecount="289" result="Passed" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:26Z" duration="16.359021" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1329" name="Assembly-CSharp-Editor.dll" fullname="B:/Projects/Unity/SkySystem/LandscapeDesignerValidation/Library/ScriptAssemblies/Assembly-CSharp-Editor.dll" runstate="Runnable" testcasecount="289" result="Passed" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:26Z" duration="16.350913" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="44044" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1330" name="Sol" fullname="Sol" runstate="Runnable" testcasecount="287" result="Passed" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:26Z" duration="16.346842" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1331" name="Tests" fullname="Sol.Tests" runstate="Runnable" testcasecount="287" result="Passed" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:26Z" duration="16.342760" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1332" name="Editor" fullname="Sol.Tests.Editor" runstate="Runnable" testcasecount="287" result="Passed" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:26Z" duration="16.338580" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1179" name="SolLandscapeCreationTests" fullname="Sol.Tests.Editor.SolLandscapeCreationTests" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:26Z" duration="16.333182" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1186" name="ArtworkBuilds_AreVersionedAndFailureKeepsPreviousPair" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.ArtworkBuilds_AreVersionedAndFailureKeepsPreviousPair" methodname="ArtworkBuilds_AreVersionedAndFailureKeepsPreviousPair" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1786600204" result="Passed" start-time="2026-09-13 12:13:09Z" end-time="2026-09-13 12:13:17Z" duration="7.208813" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1180" name="Creation_CancellationAfterFirstTileRollsBackOnlyItsTransaction" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.Creation_CancellationAfterFirstTileRollsBackOnlyItsTransaction" methodname="Creation_CancellationAfterFirstTileRollsBackOnlyItsTransaction" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1542225052" result="Passed" start-time="2026-09-13 12:13:17Z" end-time="2026-09-13 12:13:17Z" duration="0.854533" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1181" name="Creation_DefaultsAndReadOnlyValidationRejectUnsafeInputs" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.Creation_DefaultsAndReadOnlyValidationRejectUnsafeInputs" methodname="Creation_DefaultsAndReadOnlyValidationRejectUnsafeInputs" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1907146966" result="Passed" start-time="2026-09-13 12:13:17Z" end-time="2026-09-13 12:13:18Z" duration="0.495595" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1182" name="Creation_ReuseEmptyRootUndoRedoSaveReopenAndPaintLocations" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.Creation_ReuseEmptyRootUndoRedoSaveReopenAndPaintLocations" methodname="Creation_ReuseEmptyRootUndoRedoSaveReopenAndPaintLocations" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1256153219" result="Passed" start-time="2026-09-13 12:13:18Z" end-time="2026-09-13 12:13:19Z" duration="1.381566" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1187" name="DesignerAcceptance_DefaultGridAndEditorBrushHandlers" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.DesignerAcceptance_DefaultGridAndEditorBrushHandlers" methodname="DesignerAcceptance_DefaultGridAndEditorBrushHandlers" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1549338939" result="Passed" start-time="2026-09-13 12:13:19Z" end-time="2026-09-13 12:13:21Z" duration="1.872626" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1184" name="Organisation_ReviewedMovesPreserveGuidSharedArtworkAndReverse" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.Organisation_ReviewedMovesPreserveGuidSharedArtworkAndReverse" methodname="Organisation_ReviewedMovesPreserveGuidSharedArtworkAndReverse" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1810802566" result="Passed" start-time="2026-09-13 12:13:21Z" end-time="2026-09-13 12:13:24Z" duration="2.640121" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1185" name="PaletteRepair_UsesCopiesAndPreservesSourceThroughUndoRedo" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.PaletteRepair_UsesCopiesAndPreservesSourceThroughUndoRedo" methodname="PaletteRepair_UsesCopiesAndPreservesSourceThroughUndoRedo" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1219059072" result="Passed" start-time="2026-09-13 12:13:24Z" end-time="2026-09-13 12:13:25Z" duration="0.760331" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1183" name="Wizard_UsesNativeBackCancelAndCreateControls" fullname="Sol.Tests.Editor.SolLandscapeCreationTests.Wizard_UsesNativeBackCancelAndCreateControls" methodname="Wizard_UsesNativeBackCancelAndCreateControls" classname="Sol.Tests.Editor.SolLandscapeCreationTests" runstate="Runnable" seed="1183935746" result="Passed" start-time="2026-09-13 12:13:25Z" end-time="2026-09-13 12:13:26Z" duration="1.107442" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/xSoll/AppData/LocalLow/Solrponk/Elementa - Unified Gameplay Environment\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

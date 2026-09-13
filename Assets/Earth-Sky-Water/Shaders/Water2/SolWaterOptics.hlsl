@@ -1,7 +1,7 @@
 #ifndef SOL_WATER_OPTICS_INCLUDED
 #define SOL_WATER_OPTICS_INCLUDED
 
-#include "../../Water/Shaders/SolSkyCommon.hlsl"
+#include "Assets/Earth-Sky-Water/Shaders/Common/SolSkyCommon.hlsl"
 
 // Shared water volume optics for the surface (SolOcean) and the submerged
 // composition (SolUnderwater). Both views must agree or the waterline pops, so

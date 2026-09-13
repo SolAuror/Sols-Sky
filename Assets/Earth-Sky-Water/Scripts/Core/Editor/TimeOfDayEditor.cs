@@ -10,7 +10,7 @@ namespace Sol.Environment.EditorTools
     [CanEditMultipleObjects]
     public sealed class TimeOfDayEditor : UnityEditor.Editor
     {
-        static readonly HashSet<string> ProfileOwned = new()
+        internal static readonly HashSet<string> ProfileOwned = new()
         {
             // Direct-light settings still belong to TimeOfDay, even with a sky profile.
             "eclipseAmbientColor", "eclipseFogColor", "ambientSkyIntensity", "ambientDayColor",

@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: 7ea191a7a408440ea61c8ae2ab2e1b32
+  sceneGuid: 7a1ecafbcaf937e49a9edb23cb56780a
+  landscapeName: Grass_Soil_A
+  ownedAssets:
+  - {fileID: 11400000, guid: 1f96348b50bba0240a72e8935397d27c, type: 2}
+  - {fileID: 15600000, guid: 79d7e0a204c1f6a4c8033cd75b1fd7bb, type: 2}
+  moves:
+  - guid: 1f96348b50bba0240a72e8935397d27c
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Grass_Soil_A.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_Soil_A/Profiles/Grass_Soil_A.asset
+    utc: 2026-09-13T11:53:18.5248374Z
+  - guid: 79d7e0a204c1f6a4c8033cd75b1fd7bb
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Grass_Soil_A
+      Terrain.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Grass_Soil_A/TerrainData/Grass_Soil_A
+      Terrain.asset
+    utc: 2026-09-13T11:53:18.5248374Z

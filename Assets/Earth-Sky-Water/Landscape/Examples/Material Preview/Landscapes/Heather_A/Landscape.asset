@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: 0c834d9d0b74468a9a7a21c2daad6126
+  sceneGuid: 7a1ecafbcaf937e49a9edb23cb56780a
+  landscapeName: Heather_A
+  ownedAssets:
+  - {fileID: 11400000, guid: 1b68a12fd7633854f842c85904e763f3, type: 2}
+  - {fileID: 15600000, guid: 09374f03b230c5049a0a8d162718619e, type: 2}
+  moves:
+  - guid: 1b68a12fd7633854f842c85904e763f3
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Heather_A.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Heather_A/Profiles/Heather_A.asset
+    utc: 2026-09-13T11:53:19.7690799Z
+  - guid: 09374f03b230c5049a0a8d162718619e
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Heather_A
+      Terrain.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Heather_A/TerrainData/Heather_A
+      Terrain.asset
+    utc: 2026-09-13T11:53:19.7690799Z

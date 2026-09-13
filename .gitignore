@@ -77,3 +77,4 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 Assets/Earth-Sky-Water/TimeOfDay/Textures/Sol_StellarBackdrop.asset
 Assets/Earth-Sky-Water/TimeOfDay/Textures/Sol_StellarBackdrop.asset.meta
+/Assets/Earth-Sky-Water/Landscape/Library/Sources

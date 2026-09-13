@@ -73,11 +73,11 @@ MonoBehaviour:
   dayScatteringColor: {r: 1, g: 0.75, b: 0.48, a: 1}
   nightScatteringColor: {r: 0.22, g: 0.34, b: 0.62, a: 1}
   atmosphereRaymarchDistance: 500
-  atmosphereRaymarchStepCount: 32
-  atmosphereRaymarchJitter: 0.15
+  atmosphereRaymarchStepCount: 64
+  atmosphereRaymarchJitter: 0.8
   atmosphereBilateralDepthThreshold: 2
   atmosphereSpatialFilterStrength: 0.75
-  atmosphereQuality: 1
+  atmosphereQuality: 2
   sunAngularDiameter: 3.5
   sunColor: {r: 1, g: 0.97, b: 0.87, a: 1}
   sunIntensity: 12
@@ -108,15 +108,15 @@ MonoBehaviour:
   auroraMinElevation: 0.08
   auroraMaxElevation: 0.62
   auroraEdgeSoftness: 0.08
-  cloudFormation: 0
-  cloudCoverage: 0.35
+  cloudFormation: 1
+  cloudCoverage: 0.487
   cloudErosion: 0.45
   cloudDensity: 0.72
   cloudBaseHeight: 1500
-  cloudThickness: 3200
+  cloudThickness: 3500
   cloudVerticalDevelopment: 0.45
   cloudAnvilAmount: 0
   cloudCirrusAmount: 0.18
-  cloudEdgeSoftness: 0.5
+  cloudEdgeSoftness: 0.559
   cloudBaseSoftness: 0.5
   cloudShadowStrength: 0.65

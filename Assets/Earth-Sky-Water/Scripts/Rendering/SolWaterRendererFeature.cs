@@ -264,12 +264,12 @@ namespace Sol.Water.Rendering
             }
         }
 
-        // Shared with the legacy Water 1 stack. SolAtmosphereRendererFeature gates its
-        // aerial perspective on _UnderwaterFactor, and only the legacy
-        // UnderwaterVolumeController ever wrote it -- so in a Water 2 scene the gate never
-        // fired and a submerged camera still got full-strength fog over the underwater
-        // view. The legacy UnderwaterRendererFeature reads the same global, so it has to
-        // stay disabled in the renderer asset or both stacks composite underwater.
+        // This feature is the sole publisher of the submersion contract.
+        // SolAtmosphereRendererFeature gates its aerial perspective on _UnderwaterFactor,
+        // and a retired Water 1 controller was once the only thing that wrote it -- so in a
+        // Water 2 scene the gate never fired and a submerged camera still got full-strength
+        // fog over the underwater view. SolRainVfxController reads the same global on the
+        // same threshold.
         static readonly int UnderwaterFactorId = Shader.PropertyToID("_UnderwaterFactor");
         static readonly int UnderwaterDepthId = Shader.PropertyToID("_UnderwaterDepth");
 

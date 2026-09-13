@@ -4,7 +4,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "SolTerrainWetness.hlsl"
 
-#define SOL_LANDSCAPE_LAYER_COUNT 6
+#define SOL_LANDSCAPE_LAYER_COUNT 8
 #define SOL_LANDSCAPE_DEBUG_LAYER_WEIGHT 1
 #define SOL_LANDSCAPE_DEBUG_MANUAL_AUTO_SPLIT 2
 #define SOL_LANDSCAPE_DEBUG_RESOLVED_AUTO 3
@@ -99,7 +99,7 @@ SolTerrainArrayVaryings SolTerrainArrayVertex(SolTerrainArrayAttributes input)
 struct SolLandscapeRawWeights
 {
     half4 control0;
-    half2 control1;
+    half4 control1;
 };
 
 SolLandscapeRawWeights SolDecodeLandscapeRawWeights(float2 terrainUV)
@@ -117,7 +117,7 @@ SolLandscapeRawWeights SolDecodeLandscapeRawWeights(float2 terrainUV)
     weights.control1 = SAMPLE_TEXTURE2D(
         _Sol_LandscapeControl1,
         sampler_Sol_LandscapeControl1,
-        splatUV).rg;
+        splatUV);
     return weights;
 }
 
@@ -129,6 +129,8 @@ half SolSelectLandscapeRawWeight(SolLandscapeRawWeights weights, int layerIndex)
     if (layerIndex == 3) return weights.control0.a;
     if (layerIndex == 4) return weights.control1.r;
     if (layerIndex == 5) return weights.control1.g;
+    if (layerIndex == 6) return weights.control1.b;
+    if (layerIndex == 7) return weights.control1.a;
     return 0.0h;
 }
 
@@ -153,6 +155,10 @@ struct SolLandscapeSurface
     half2 manualAutoDebugWeights;
     half resolvedAutoDebugWeight;
     half snowCoverage;
+    half sandWeight;
+    half baseDebugWeight;
+    half overrideDebugWeight;
+    half exclusionDebugWeight;
 };
 
 struct SolLandscapeLayerSample
@@ -389,13 +395,13 @@ half4 SolSampleLandscapePlane(
         {
             stochastic += SAMPLE_TEXTURE2D_ARRAY_GRAD(
                 arrayTexture, arraySampler,
-                taps[i].uv, layerIndex, taps[i].ddxUV, taps[i].ddyUV) * (half)taps[i].weight;
+                taps[i].uv, _Sol_LandscapeSliceIndices[layerIndex], taps[i].ddxUV, taps[i].ddyUV) * (half)taps[i].weight;
         }
         return stochastic;
     }
 #endif
     return SAMPLE_TEXTURE2D_ARRAY_GRAD(
-        arrayTexture, arraySampler, plane.uv, layerIndex, plane.ddxUV, plane.ddyUV);
+        arrayTexture, arraySampler, plane.uv, _Sol_LandscapeSliceIndices[layerIndex], plane.ddxUV, plane.ddyUV);
 }
 
 half4 SolSampleLandscapeCS(SolLandscapeUVContext ctx, int layerIndex)
@@ -505,6 +511,8 @@ void SolBuildLandscapeAllSamples(
     [unroll]
     for (int buildLayerIndex = 0; buildLayerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++buildLayerIndex)
     {
+        samples[buildLayerIndex] = (SolLandscapeLayerSample)0;
+        if (buildLayerIndex >= _Sol_LandscapeLayerCount) continue;
         samples[buildLayerIndex].weight = resolvedWeights[buildLayerIndex];
         samples[buildLayerIndex].layerIndex = buildLayerIndex;
         SolResolveLandscapeNOH(
@@ -571,13 +579,21 @@ void SolAccumulateLandscapeLayer(
     inout half smoothness,
     inout half occlusion,
     inout half3 normalTS,
-    inout half postBlendDebugWeight)
+    inout half postBlendDebugWeight,
+    float2 colourNoise)
 {
     int layerIndex = sample.layerIndex;
+    if (layerIndex >= _Sol_LandscapeLayerCount || sample.weight <= 0) return;
     half weight = (half)sample.weight;
     half4 cs = SolSampleLandscapeCS(ctx, layerIndex);
     half4 noh = sample.noh;
 
+    float4 tint = _Sol_LandscapeLayerTint[layerIndex];
+    float4 surface = _Sol_LandscapeLayerSurface[layerIndex];
+    cs.rgb *= lerp(1, tint.rgb, tint.a);
+    cs.rgb *= max(0, 1 + dot(colourNoise, _Sol_LandscapeLayerVariation[layerIndex].xy));
+    cs.a = saturate(lerp(surface.x, surface.y, cs.a));
+    noh.b = saturate(1 - (1 - noh.b) * surface.z);
     albedo += cs.rgb * weight;
     smoothness += cs.a * weight;
     occlusion += noh.b * weight;
@@ -600,7 +616,7 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
     float resolvedWeights[SOL_LANDSCAPE_LAYER_COUNT];
     [unroll]
     for (int resolveInputIndex = 0; resolveInputIndex < SOL_LANDSCAPE_LAYER_COUNT; ++resolveInputIndex)
-        resolvedWeights[resolveInputIndex] = SolSelectLandscapeRawWeight(rawWeights, resolveInputIndex);
+        resolvedWeights[resolveInputIndex] = resolveInputIndex < _Sol_LandscapeLayerCount ? SolSelectLandscapeRawWeight(rawWeights, resolveInputIndex) : 0;
 
     // Resolve every authored layer's weight from the live terrain before any sampling. This
     // contract is ALU-only: the procedural rules add no texture fetches of their own, which is
@@ -661,9 +677,41 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
         SolNormalizeLandscapeAllLayers(allLayers);
     #endif
 
+    float4 overrides0, overrides1, exclusions0, exclusions1, removal0, removal1;
+    SolLandscapeReadPaint(terrainUV, false, overrides0, overrides1);
+    SolLandscapeReadPaint(terrainUV, true, exclusions0, exclusions1);
+    SolLandscapeReadRemoval(terrainUV, removal0, removal1);
+    float overrideSum = 0, protectedCoverage = 0;
+    [unroll] for (int k = 0; k < SOL_LANDSCAPE_LAYER_COUNT; k++)
+        if (k < _Sol_LandscapeLayerCount)
+        {
+            if (_Sol_LandscapeRuleSettings[k].z > .5) protectedCoverage += allLayers[k].weight;
+            else overrideSum += SolLandscapeChannel(overrides0, overrides1, k) * (1 - SolLandscapeRemoval(removal0, removal1, k));
+        }
+    float paintableCoverage = 1 - saturate(protectedCoverage);
+    float overrideScale = rcp(max(1, overrideSum));
+    half baseDebugWeight = 0, overrideDebugWeight = 0, exclusionDebugWeight = 0, sandWeight = 0;
+    float2 colourNoise = 0;
+#ifndef SOL_LANDSCAPE_DEPTH_NORMALS
+    if (_Sol_LandscapeVariationScales.z > .5)
+        colourNoise = float2(SolLandscapeNoise((positionWS.xz-_Sol_LandscapeGroupOrigin.xy) / max(1,_Sol_LandscapeVariationScales.x)), SolLandscapeNoise((positionWS.xz-_Sol_LandscapeGroupOrigin.xy) / max(1,_Sol_LandscapeVariationScales.y)));
+#endif
     [unroll]
     for (int layerIndex = 0; layerIndex < SOL_LANDSCAPE_LAYER_COUNT; ++layerIndex)
     {
+        if (layerIndex >= _Sol_LandscapeLayerCount) continue;
+        bool protectedLayer = _Sol_LandscapeRuleSettings[layerIndex].z > .5;
+        float overrideWeight = protectedLayer ? 0 : SolLandscapeChannel(overrides0, overrides1, layerIndex) * (1 - SolLandscapeRemoval(removal0, removal1, layerIndex)) * overrideScale * paintableCoverage;
+        if (layerIndex == (int)_Sol_LandscapeWeightDebugLayer)
+        {
+            baseDebugWeight = allLayers[layerIndex].weight;
+            overrideDebugWeight = overrideWeight;
+            exclusionDebugWeight = SolLandscapeChannel(exclusions0, exclusions1, layerIndex);
+        }
+        // Protected automatic coverage is resolved before local overrides and retains its
+        // full weight. Paint fills only the remaining budget; the final weights still sum to one.
+        if (!protectedLayer) allLayers[layerIndex].weight = (1 - saturate(overrideSum)) * allLayers[layerIndex].weight + overrideWeight;
+        sandWeight += allLayers[layerIndex].weight * _Sol_LandscapeSandLayers[layerIndex];
         weatherSnowSusceptibility += allLayers[layerIndex].weight
             * _Sol_LandscapeWeatherSnowSusceptibilities[allLayers[layerIndex].layerIndex];
         permanentSnowSusceptibility += allLayers[layerIndex].weight
@@ -675,7 +723,7 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
             smoothness,
             occlusion,
             normalTS,
-            postBlendDebugWeight);
+            postBlendDebugWeight, colourNoise);
     }
 
     // Match stock TerrainLit protection against a zero-length blended tangent-space normal.
@@ -686,6 +734,8 @@ SolLandscapeSurface SolEvaluateLandscapeSurface(
 #endif
 
     SolLandscapeSurface result = (SolLandscapeSurface)0;
+    result.sandWeight = sandWeight;
+    result.baseDebugWeight = baseDebugWeight; result.overrideDebugWeight = overrideDebugWeight; result.exclusionDebugWeight = exclusionDebugWeight;
     result.surfaceData.albedo = albedo;
     result.surfaceData.metallic = 0.0h;
     result.surfaceData.specular = 0.0h;
@@ -868,8 +918,10 @@ void SolTerrainArrayFragment(
             outColor = half4(landscape.manualAutoDebugWeights, 0.0h, 1.0h);
         else if (_Sol_LandscapeDebugMode < (float)SOL_LANDSCAPE_DEBUG_SNOW_COVERAGE - 0.5f)
             outColor = half4(landscape.resolvedAutoDebugWeight.xxx, 1.0h);
-        else
-            outColor = half4(landscape.snowCoverage.xxx, 1.0h);
+        else if (_Sol_LandscapeDebugMode < 4.5) outColor = half4(landscape.snowCoverage.xxx, 1);
+        else if (_Sol_LandscapeDebugMode < 5.5) outColor = half4(landscape.baseDebugWeight.xxx, 1);
+        else if (_Sol_LandscapeDebugMode < 6.5) outColor = half4(landscape.overrideDebugWeight.xxx, 1);
+        else outColor = half4(landscape.exclusionDebugWeight.xxx, 1);
 #ifdef _WRITE_RENDERING_LAYERS
         outRenderingLayers = EncodeMeshRenderingLayer();
 #endif
@@ -889,8 +941,10 @@ void SolTerrainArrayFragment(
 
     // geometricNormalWS intentionally remains distinct from inputData.normalWS: the auto-material
     // slope and cavity rules must read the terrain surface, not the layer-perturbed normal.
-    SolApplyTerrainWetness(
+    SolApplyTerrainWetnessEffective(
         inputData.positionWS,
+        _Sol_LandscapeWetPreview.x > .5 ? _Sol_LandscapeWetPreview.y : _Sol_SurfaceWetness,
+        _Sol_LandscapeGrouped > .5 ? landscape.sandWeight : SolTerrainSandWeight(inputData.positionWS),
         landscape.surfaceData.albedo,
         landscape.surfaceData.metallic,
         landscape.surfaceData.smoothness,

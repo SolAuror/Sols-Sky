@@ -1,0 +1,14 @@
+Destination: Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Pebbles_B
+
+Moves (GUIDs preserved):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Pebbles_B.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Pebbles_B/Profiles/Pebbles_B.asset
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Pebbles_B Terrain.asset → Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Landscapes/Pebbles_B/TerrainData/Pebbles_B Terrain.asset
+
+Shared dependencies retained:
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate CS 1.asset
+Assets/Earth-Sky-Water/Landscape/Library/Profiles/Temperate NOH 1.asset
+
+Ownership needed (left in place):
+Assets/Earth-Sky-Water/Landscape/Examples/Material Preview/Additional Artwork.asset
+
+Completed 2026-09-13T11:53:21.3505907Z. Reverse moves using Landscape.asset's move manifest.

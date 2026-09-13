@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="21" result="Passed" total="21" passed="21" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-11 05:49:31Z" end-time="2026-09-11 05:50:49Z" duration="78.0203841">
+  <test-suite type="TestSuite" id="1000" name="Elementa - Unified Gameplay Environment" fullname="Elementa - Unified Gameplay Environment" runstate="Runnable" testcasecount="248" result="Passed" start-time="2026-09-11 05:49:31Z" end-time="2026-09-11 05:50:49Z" duration="78.020384" total="21" passed="21" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1283" name="Assembly-CSharp-Editor.dll" fullname="B:/Projects/Unity/SkySystem/LandscapeDesignerValidation/Library/ScriptAssemblies/Assembly-CSharp-Editor.dll" runstate="Runnable" testcasecount="248" result="Passed" start-time="2026-09-11 05:49:32Z" end-time="2026-09-11 05:50:49Z" duration="77.847370" total="21" passed="21" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="15764" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1284" name="Sol" fullname="Sol" runstate="Runnable" testcasecount="248" result="Passed" start-time="2026-09-11 05:49:32Z" end-time="2026-09-11 05:50:49Z" duration="77.846208" total="21" passed="21" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1285" name="Tests" fullname="Sol.Tests" runstate="Runnable" testcasecount="248" result="Passed" start-time="2026-09-11 05:49:32Z" end-time="2026-09-11 05:50:49Z" duration="77.845240" total="21" passed="21" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1286" name="Editor" fullname="Sol.Tests.Editor" runstate="Runnable" testcasecount="248" result="Passed" start-time="2026-09-11 05:49:32Z" end-time="2026-09-11 05:50:49Z" duration="77.844117" total="21" passed="21" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1176" name="SolLandscapeDesignerTests" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" testcasecount="19" result="Passed" start-time="2026-09-11 05:49:32Z" end-time="2026-09-11 05:50:49Z" duration="77.810383" total="19" passed="19" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1189" name="BindingRelease_PreservesPropertiesWrittenAfterPublication" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.BindingRelease_PreservesPropertiesWrittenAfterPublication" methodname="BindingRelease_PreservesPropertiesWrittenAfterPublication" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1690627726" result="Passed" start-time="2026-09-11 05:49:24Z" end-time="2026-09-11 05:49:24Z" duration="0.035623" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1184" name="Cancel_RestoresUnallocatedMaps_AndExclusionDoesNotChangePaint" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Cancel_RestoresUnallocatedMaps_AndExclusionDoesNotChangePaint" methodname="Cancel_RestoresUnallocatedMaps_AndExclusionDoesNotChangePaint" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="114600364" result="Passed" start-time="2026-09-11 05:49:24Z" end-time="2026-09-11 05:49:24Z" duration="0.014528" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1178" name="DesignerActivities_BuildNativeControlsAndReleasePreview" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.DesignerActivities_BuildNativeControlsAndReleasePreview" methodname="DesignerActivities_BuildNativeControlsAndReleasePreview" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1579710717" result="Passed" start-time="2026-09-11 05:49:24Z" end-time="2026-09-11 05:49:24Z" duration="0.513104" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1192" name="GpuFinalWeights_RespectOverrideEraseAndExclusion" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.GpuFinalWeights_RespectOverrideEraseAndExclusion" methodname="GpuFinalWeights_RespectOverrideEraseAndExclusion" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1288148792" result="Passed" start-time="2026-09-11 05:49:24Z" end-time="2026-09-11 05:49:28Z" duration="3.778059" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1180" name="IndependentGroups_RetainTheirOwnPalettesAndPreview" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.IndependentGroups_RetainTheirOwnPalettesAndPreview" methodname="IndependentGroups_RetainTheirOwnPalettesAndPreview" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="380659649" result="Passed" start-time="2026-09-11 05:49:28Z" end-time="2026-09-11 05:49:28Z" duration="0.005253" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1182" name="LegacyElementaDemo_AllNineTerrainsReceiveTheExistingMaterialContract" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.LegacyElementaDemo_AllNineTerrainsReceiveTheExistingMaterialContract" methodname="LegacyElementaDemo_AllNineTerrainsReceiveTheExistingMaterialContract" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1944444475" result="Passed" start-time="2026-09-11 05:49:28Z" end-time="2026-09-11 05:49:29Z" duration="1.316431" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1181" name="LegacySharedMaterial_BindsFollowersAndRestoresUnrelatedProperties" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.LegacySharedMaterial_BindsFollowersAndRestoresUnrelatedProperties" methodname="LegacySharedMaterial_BindsFollowersAndRestoresUnrelatedProperties" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="601966282" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.005797" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1185" name="Paint_RemapPreservesMaterialIdentity_AndRemovalRevealsBase" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Paint_RemapPreservesMaterialIdentity_AndRemovalRevealsBase" methodname="Paint_RemapPreservesMaterialIdentity_AndRemovalRevealsBase" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="567466490" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.005314" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1188" name="Paint_SerializesAndUndoRestoresBothTiles" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Paint_SerializesAndUndoRestoresBothTiles" methodname="Paint_SerializesAndUndoRestoresBothTiles" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="723576484" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.029902" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1191" name="PaletteReorder_PreservesBakedSlicePaintAndAlphamaps" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PaletteReorder_PreservesBakedSlicePaintAndAlphamaps" methodname="PaletteReorder_PreservesBakedSlicePaintAndAlphamaps" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="976241071" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.006661" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1179" name="PerTileBindings_AreIndependentAndPreserveUnrelatedProperties" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.PerTileBindings_AreIndependentAndPreserveUnrelatedProperties" methodname="PerTileBindings_AreIndependentAndPreserveUnrelatedProperties" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1642786498" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.004796" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1186" name="Preview_IsOwnerScoped_AndDoesNotWriteWorldWetness" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Preview_IsOwnerScoped_AndDoesNotWriteWorldWetness" methodname="Preview_IsOwnerScoped_AndDoesNotWriteWorldWetness" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="350817536" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.001714" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1177" name="ProfilesAndTiles_ValidateOneThroughEightLayers" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.ProfilesAndTiles_ValidateOneThroughEightLayers" methodname="ProfilesAndTiles_ValidateOneThroughEightLayers" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="2050147051" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.001502" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1187" name="Rules_HaveExplicitFeathersAndPreservedEndpoints" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Rules_HaveExplicitFeathersAndPreservedEndpoints" methodname="Rules_HaveExplicitFeathersAndPreservedEndpoints" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1002407157" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:29Z" duration="0.000273" asserts="0">
+                <properties />
+              </test-case>
+              <test-case id="1193" name="RuntimeStroke_OperatesOnClonedData" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.RuntimeStroke_OperatesOnClonedData" methodname="RuntimeStroke_OperatesOnClonedData" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="543818670" result="Passed" start-time="2026-09-11 05:49:29Z" end-time="2026-09-11 05:49:32Z" duration="2.487412" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Default GameObject Tag: Player already registered
+]]></output>
+              </test-case>
+              <test-case id="1190" name="Sculpt_PaintContextPreservesFourTileBordersAndUndo" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Sculpt_PaintContextPreservesFourTileBordersAndUndo" methodname="Sculpt_PaintContextPreservesFourTileBordersAndUndo" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1478838538" result="Passed" start-time="2026-09-11 05:49:32Z" end-time="2026-09-11 05:49:32Z" duration="0.023786" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1194" name="Shaders_CompileAndRenderRequiredVariants" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Shaders_CompileAndRenderRequiredVariants" methodname="Shaders_CompileAndRenderRequiredVariants" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1613805149" result="Passed" start-time="2026-09-11 05:49:32Z" end-time="2026-09-11 05:50:43Z" duration="71.010041" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1183" name="Stroke_PaintsAcrossFourTileJunction_AndEraseRestoresAutomatic" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.Stroke_PaintsAcrossFourTileJunction_AndEraseRestoresAutomatic" methodname="Stroke_PaintsAcrossFourTileJunction_AndEraseRestoresAutomatic" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="1560012841" result="Passed" start-time="2026-09-11 05:50:43Z" end-time="2026-09-11 05:50:43Z" duration="0.013287" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1195" name="TerrainHoles_ClipTheRenderedSurface" fullname="Sol.Tests.Editor.SolLandscapeDesignerTests.TerrainHoles_ClipTheRenderedSurface" methodname="TerrainHoles_ClipTheRenderedSurface" classname="Sol.Tests.Editor.SolLandscapeDesignerTests" runstate="Runnable" seed="196053966" result="Passed" start-time="2026-09-11 05:50:43Z" end-time="2026-09-11 05:50:49Z" duration="6.498621" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1196" name="SolLandscapeSnowRegressionTests" fullname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" classname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-11 05:50:49Z" end-time="2026-09-11 05:50:49Z" duration="0.030210" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1197" name="AccumulatedSnowCoverage_DoesNotChangeWithTimeOfDayTemperature" fullname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests.AccumulatedSnowCoverage_DoesNotChangeWithTimeOfDayTemperature" methodname="AccumulatedSnowCoverage_DoesNotChangeWithTimeOfDayTemperature" classname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" runstate="Runnable" seed="369425188" result="Passed" start-time="2026-09-11 05:50:49Z" end-time="2026-09-11 05:50:49Z" duration="0.000787" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1198" name="SnowLifecycle_RemainsOwnedByEnvironmentSimulation" fullname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests.SnowLifecycle_RemainsOwnedByEnvironmentSimulation" methodname="SnowLifecycle_RemainsOwnedByEnvironmentSimulation" classname="Sol.Tests.Editor.SolLandscapeSnowRegressionTests" runstate="Runnable" seed="860984561" result="Passed" start-time="2026-09-11 05:50:49Z" end-time="2026-09-11 05:50:49Z" duration="0.000348" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/xSoll/AppData/LocalLow/Solrponk/Elementa - Unified Gameplay Environment\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -193,12 +193,12 @@ public sealed class SolRainVfxController : MonoBehaviour
         // SolWeatherState.RainIntensity, which is total precipitation. Reading the total
         // here is what made rain fall at -10 C.
         SolEnvironmentWeatherState precipitation = environment.Weather;
-        // Submersion comes from the _UnderwaterFactor global rather than from the legacy
-        // UnderwaterVolumeController. Both water paths publish that contract -- Water 2
-        // from SolWaterRendererFeature, Water 1 from the controller -- but the controller
-        // yields entirely while Water 2 is live, so asking it directly left rain falling
-        // through the camera underwater in every Water 2 scene. The atmosphere feature
-        // reads the same global on the same threshold.
+        // Submersion comes from the _UnderwaterFactor global, published by
+        // SolWaterRendererFeature, rather than from any component reference. A retired
+        // Water 1 controller also wrote that global and yielded whenever Water 2 was live,
+        // so asking it directly left rain falling through a submerged camera in every
+        // Water 2 scene. The atmosphere feature reads the same global on the same
+        // threshold, which is what keeps the two in step.
         float underwaterExposure = Shader.GetGlobalFloat(UnderwaterFactorId) > 0.5f ? 0f : 1f;
         float exposure = _manualExposure * _shelterExposure * underwaterExposure;
         EffectiveRainIntensity = Mathf.Clamp01(precipitation.Rain * exposure);

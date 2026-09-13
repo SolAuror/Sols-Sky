@@ -123,29 +123,6 @@ namespace Sol.Tests.Editor
         }
 
         /// <summary>
-        /// The legacy Water 1 underwater feature must stay disabled. Water 2 publishes its
-        /// own submersion contract and composites underwater from
-        /// SolWaterRendererFeature; with both live the screen is composited twice, which
-        /// reads as a murky over-dark tint rather than an obvious failure. Nothing in the
-        /// renderer asset guards this, and it is one inspector checkbox away.
-        /// </summary>
-        [Test]
-        public void RendererAsset_KeepsTheLegacyUnderwaterFeatureDisabled()
-        {
-            ScriptableRendererData rendererData =
-                AssetDatabase.LoadAssetAtPath<ScriptableRendererData>(RendererPath);
-            Assert.IsNotNull(rendererData, $"Sol renderer data was not found at {RendererPath}.");
-
-            foreach (ScriptableRendererFeature feature in rendererData.rendererFeatures)
-            {
-                if (feature is UnderwaterRendererFeature legacy)
-                    Assert.IsFalse(legacy.isActive,
-                        "The legacy UnderwaterRendererFeature is enabled; it double-composites "
-                        + "underwater alongside Water 2.");
-            }
-        }
-
-        /// <summary>
         /// The volumetric atmosphere skips recording its spatial filter pass when the
         /// authored strength is zero, because the shader's own early-out makes the pass a
         /// half-resolution identity copy in that case. If a tier below High ever authors a
@@ -1642,22 +1619,23 @@ namespace Sol.Tests.Editor
         }
 
         /// <summary>
-        /// Rain resolves submersion from the shared _UnderwaterFactor global, not from
-        /// UnderwaterVolumeController. That controller yields entirely whenever Water 2 is
-        /// live, so a direct reference silently reported "not underwater" in every Water 2
-        /// scene and rain kept falling through a submerged camera. Both water paths publish
-        /// the global, so it is the only source that works for either.
+        /// Rain resolves submersion from the shared _UnderwaterFactor global rather than by
+        /// asking a water component directly. This used to guard against a reference to the
+        /// Water 1 underwater controller, which yielded whenever Water 2 was live and so
+        /// silently reported "not underwater" in every Water 2 scene while rain kept falling
+        /// through a submerged camera. That type is retired; the contract it protected is
+        /// not, so the check now asserts the global itself is still what rain reads.
         /// </summary>
         [Test]
         public void RainController_ResolvesSubmersionFromTheSharedGlobal()
         {
-            foreach (FieldInfo field in typeof(SolRainVfxController)
-                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-            {
-                Assert.AreNotEqual(typeof(UnderwaterVolumeController), field.FieldType,
-                    $"SolRainVfxController.{field.Name} reintroduces a dependency on the "
-                    + "legacy underwater controller, which does not update under Water 2.");
-            }
+            string source = File.ReadAllText(
+                "Assets/Earth-Sky-Water/Scripts/Management/SolRainVfxController.cs");
+
+            StringAssert.Contains("_UnderwaterFactor", source,
+                "SolRainVfxController no longer reads the shared submersion global.");
+            StringAssert.Contains("Shader.GetGlobalFloat(UnderwaterFactorId)", source,
+                "SolRainVfxController stopped sampling _UnderwaterFactor for submersion.");
         }
 
         // --- Snow, blizzard, transition choreography, and cloud definition ---------

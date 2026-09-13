@@ -650,6 +650,12 @@ public class TimeOfDay : MonoBehaviour
             return;
 
         skyProfile = profile;
+        RefreshSkyPresentation();
+    }
+
+    /// <summary>Re-evaluate an edited profile without replacing its serialized assignment.</summary>
+    public void RefreshSkyPresentation()
+    {
         skyRevision++;
         currentSkyFrame = default;
         environmentUpdateGate.Invalidate();

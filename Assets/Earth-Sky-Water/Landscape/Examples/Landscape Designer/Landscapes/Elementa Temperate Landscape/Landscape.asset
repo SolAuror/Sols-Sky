@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e491551446151b549ad79b74000d49d0, type: 3}
+  m_Name: Landscape
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Landscape.SolLandscapeAsset
+  version: 1
+  landscapeId: f8f909f9bdd645e085a85a74558ef7ea
+  sceneGuid: 1faa9752d34de7e4e9e8bf8fbd52fc2c
+  landscapeName: Elementa Temperate Landscape
+  ownedAssets:
+  - {fileID: 15600000, guid: dd5a06000972d34408aa5f6a56b52e76, type: 2}
+  - {fileID: 11400000, guid: 3beef035aab0ba046aee0145b6d3e453, type: 2}
+  - {fileID: 15600000, guid: 0433795dd6238024899acbb46f8f730c, type: 2}
+  - {fileID: 11400000, guid: 4bfcf2e66baba0c469621867637ba5c9, type: 2}
+  - {fileID: 15600000, guid: d42b4e7baf115bd4b9ad563c1fc6938e, type: 2}
+  - {fileID: 11400000, guid: 2f041c2134c912b4ba85cb507029190c, type: 2}
+  - {fileID: 15600000, guid: 889b9e3edd49a964da6d78f21eaf4d33, type: 2}
+  - {fileID: 11400000, guid: 102a9d0395ab9e04dbb608dee12d5ece, type: 2}
+  moves:
+  - guid: dd5a06000972d34408aa5f6a56b52e76
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 0.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/TerrainData/Terrain 0 0.asset
+    utc: 2026-09-13T11:53:14.9106495Z
+  - guid: 3beef035aab0ba046aee0145b6d3e453
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 0 Paint.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/Paint/Terrain 0 0 Paint.asset
+    utc: 2026-09-13T11:53:14.9126487Z
+  - guid: 0433795dd6238024899acbb46f8f730c
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 0.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/TerrainData/Terrain 1 0.asset
+    utc: 2026-09-13T11:53:14.9126487Z
+  - guid: 4bfcf2e66baba0c469621867637ba5c9
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 0 Paint.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/Paint/Terrain 1 0 Paint.asset
+    utc: 2026-09-13T11:53:14.9126487Z
+  - guid: d42b4e7baf115bd4b9ad563c1fc6938e
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 1.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/TerrainData/Terrain 0 1.asset
+    utc: 2026-09-13T11:53:14.9126487Z
+  - guid: 2f041c2134c912b4ba85cb507029190c
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 0 1 Paint.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/Paint/Terrain 0 1 Paint.asset
+    utc: 2026-09-13T11:53:14.9126487Z
+  - guid: 889b9e3edd49a964da6d78f21eaf4d33
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 1.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/TerrainData/Terrain 1 1.asset
+    utc: 2026-09-13T11:53:14.9126487Z
+  - guid: 102a9d0395ab9e04dbb608dee12d5ece
+    before: Assets/Earth-Sky-Water/Landscape/Examples/Terrain 1 1 Paint.asset
+    after: Assets/Earth-Sky-Water/Landscape/Examples/Landscape Designer/Landscapes/Elementa
+      Temperate Landscape/Paint/Terrain 1 1 Paint.asset
+    utc: 2026-09-13T11:53:14.9126487Z
